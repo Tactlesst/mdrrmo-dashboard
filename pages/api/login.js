@@ -1,6 +1,4 @@
-// pages/api/login.js
 import { Client } from '@neondatabase/serverless';
-import { neon } from '@netlify/neon'; // for optional use
 import jwt from 'jsonwebtoken';
 import { serialize } from 'cookie';
 
@@ -11,13 +9,9 @@ export default async function handler(req, res) {
 
   const { email, password } = req.body;
 
-  // Option 1: Connect via @neondatabase/serverless (default for auth)
   const client = new Client({
     connectionString: process.env.NEON_DATABASE_URL,
   });
-
-  // Option 2: If needed, you can run SQL via Netlify Neon (read-only posts etc.)
-  const sql = neon(); // Uses NETLIFY_DATABASE_URL by default
 
   try {
     await client.connect();
@@ -30,20 +24,20 @@ export default async function handler(req, res) {
       return res.status(401).json({ message: 'Invalid login credentials (email)' });
     }
 
-    // Plaintext password check — insecure but matches your current setup
+    // ❌ Plaintext password comparison (NOT RECOMMENDED)
     if (password !== admin.password) {
       await client.end();
       return res.status(401).json({ message: 'Invalid login credentials (password)' });
     }
 
-    // Create JWT
+    // ✅ Create JWT Token
     const token = jwt.sign(
       { id: admin.id, email: admin.email },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
-    // Set cookie
+    // ✅ Set Cookie
     const serialized = serialize('auth', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -55,10 +49,6 @@ export default async function handler(req, res) {
     res.setHeader('Set-Cookie', serialized);
 
     await client.end();
-
-    // Optional: fetch or log with Netlify neon (if needed)
-    // const posts = await sql`SELECT * FROM posts LIMIT 1`;
-
     res.status(200).json({ message: 'Login successful', redirect: '/AdminDashboard' });
   } catch (error) {
     await client.end();
