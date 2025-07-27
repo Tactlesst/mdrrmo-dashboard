@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ message: 'Invalid token' });
   }
 
-  const client = new Client({ connectionString: process.env.NEON_DATABASE_URL });
+  const client = new Client({ connectionString: process.env.NETLIFY_DATABASE_URL });
   await client.connect();
 
   try {
