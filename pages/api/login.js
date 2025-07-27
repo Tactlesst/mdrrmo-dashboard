@@ -1,6 +1,7 @@
 import { Client } from '@neondatabase/serverless';
 import jwt from 'jsonwebtoken';
 import { serialize } from 'cookie';
+import bcrypt from 'bcryptjs'; // You should be using bcrypt if passwords are hashed
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -24,13 +25,13 @@ export default async function handler(req, res) {
       return res.status(401).json({ message: 'Invalid login credentials (email)' });
     }
 
-    // ❌ Plaintext password comparison (NOT RECOMMENDED)
+    // ❌ For plaintext password (NOT recommended for production)
     if (password !== admin.password) {
       await client.end();
       return res.status(401).json({ message: 'Invalid login credentials (password)' });
     }
 
-    // ✅ Create JWT Token
+    // ✅ JWT token creation
     const token = jwt.sign(
       { id: admin.id, email: admin.email },
       process.env.JWT_SECRET,
@@ -43,13 +44,29 @@ export default async function handler(req, res) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',
-      maxAge: 60 * 60 * 24, // 1 day
+      maxAge: 60 * 60 * 24,
     });
 
     res.setHeader('Set-Cookie', serialized);
 
+    // ✅ Get IP and User Agent
+    const ip =
+      req.headers['x-forwarded-for']?.split(',')[0] ||
+      req.socket?.remoteAddress ||
+      'Unknown';
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+
+// ✅ Insert login log into DB
+await client.query(
+  `INSERT INTO login_logs (admin_id, email, ip_address, user_agent)
+   VALUES ($1, $2, $3, $4)`,
+  [admin.id, admin.email, ip, userAgent]
+);
+
+
     await client.end();
     res.status(200).json({ message: 'Login successful', redirect: '/AdminDashboard' });
+
   } catch (error) {
     await client.end();
     console.error('Login error:', error);
