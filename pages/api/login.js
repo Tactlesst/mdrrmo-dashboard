@@ -4,6 +4,18 @@ import { serialize } from 'cookie';
 import bcrypt from 'bcryptjs';
 import os from 'os';
 
+async function getGeoLocation(ip) {
+  try {
+    const response = await fetch(`https://ipapi.co/${ip}/json`);
+    if (!response.ok) throw new Error('GeoIP request failed');
+    const data = await response.json();
+    return `${data.city || ''}, ${data.region || ''}, ${data.country_name || ''}`;
+  } catch (error) {
+    console.error('GeoIP lookup error:', error);
+    return 'Unknown';
+  }
+}
+
 function getIPv4FromRequest(req) {
   let ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
     || req.socket?.remoteAddress
@@ -63,11 +75,13 @@ export default async function handler(req, res) {
 
     const ip = getIPv4FromRequest(req);
     const userAgent = req.headers['user-agent'] || 'Unknown';
+    const location = await getGeoLocation(ip); // 🧭 NEW: Get location
 
+    // You can optionally update your `login_logs` table to store location
     await client.query(
       `INSERT INTO login_logs (admin_id, email, ip_address, user_agent)
        VALUES ($1, $2, $3, $4)`,
-      [admin.id, admin.email, ip, userAgent]
+      [admin.id, admin.email, `${ip} (${location})`, userAgent]
     );
 
     await client.end();
