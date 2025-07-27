@@ -1,18 +1,34 @@
-import { useState } from 'react';
-import { useRouter } from 'next/router';
-import Image from 'next/image';
+import { useState } from "react";
+import { useRouter } from "next/router";
+import Image from "next/image";
+import { parse } from 'cookie';
+import jwt from 'jsonwebtoken';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const router = useRouter();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (email === 'admin@mdrrmo.com' && password === 'admin123') {
-      router.push('/AdminDashboard');
-    } else {
-      alert('Invalid login credentials');
+    setError("");
+
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        router.push(data.redirect);
+      } else {
+        setError(data.message);
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
     }
   };
 
@@ -20,13 +36,14 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-6">
       <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm text-center">
         <div className="mb-6">
-          <div className="bg-white rounded-full shadow-md w-24 h-24 mx-auto flex items-center justify-center">
+          <div className="bg-white rounded-full shadow-md w-24 h-24 mx-auto relative overflow-hidden">
             <Image
-              src="/mdrrmo-logo.png"
+              src="/Logoo.png"
               alt="MDRRMO Logo"
-              width={80}
-              height={80}
+              fill
+              sizes="96px"
               className="object-contain"
+              priority
             />
           </div>
         </div>
@@ -35,6 +52,8 @@ export default function LoginPage() {
         <p className="text-sm text-gray-500 mb-6">
           Sign in to access the MDRRMO dashboard.
         </p>
+
+        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
 
         <form onSubmit={handleLogin} className="space-y-4 text-left">
           <div>
@@ -71,4 +90,28 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+// ⛔ Prevent access to login page if already authenticated
+export async function getServerSideProps({ req }) {
+  const cookies = parse(req.headers.cookie || '');
+  const token = cookies.auth;
+
+  if (token) {
+    try {
+      jwt.verify(token, process.env.JWT_SECRET);
+      return {
+        redirect: {
+          destination: '/AdminDashboard',
+          permanent: false,
+        },
+      };
+    } catch (e) {
+      // Invalid or expired token — allow access
+    }
+  }
+
+  return {
+    props: {},
+  };
 }
