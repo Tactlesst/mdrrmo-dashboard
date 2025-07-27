@@ -1,8 +1,6 @@
-import { neon } from '@netlify/neon';
+import { Client } from '@neondatabase/serverless';
 import jwt from 'jsonwebtoken';
 import { serialize } from 'cookie';
-
-const sql = neon(); // uses NETLIFY_DATABASE_URL by default
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -11,34 +9,50 @@ export default async function handler(req, res) {
 
   const { email, password } = req.body;
 
-  try {
-    const [admin] = await sql`SELECT * FROM admins WHERE email = ${email}`;
+  const client = new Client({
+    connectionString: process.env.NEON_DATABASE_URL,
+  });
 
-    if (!admin || !admin.password || password !== admin.password) {
-      return res.status(401).json({ message: 'Invalid login credentials' });
+  try {
+    await client.connect();
+
+    const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
+    const admin = result.rows[0];
+
+    if (!admin) {
+      await client.end();
+      return res.status(401).json({ message: 'Invalid login credentials (email)' });
     }
 
+    // ❌ Plaintext password comparison (NOT RECOMMENDED)
+    if (password !== admin.password) {
+      await client.end();
+      return res.status(401).json({ message: 'Invalid login credentials (password)' });
+    }
+
+    // ✅ Create JWT Token
     const token = jwt.sign(
-      { email: admin.email },
+      { id: admin.id, email: admin.email },
       process.env.JWT_SECRET,
-      {
-        subject: admin.id.toString(),
-        expiresIn: '1d',
-      }
+      { expiresIn: '1d' }
     );
 
-    res.setHeader('Set-Cookie', serialize('auth', token, {
+    // ✅ Set Cookie
+    const serialized = serialize('auth', token, {
       httpOnly: true,
-      path: '/',
-      sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
       maxAge: 60 * 60 * 24, // 1 day
-    }));
+    });
 
-    return res.status(200).json({ message: 'Login successful', redirect: '/AdminDashboard' });
+    res.setHeader('Set-Cookie', serialized);
 
+    await client.end();
+    res.status(200).json({ message: 'Login successful', redirect: '/AdminDashboard' });
   } catch (error) {
-    console.error('Login error:', error.message, error.stack);
-    return res.status(500).json({ message: 'Internal server error' });
+    await client.end();
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 }

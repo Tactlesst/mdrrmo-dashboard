@@ -21,7 +21,7 @@ export async function getServerSideProps({ req }) {
     return {
       props: {
         user: {
-          id: payload.sub,
+          id: payload.id,        // ✅ use id instead of sub
           email: payload.email,
         },
       },
