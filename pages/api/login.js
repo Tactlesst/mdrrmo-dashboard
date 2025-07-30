@@ -1,7 +1,6 @@
 import { Client } from '@neondatabase/serverless';
 import jwt from 'jsonwebtoken';
 import { serialize } from 'cookie';
-import bcrypt from 'bcryptjs';
 import os from 'os';
 
 async function getGeoLocation(ip) {
@@ -45,7 +44,6 @@ export default async function handler(req, res) {
   }
 
   const { email, password } = req.body;
-
   const client = new Client({ connectionString: process.env.NETLIFY_DATABASE_URL });
 
   try {
@@ -59,9 +57,33 @@ export default async function handler(req, res) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ id: admin.id, email: admin.email }, process.env.JWT_SECRET, {
-      expiresIn: '1d',
-    });
+    const ip = getIPv4FromRequest(req);
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const location = await getGeoLocation(ip);
+
+    // ✅ Insert into admin_sessions
+    const sessionInsert = await client.query(
+      `INSERT INTO admin_sessions (admin_email, ip_address, user_agent, is_active)
+       VALUES ($1, $2, $3, TRUE)
+       RETURNING id`,
+      [admin.email, `${ip} (${location})`, userAgent]
+    );
+
+    const sessionId = sessionInsert.rows[0].id;
+
+    // ✅ Insert into login_logs
+    await client.query(
+      `INSERT INTO login_logs (admin_id, email, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4)`,
+      [admin.id, admin.email, ip, userAgent]
+    );
+
+    // ✅ JWT token with session ID
+    const token = jwt.sign(
+      { id: admin.id, email: admin.email, sessionId },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
 
     const serialized = serialize('auth', token, {
       httpOnly: true,
@@ -72,17 +94,6 @@ export default async function handler(req, res) {
     });
 
     res.setHeader('Set-Cookie', serialized);
-
-    const ip = getIPv4FromRequest(req);
-    const userAgent = req.headers['user-agent'] || 'Unknown';
-    const location = await getGeoLocation(ip); // 🧭 NEW: Get location
-
-    // You can optionally update your `login_logs` table to store location
-    await client.query(
-      `INSERT INTO login_logs (admin_id, email, ip_address, user_agent)
-       VALUES ($1, $2, $3, $4)`,
-      [admin.id, admin.email, `${ip} (${location})`, userAgent]
-    );
 
     await client.end();
     res.status(200).json({ message: 'Login successful', redirect: '/AdminDashboard' });
