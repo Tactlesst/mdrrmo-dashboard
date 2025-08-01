@@ -1,180 +1,959 @@
-import React from 'react';
+"use client";
 
-export default function PCRForm({ onClose }) {
+import React, { useState } from "react";
+import { FiX } from "react-icons/fi";
+import Image from "next/image";
+
+const PCRForm = ({ onClose }) => {
+  const [formData, setFormData] = useState({
+    caseType: "",
+    recorder: "",
+    date: "",
+    patientName: "",
+    age: "",
+    gender: "",
+    category: "Patient",
+    bloodPressure: "",
+    pr: "",
+    rr: "",
+    o2sat: "",
+    temp: "",
+    hospitalTransported: "",
+    timeCall: "",
+    timeArrivedScene: "",
+    timeLeftScene: "",
+    timeArrivedHospital: "",
+    ambulanceNo: "",
+    underInfluence: {
+      alcohol: false,
+      drugs: false,
+      unknown: false,
+      none: false,
+    },
+    evacuationCode: {
+      black: false,
+      red: false,
+      yellow: false,
+      green: false,
+    },
+    responseTeam: [],
+    contactPerson: "",
+    relationship: "",
+    contactNumber: "",
+    doi: "",
+    toi: "",
+    noi: "",
+    poi: {
+      brgy: "",
+      highway: false,
+      residence: false,
+      publicBuilding: false,
+    },
+    lossOfConsciousness: "no",
+    chiefComplaints: "",
+    interventions: "",
+    signsSymptoms: "",
+    allergies: "",
+    medication: "",
+    pastHistory: "",
+    lastIntake: "",
+    events: "",
+    narrative: "",
+    driver: "",
+    teamLeader: "",
+    crew: "",
+    receivingHospital: "",
+  });
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+
+    if (type === "checkbox") {
+      const parentName = name.split(".")[0];
+      const childName = name.split(".")[1];
+      setFormData((prev) => ({
+        ...prev,
+        [parentName]: {
+          ...prev[parentName],
+          [childName]: checked,
+        },
+      }));
+    } else if (name === "lossOfConsciousness") {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleCheckboxArrayChange = (e) => {
+    const { name, value, checked } = e.target;
+    if (checked) {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: [...prev[name], value],
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: prev[name].filter((item) => item !== value),
+      }));
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log(formData);
+    onClose();
+  };
+
   return (
-    <div className="flex flex-col p-6 bg-gray-100 font-serif min-h-screen">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-blue-800">Patient Care Report</h2>
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4">
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-5xl relative overflow-y-auto max-h-[95vh] p-8">
         <button
-  onClick={onClose}
-  className="text-blue-600 hover:text-blue-800 flex items-center space-x-2"
->
-  <svg
-    className="w-5 h-5"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    viewBox="0 0 24 24"
-  >
-    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-  </svg>
-  <span className="hidden sm:inline">Back</span>
-</button>
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition"
+        >
+          <FiX size={22} />
+        </button>
 
-      </div>
+        <div className="flex flex-col items-center border-b pb-4 mb-4">
+          <h1 className="text-xl font-bold text-center">PATIENT CARE REPORT</h1>
+        </div>
 
-      {/* Case Info */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <input placeholder="Case Type - Description" className="border rounded px-3 py-2" />
-        <input placeholder="Name of Recorder" className="border rounded px-3 py-2" />
-        <input type="date" className="border rounded px-3 py-2" />
-        <input placeholder="Time of Call" className="border rounded px-3 py-2" />
-        <input placeholder="Time Arrived at Scene" className="border rounded px-3 py-2" />
-        <input placeholder="Time Left Scene" className="border rounded px-3 py-2" />
-        <input placeholder="Time Arrived at Hospital" className="border rounded px-3 py-2" />
-        <input placeholder="Ambulance No." className="border rounded px-3 py-2" />
-      </div>
-
-      {/* Patient Info */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <input placeholder="Name of Patient" className="border rounded px-3 py-2" />
-        <input placeholder="Hospital Transported To" className="border rounded px-3 py-2" />
-        <input type="number" placeholder="Age" className="border rounded px-3 py-2" />
-        <select className="border rounded px-3 py-2">
-          <option>Gender</option>
-          <option>Male</option>
-          <option>Female</option>
-        </select>
-        <div>
-          <label className="block font-medium">Category:</label>
-          <div className="flex gap-3">
-            <label><input type="checkbox" /> Driver</label>
-            <label><input type="checkbox" /> Passenger</label>
-            <label><input type="checkbox" /> Patient</label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Case Type - Description:
+              </label>
+              <input
+                type="text"
+                name="caseType"
+                value={formData.caseType}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Name of Recorder:
+              </label>
+              <input
+                type="text"
+                name="recorder"
+                value={formData.recorder}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Date:
+              </label>
+              <input
+                type="date"
+                name="date"
+                value={formData.date}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Name of Patient:
+              </label>
+              <input
+                type="text"
+                name="patientName"
+                value={formData.patientName}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
           </div>
-        </div>
-        <input placeholder="Home Address" className="border rounded px-3 py-2 col-span-2" />
-      </div>
 
-      {/* Vital Signs */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-        <input placeholder="BP" className="border rounded px-3 py-2" />
-        <input placeholder="PR" className="border rounded px-3 py-2" />
-        <input placeholder="RR" className="border rounded px-3 py-2" />
-        <input placeholder="O2SAT" className="border rounded px-3 py-2" />
-        <input placeholder="Temperature" className="border rounded px-3 py-2" />
-      </div>
-
-      {/* Influence & Evacuation */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <label className="block font-medium">Under Influence:</label>
-          <div className="flex gap-3">
-            <label><input type="checkbox" /> Alcohol</label>
-            <label><input type="checkbox" /> Drugs</label>
-            <label><input type="checkbox" /> Unknown</label>
-            <label><input type="checkbox" /> N/A</label>
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 border p-4 rounded">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Age:
+              </label>
+              <input
+                type="number"
+                name="age"
+                value={formData.age}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Gender:
+              </label>
+              <input
+                type="text"
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Category:
+              </label>
+              <div className="flex items-center space-x-4 mt-2">
+                <label className="flex items-center text-sm">
+                  <input
+                    type="radio"
+                    name="category"
+                    value="Driver"
+                    checked={formData.category === "Driver"}
+                    onChange={handleChange}
+                    className="form-radio"
+                  />
+                  <span className="ml-2">Driver</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="radio"
+                    name="category"
+                    value="Passenger"
+                    checked={formData.category === "Passenger"}
+                    onChange={handleChange}
+                    className="form-radio"
+                  />
+                  <span className="ml-2">Passenger</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="radio"
+                    name="category"
+                    value="Patient"
+                    checked={formData.category === "Patient"}
+                    onChange={handleChange}
+                    className="form-radio"
+                  />
+                  <span className="ml-2">Patient</span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Blood Pressure:
+              </label>
+              <input
+                type="text"
+                name="bloodPressure"
+                value={formData.bloodPressure}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                PR:
+              </label>
+              <input
+                type="text"
+                name="pr"
+                value={formData.pr}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                RR:
+              </label>
+              <input
+                type="text"
+                name="rr"
+                value={formData.rr}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                O2SAT:
+              </label>
+              <input
+                type="text"
+                name="o2sat"
+                value={formData.o2sat}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Temperature:
+              </label>
+              <input
+                type="text"
+                name="temp"
+                value={formData.temp}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
           </div>
-        </div>
-        <div>
-          <label className="block font-medium">Evacuation Code:</label>
-          <div className="flex gap-3">
-            <label><input type="checkbox" /> Black</label>
-            <label><input type="checkbox" /> Red</label>
-            <label><input type="checkbox" /> Yellow</label>
-            <label><input type="checkbox" /> Green</label>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border p-4 rounded">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Hospital Transported To:
+              </label>
+              <input
+                type="text"
+                name="hospitalTransported"
+                value={formData.hospitalTransported}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Time of Call:
+              </label>
+              <input
+                type="time"
+                name="timeCall"
+                value={formData.timeCall}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Time Arrived at Scene:
+              </label>
+              <input
+                type="time"
+                name="timeArrivedScene"
+                value={formData.timeArrivedScene}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Time Left Scene:
+              </label>
+              <input
+                type="time"
+                name="timeLeftScene"
+                value={formData.timeLeftScene}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Home Address:
+              </label>
+              <input
+                type="text"
+                name="homeAddress"
+                value={formData.homeAddress}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Time Arrived at Hospital:
+              </label>
+              <input
+                type="time"
+                name="timeArrivedHospital"
+                value={formData.timeArrivedHospital}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Ambulance No:
+              </label>
+              <input
+                type="text"
+                name="ambulanceNo"
+                value={formData.ambulanceNo}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Under Influence:
+              </label>
+              <div className="grid grid-cols-2 mt-1">
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="underInfluence.alcohol"
+                    checked={formData.underInfluence.alcohol}
+                    onChange={handleChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Alcohol</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="underInfluence.drugs"
+                    checked={formData.underInfluence.drugs}
+                    onChange={handleChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Drugs</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="underInfluence.unknown"
+                    checked={formData.underInfluence.unknown}
+                    onChange={handleChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Unknown</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="underInfluence.none"
+                    checked={formData.underInfluence.none}
+                    onChange={handleChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">None</span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Evaluation Code:
+              </label>
+              <div className="grid grid-cols-2 mt-1">
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="evacuationCode.black"
+                    checked={formData.evacuationCode.black}
+                    onChange={handleChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Black</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="evacuationCode.red"
+                    checked={formData.evacuationCode.red}
+                    onChange={handleChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Red</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="evacuationCode.yellow"
+                    checked={formData.evacuationCode.yellow}
+                    onChange={handleChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Yellow</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="evacuationCode.green"
+                    checked={formData.evacuationCode.green}
+                    onChange={handleChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Green</span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Response Team:
+              </label>
+              <div className="grid grid-cols-2 mt-1">
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="responseTeam"
+                    value="Team 1"
+                    checked={formData.responseTeam.includes("Team 1")}
+                    onChange={handleCheckboxArrayChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Team 1</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="responseTeam"
+                    value="Team 2"
+                    checked={formData.responseTeam.includes("Team 2")}
+                    onChange={handleCheckboxArrayChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Team 2</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="responseTeam"
+                    value="Team 3"
+                    checked={formData.responseTeam.includes("Team 3")}
+                    onChange={handleCheckboxArrayChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Team 3</span>
+                </label>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Contact Info */}
-      <div className="grid md:grid-cols-3 gap-4">
-        <input placeholder="Contact Person" className="border rounded px-3 py-2" />
-        <input placeholder="Relationship" className="border rounded px-3 py-2" />
-        <input placeholder="Contact Number" className="border rounded px-3 py-2" />
-      </div>
-
-      {/* Incident Details */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <input placeholder="DOI (Date of Incident)" className="border rounded px-3 py-2" />
-        <input placeholder="TOI (Time of Incident)" className="border rounded px-3 py-2" />
-        <input placeholder="POI (Place of Incident)" className="border rounded px-3 py-2" />
-        <input placeholder="Barangay" className="border rounded px-3 py-2" />
-        <div>
-          <label className="block font-medium">Location Type:</label>
-          <div className="flex gap-3">
-            <label><input type="checkbox" /> Highway/Road</label>
-            <label><input type="checkbox" /> Residence</label>
-            <label><input type="checkbox" /> Public Building/Place</label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Contact Person:
+              </label>
+              <input
+                type="text"
+                name="contactPerson"
+                value={formData.contactPerson}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Relationship:
+              </label>
+              <input
+                type="text"
+                name="relationship"
+                value={formData.relationship}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Contact Number:
+              </label>
+              <input
+                type="text"
+                name="contactNumber"
+                value={formData.contactNumber}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Loss of Consciousness */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <label className="block">
-          Loss of Consciousness: 
-          <input type="checkbox" className="ml-2" /> Yes 
-          <input type="checkbox" className="ml-2" /> No
-        </label>
-        <input placeholder="How many minutes?" className="border rounded px-3 py-2" />
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border p-4 rounded">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                DOI:
+              </label>
+              <input
+                type="text"
+                name="doi"
+                value={formData.doi}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                TOI:
+              </label>
+              <input
+                type="text"
+                name="toi"
+                value={formData.toi}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                NOI:
+              </label>
+              <input
+                type="text"
+                name="noi"
+                value={formData.noi}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                POI:
+              </label>
+              <div className="mt-1">
+                <input
+                  type="text"
+                  name="poi.brgy"
+                  value={formData.poi.brgy}
+                  onChange={handleChange}
+                  placeholder="Brgy"
+                  className="block w-full border-gray-300 rounded-md shadow-sm text-sm mb-1"
+                />
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="poi.highway"
+                    checked={formData.poi.highway}
+                    onChange={handleChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Highway/Road</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="poi.residence"
+                    checked={formData.poi.residence}
+                    onChange={handleChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Residence</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="checkbox"
+                    name="poi.publicBuilding"
+                    checked={formData.poi.publicBuilding}
+                    onChange={handleChange}
+                    className="form-checkbox"
+                  />
+                  <span className="ml-2">Public Building/Place</span>
+                </label>
+              </div>
+            </div>
+          </div>
 
-      {/* Complaint and History */}
-      <div>
-        <label className="font-medium">Chief Complaint/s:</label>
-        <textarea rows="2" className="w-full border rounded px-3 py-2" />
-        <label className="font-medium">Interventions:</label>
-        <textarea rows="2" className="w-full border rounded px-3 py-2" />
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Loss of Consciousness:
+              </label>
+              <div className="flex items-center space-x-4 mt-2">
+                <label className="flex items-center text-sm">
+                  <input
+                    type="radio"
+                    name="lossOfConsciousness"
+                    value="yes"
+                    checked={formData.lossOfConsciousness === "yes"}
+                    onChange={handleChange}
+                    className="form-radio"
+                  />
+                  <span className="ml-2">Yes</span>
+                </label>
+                <label className="flex items-center text-sm">
+                  <input
+                    type="radio"
+                    name="lossOfConsciousness"
+                    value="no"
+                    checked={formData.lossOfConsciousness === "no"}
+                    onChange={handleChange}
+                    className="form-radio"
+                  />
+                  <span className="ml-2">No</span>
+                </label>
+                {formData.lossOfConsciousness === "yes" && (
+                  <input
+                    type="text"
+                    placeholder="Minutes"
+                    className="w-24 border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                )}
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Chief Complaint/s:
+              </label>
+              <input
+                type="text"
+                name="chiefComplaints"
+                value={formData.chiefComplaints}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Interventions:
+              </label>
+              <input
+                type="text"
+                name="interventions"
+                value={formData.interventions}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              />
+            </div>
+          </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <label className="font-medium">Signs & Symptoms:</label>
-          <textarea className="w-full border rounded px-3 py-2" />
-          <label className="font-medium">Allergies:</label>
-          <input className="w-full border rounded px-3 py-2" />
-          <label className="font-medium">Medication:</label>
-          <input className="w-full border rounded px-3 py-2" />
-          <label className="font-medium">Past History:</label>
-          <input className="w-full border rounded px-3 py-2" />
-          <label className="font-medium">Last Intake:</label>
-          <input className="w-full border rounded px-3 py-2" />
-          <label className="font-medium">Events:</label>
-          <textarea className="w-full border rounded px-3 py-2" />
-        </div>
-        <div>
-          <label className="font-medium">Narrative of the Incident:</label>
-          <textarea rows="12" className="w-full border rounded px-3 py-2" />
-        </div>
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded">
+            <div>
+              <h3 className="font-semibold text-gray-800 mb-2">History</h3>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    SIGNS & SYMPTOMS:
+                  </label>
+                  <input
+                    type="text"
+                    name="signsSymptoms"
+                    value={formData.signsSymptoms}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    ALLERGIES:
+                  </label>
+                  <input
+                    type="text"
+                    name="allergies"
+                    value={formData.allergies}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    MEDICATION:
+                  </label>
+                  <input
+                    type="text"
+                    name="medication"
+                    value={formData.medication}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    PAST HISTORY:
+                  </label>
+                  <input
+                    type="text"
+                    name="pastHistory"
+                    value={formData.pastHistory}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    LAST INTAKE:
+                  </label>
+                  <input
+                    type="text"
+                    name="lastIntake"
+                    value={formData.lastIntake}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    EVENTS:
+                  </label>
+                  <input
+                    type="text"
+                    name="events"
+                    value={formData.events}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Narrative of the Incident
+              </h3>
+              <textarea
+                name="narrative"
+                value={formData.narrative}
+                onChange={handleChange}
+                rows="12"
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+              ></textarea>
+            </div>
+          </div>
 
-      {/* Body Diagram Placeholder */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-gray-100 rounded p-4 text-center">[ FRONT BODY DIAGRAM ]</div>
-        <div className="bg-gray-100 rounded p-4 text-center">[ BACK BODY DIAGRAM ]</div>
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded">
+            <div>
+              <h3 className="font-semibold text-gray-800 mb-2">
+                ADDITIONAL NOTES
+              </h3>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    DRIVER:
+                  </label>
+                  <input
+                    type="text"
+                    name="driver"
+                    value={formData.driver}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    TEAM LEADER:
+                  </label>
+                  <input
+                    type="text"
+                    name="teamLeader"
+                    value={formData.teamLeader}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    CREW:
+                  </label>
+                  <input
+                    type="text"
+                    name="crew"
+                    value={formData.crew}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                </div>
+                <div className="pt-4">
+                  <h3 className="font-semibold text-gray-800 mb-2">
+                    RECEIVING HOSPITAL
+                  </h3>
+                  <input
+                    type="text"
+                    name="receivingHospital"
+                    value={formData.receivingHospital}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                </div>
+                <div className="mt-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    NAME:
+                  </label>
+                  <input
+                    type="text"
+                    name="receivingName"
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                </div>
+                <div className="mt-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    SIGNATURE:
+                  </label>
+                  <input
+                    type="text"
+                    name="receivingSignature"
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+            <div>
+              <div className="border p-4 rounded-md">
+                <h3 className="font-semibold text-gray-800 mb-2">
+                  Waiver of Treatment / Patient Refusal
+                </h3>
+                <p className="text-xs italic text-gray-600 mb-4">
+                  I acknowledge that I have been informed that my medical
+                  condition requires immediate treatment and/or transport to a
+                  physician and that with refusing further emergency medical
+                  treatment there is a risk of serious injury, illness, or
+                  death. Understanding these risks, I hereby release the
+                  attending medical personnel, their home agency, and their
+                  advising physician from all responsibility regarding any ill
+                  effects which may result from this decision.
+                </p>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label className="block font-medium text-gray-700">
+                      Patient Signature:
+                    </label>
+                    <input
+                      type="text"
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-gray-700">
+                      Witness Signature:
+                    </label>
+                    <input
+                      type="text"
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-gray-700">
+                      Date:
+                    </label>
+                    <input
+                      type="date"
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-gray-700">
+                      Date:
+                    </label>
+                    <input
+                      type="date"
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+<div className="relative mt-4">
+  <h3 className="text-sm font-semibold text-gray-800">Body Diagram</h3>
+  <Image
+    src="/body-outline.jpg"
+    alt="Body diagram"
+    width={200}
+    height={300}
+    className="border p-2 mt-2 mx-auto"
+  />
+</div>
 
-      {/* Waiver */}
-      <div className="border p-4 rounded bg-gray-50 text-sm">
-        <p>
-          I acknowledge that I have been informed that my medical condition requires immediate treatment or transport to a physician and that with refusing further emergency medical treatment there is a risk of serious injury, illness, or death. Understanding these risks, I hereby release the attending medical personnel, their home agency, and their advising physician from all responsibility regarding any ill effects which may result from this decision.
-        </p>
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <input placeholder="Patient Signature" className="border rounded px-2 py-1" />
-          <input placeholder="Witness Signature" className="border rounded px-2 py-1" />
-        </div>
-      </div>
+            </div>
+          </div>
 
-      {/* Footer Crew Info */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <input placeholder="Receiving Hospital" className="w-full border rounded px-3 py-2" />
-        <input placeholder="Hospital Staff Name" className="w-full border rounded px-3 py-2" />
-        <input placeholder="Hospital Staff Signature" className="w-full border rounded px-3 py-2" />
-        <input placeholder="Driver" className="w-full border rounded px-3 py-2" />
-        <input placeholder="Team Leader" className="w-full border rounded px-3 py-2" />
-        <input placeholder="Crew" className="w-full border rounded px-3 py-2" />
+          <div className="flex justify-end pt-4">
+            <button
+              type="submit"
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition"
+            >
+              Save PCR Form
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
-}
+};
+
+export default PCRForm;
