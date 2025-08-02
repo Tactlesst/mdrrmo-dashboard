@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { FiX } from "react-icons/fi";
 import Image from "next/image";
+import BodyDiagram3D from './BodyDiagram3D';
 
 const PCRForm = ({ onClose }) => {
   const [formData, setFormData] = useState({
@@ -930,13 +931,7 @@ const PCRForm = ({ onClose }) => {
               </div>
 <div className="relative mt-4">
   <h3 className="text-sm font-semibold text-gray-800">Body Diagram</h3>
-  <Image
-    src="/body-outline.jpg"
-    alt="Body diagram"
-    width={200}
-    height={300}
-    className="border p-2 mt-2 mx-auto"
-  />
+  <BodyDiagram3D />
 </div>
 
             </div>
