@@ -1,13 +1,8 @@
-// pages/api/admins/status.js
-import { Client } from '@neondatabase/serverless';
+import pool from '@/lib/db'; // use shared pool
 
 export default async function handler(req, res) {
-  const client = new Client({ connectionString: process.env.NETLIFY_DATABASE_URL });
-
   try {
-    await client.connect();
-
-    const result = await client.query(`
+    const result = await pool.query(`
       SELECT 
         a.id,
         a.name,
@@ -33,7 +28,5 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Failed to fetch admin status:', error);
     res.status(500).json({ message: 'Internal server error' });
-  } finally {
-    await client.end();
   }
 }

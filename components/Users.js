@@ -1,42 +1,93 @@
+"use client";
+
 import { useState, useEffect } from "react";
-import { FaEye, FaEdit, FaTrash } from "react-icons/fa";
+import { FaEye, FaEdit } from "react-icons/fa";
 import { FiPlus } from "react-icons/fi";
+import EditUserModal from "./EditUserModal";
+import ViewUserModal from "./ViewUserModal";
+import AddUserModal from "./AddUserModal";
+
+const tabs = ["Residents", "Responders", "Co-Admins"];
 
 export default function Users() {
-  const tabs = ["Residents", "Responders", "Co-Admins"];
   const [activeTab, setActiveTab] = useState("Residents");
   const [searchTerm, setSearchTerm] = useState("");
-  const [allUsers, setAllUsers] = useState({ Residents: [], Responders: [], "Co-Admins": [] });
-  const [loading, setLoading] = useState(true);
+  const [allUsers, setAllUsers] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [editUser, setEditUser] = useState(null);
+  const [viewUser, setViewUser] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const usersPerPage = 10;
+
+  const fetchTabUsers = async (tab) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/users?role=${tab}`);
+      const data = await res.json();
+      setAllUsers((prev) => ({ ...prev, [tab]: data }));
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const res = await fetch('/api/users');
-        const data = await res.json();
-        setAllUsers(data);
-      } catch (err) {
-        console.error('Failed to load users:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!allUsers[activeTab]) {
+      fetchTabUsers(activeTab);
+    }
+    setCurrentPage(1); // Reset page when tab changes
+  }, [activeTab]);
 
-    fetchUsers();
-  }, []);
+  useEffect(() => {
+    setCurrentPage(1); // Reset page when searching
+  }, [searchTerm]);
 
-  const filteredUsers = allUsers[activeTab]?.filter((user) =>
-    user.fullName.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+const filteredUsers = (allUsers[activeTab] || []).filter((user) => {
+  const name = user.fullName || user.name || "";
+  return name.toLowerCase().includes(searchTerm.toLowerCase());
+});
+
+
+  const indexOfLastUser = currentPage * usersPerPage;
+  const indexOfFirstUser = indexOfLastUser - usersPerPage;
+  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+
+  const formatDatePH = (dateString) => {
+    if (!dateString) return "—";
+    return new Date(dateString).toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-white p-6 font-sans">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Manage {activeTab}</h1>
-        <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow-md flex items-center gap-2 transition duration-150">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow-md flex items-center gap-2 transition duration-150"
+        >
           <FiPlus className="text-sm" />
           Add New {activeTab.slice(0, -1)}
         </button>
+        {showAddModal && (
+          <AddUserModal
+            role={activeTab}
+            onClose={() => {
+              setShowAddModal(false);
+              fetchTabUsers(activeTab);
+            }}
+            onUserAdded={() => {
+              fetchTabUsers(activeTab);
+              setShowAddModal(false);
+            }}
+          />
+        )}
       </div>
 
       <div className="flex gap-3 mb-6 border-b border-gray-200 pb-2">
@@ -83,18 +134,28 @@ export default function Users() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredUsers.length > 0 ? (
-                filteredUsers.map((user, idx) => (
+              {currentUsers.length > 0 ? (
+                currentUsers.map((user, idx) => (
                   <tr key={idx} className="hover:bg-gray-50 transition duration-150">
-                    <td className="py-3 px-4 font-medium">{user.fullName}</td>
+                    <td
+                      className="py-3 px-4 font-medium text-red-600 hover:underline cursor-pointer"
+                      onClick={() => setViewUser(user)}
+                    >
+                      {user.fullName}
+                    </td>
                     <td>{user.email}</td>
-                    <td>{user.dob || "—"}</td>
+                    <td>{formatDatePH(user.dob)}</td>
                     <td>{user.contact || "—"}</td>
                     <td>{user.address || "—"}</td>
                     <td className="flex justify-center gap-3 py-2 text-gray-600">
-                      <FaEye className="cursor-pointer hover:text-blue-500" />
-                      <FaEdit className="cursor-pointer hover:text-green-500" />
-                      <FaTrash className="cursor-pointer hover:text-red-500" />
+                      <FaEye
+                        className="cursor-pointer hover:text-blue-500"
+                        onClick={() => setViewUser(user)}
+                      />
+<FaEdit
+  className="cursor-pointer hover:text-green-500"
+  onClick={() => setEditUser(user)}
+/>
                     </td>
                   </tr>
                 ))
@@ -108,7 +169,71 @@ export default function Users() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {filteredUsers.length > usersPerPage && (
+          <div className="flex justify-center items-center mt-6 gap-4">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className={`px-4 py-2 rounded-lg shadow ${
+                currentPage === 1
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-red-600 text-white hover:bg-red-700"
+              }`}
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className={`px-4 py-2 rounded-lg shadow ${
+                currentPage === totalPages
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-red-600 text-white hover:bg-red-700"
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
+
+ {editUser && (
+  <EditUserModal
+    key={editUser.id} // 👈 force re-render when modal is reopened
+    user={editUser}
+    role={activeTab}
+    onClose={() => {
+      setEditUser(null);
+      fetchTabUsers(activeTab);
+    }}
+    onSave={(updatedUser) => {
+      setAllUsers((prev) => ({
+        ...prev,
+        [activeTab]: prev[activeTab].map((u) =>
+          u.email === updatedUser.email ? updatedUser : u
+        ),
+      }));
+      setEditUser(null);
+      fetchTabUsers(activeTab);
+    }}
+  />
+)}
+
+
+      {viewUser && (
+        <ViewUserModal
+          user={viewUser}
+          onClose={() => {
+            setViewUser(null);
+            fetchTabUsers(activeTab);
+          }}
+        />
+      )}
     </div>
   );
 }

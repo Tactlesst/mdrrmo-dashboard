@@ -1,26 +1,51 @@
-import { neon } from '@neondatabase/serverless';
-
-const sql = neon(process.env.NETLIFY_DATABASE_URL);
+import pool from '@/lib/db';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  try {
-    const [residents, responders, coAdmins] = await Promise.all([
-      sql`SELECT name AS "fullName", email, '1995-01-01'::DATE as dob, '09170000000' as contact, 'Balingasag' as address FROM users`, // Simulated Residents
-      sql`SELECT name AS "fullName", email, '1990-01-01'::DATE as dob, '09220000000' as contact, 'Balingasag' as address FROM responders`,
-      sql`SELECT name AS "fullName", email, '1985-01-01'::DATE as dob, '09330000000' as contact, 'Misamis Oriental' as address FROM admins`,
-    ]);
+  const role = req.query.role;
 
-    res.status(200).json({
-      Residents: residents,
-      Responders: responders,
-      'Co-Admins': coAdmins,
-    });
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+  try {
+    const client = await pool.connect();
+    await client.query(`SET TIME ZONE 'Asia/Manila'`);
+
+    let rows;
+    if (role === 'Residents') {
+      const { rows: result } = await client.query(
+        `SELECT id, name, email, dob, contact, address FROM users`
+      );
+      rows = result;
+    } else if (role === 'Responders') {
+      const { rows: result } = await client.query(
+        `SELECT id, name, email, dob, contact, address FROM responders`
+      );
+      rows = result;
+    } else if (role === 'Co-Admins') {
+      const { rows: result } = await client.query(
+        `SELECT id, name, email, dob, contact, address FROM admins`
+      );
+      rows = result;
+    } else {
+      return res.status(400).json({ message: 'Invalid role' });
+    }
+
+    client.release();
+
+    const normalize = (rows) =>
+      rows.map((u) => ({
+        id: u.id,
+        fullName: u.name,
+        email: u.email,
+        dob: u.dob || null,
+        contact: u.contact || null,
+        address: u.address || null,
+      }));
+
+    return res.status(200).json(normalize(rows));
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    return res.status(500).json({ message: 'Server error' });
   }
 }

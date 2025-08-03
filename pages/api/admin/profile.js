@@ -1,5 +1,4 @@
-// pages/api/admin/profile.js
-import { Client } from '@neondatabase/serverless';
+import pool from '@/lib/db'; // use shared pg pool
 import jwt from 'jsonwebtoken';
 import { parse } from 'cookie';
 
@@ -16,12 +15,9 @@ export default async function handler(req, res) {
     return res.status(401).json({ message: 'Invalid token' });
   }
 
-  const client = new Client({ connectionString: process.env.NETLIFY_DATABASE_URL });
-  await client.connect();
-
   try {
     if (req.method === 'GET') {
-      const result = await client.query(
+      const result = await pool.query(
         'SELECT id, email, name, profile_image_url FROM admins WHERE email = $1',
         [user.email]
       );
@@ -32,13 +28,13 @@ export default async function handler(req, res) {
       const { name, profile_image_url, password } = req.body;
 
       if (password) {
-        await client.query(
+        await pool.query(
           'UPDATE admins SET password = $1 WHERE email = $2',
           [password, user.email]
         );
       }
 
-      await client.query(
+      await pool.query(
         'UPDATE admins SET name = $1, profile_image_url = $2 WHERE email = $3',
         [name || '', profile_image_url || '', user.email]
       );
@@ -50,7 +46,5 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error('Profile error:', err);
     res.status(500).json({ message: 'Server error' });
-  } finally {
-    await client.end();
   }
 }

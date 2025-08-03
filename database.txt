@@ -1,0 +1,82 @@
+CREATE TABLE pcr_forms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_name TEXT NOT NULL,
+  date DATE NOT NULL,
+  location TEXT,
+  recorder TEXT,
+  full_form JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  created_by_type TEXT NOT NULL CHECK (created_by_type IN ('admin', 'responder')),
+  created_by_id UUID NOT NULL
+);
+
+
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) UNIQUE NOT NULL,
+  password TEXT,
+  dob DATE,
+  contact VARCHAR(20),
+  address TEXT,
+  image_url TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS alerts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  address TEXT,
+  type TEXT,                        
+  status TEXT DEFAULT 'Not Responded',
+  occurred_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  responder_id INTEGER REFERENCES responders(id) ON DELETE SET NULL,
+  responded_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS responders (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  name TEXT NOT NULL,
+  image_url TEXT DEFAULT NULL,
+  is_active BOOLEAN DEFAULT FALSE,
+  dob DATE DEFAULT NULL,          -- Date of Birth
+  contact TEXT DEFAULT NULL,      -- Contact number
+  address TEXT DEFAULT NULL       -- Address
+);
+
+CREATE TABLE admin_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_email TEXT REFERENCES admins(email) ON DELETE CASCADE,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  ip_address TEXT,
+  user_agent TEXT
+);
+
+CREATE TABLE login_logs (
+  id SERIAL PRIMARY KEY,
+    admin_id INTEGER REFERENCES admins(id),
+      email TEXT,
+        ip_address TEXT,
+          user_agent TEXT,
+            login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+CREATE TABLE IF NOT EXISTS admins (
+  id SERIAL PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  name TEXT DEFAULT 'Administrator',
+  image_url TEXT DEFAULT NULL,
+  dob DATE DEFAULT NULL,          -- Date of Birth
+  contact TEXT DEFAULT NULL,      -- Contact number
+  address TEXT DEFAULT NULL       -- Address
+);
