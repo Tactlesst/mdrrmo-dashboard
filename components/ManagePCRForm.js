@@ -1,3 +1,4 @@
+// components/ManagePCRForm.jsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -5,37 +6,47 @@ import { FiPlus } from "react-icons/fi";
 import PCRForm from "./PCRForm";
 import PCRView from "./PCRView";
 import PCRPrint from "./PCRPrint";
+import PCREdit from "./PCREdit";
 import { formatPHDateTime } from "@/lib/dateUtils";
 
 export default function ManagePCRForm() {
   const [showForm, setShowForm] = useState(false);
   const [selectedForm, setSelectedForm] = useState(null);
   const [printForm, setPrintForm] = useState(null);
+  const [editForm, setEditForm] = useState(null);
   const [pcrForms, setPcrForms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch PCR forms from API
-  useEffect(() => {
-    const fetchForms = async () => {
-      try {
-        const res = await fetch("/api/pcr");
-        const data = await res.json();
-        if (res.ok) {
-          setPcrForms(data.data);
-        } else {
-          setError(data.error || "Failed to fetch PCR forms");
-        }
-      } catch (err) {
-        console.error("Error fetching PCR forms:", err);
-        setError("Failed to fetch PCR forms");
-      } finally {
-        setLoading(false);
+  const fetchForms = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/pcr");
+      const data = await res.json();
+      if (res.ok) {
+        setPcrForms(data.data);
+        setError(null);
+      } else {
+        setError(data.error || "Failed to fetch PCR forms");
       }
-    };
+    } catch (err) {
+      console.error("Error fetching PCR forms:", err);
+      setError("Failed to fetch PCR forms");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchForms();
   }, []);
+
+  const handleFormClose = (refresh = false) => {
+    setShowForm(false);
+    if (refresh) {
+      fetchForms();
+    }
+  };
 
   return (
     <div className="min-h-screen p-6 bg-gray-100 font-sans relative">
@@ -104,6 +115,12 @@ export default function ManagePCRForm() {
                           View
                         </button>
                         <button
+                          onClick={() => setEditForm(form)}
+                          className="inline-block text-sm text-blue-600 hover:underline font-medium"
+                        >
+                          Edit
+                        </button>
+                        <button
                           onClick={() => setPrintForm(form)}
                           className="inline-block text-sm text-green-600 hover:underline font-medium"
                         >
@@ -118,15 +135,15 @@ export default function ManagePCRForm() {
           </div>
         </>
       ) : (
-        <PCRForm onClose={() => setShowForm(false)} />
+        <PCRForm onClose={handleFormClose} />
       )}
 
-      {/* View Modal */}
       {selectedForm && (
         <PCRView form={selectedForm} onClose={() => setSelectedForm(null)} />
       )}
-
-      {/* Print Modal */}
+      {editForm && (
+        <PCREdit form={editForm} onClose={() => setEditForm(null)} />
+      )}
       {printForm && (
         <PCRPrint form={printForm} onClose={() => setPrintForm(null)} />
       )}

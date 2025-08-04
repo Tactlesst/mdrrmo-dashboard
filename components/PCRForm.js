@@ -1,12 +1,12 @@
+// components/PCRForm.jsx (Updated)
 "use client";
 
 import React, { useState } from "react";
 import { FiX } from "react-icons/fi";
-import Image from "next/image";
-import BodyDiagram3D from './BodyDiagram3D';
+import BodyDiagram3D from "./BodyDiagram3D";
 
-const PCRForm = ({ onClose }) => {
-  const [formData, setFormData] = useState({
+const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
+  const initialFormData = {
     caseType: "",
     recorder: "",
     date: "",
@@ -25,6 +25,7 @@ const PCRForm = ({ onClose }) => {
     timeLeftScene: "",
     timeArrivedHospital: "",
     ambulanceNo: "",
+    homeAddress: "",
     underInfluence: {
       alcohol: false,
       drugs: false,
@@ -64,7 +65,22 @@ const PCRForm = ({ onClose }) => {
     teamLeader: "",
     crew: "",
     receivingHospital: "",
+    patientSignature: "",
+    witnessSignature: "",
+    patientSignatureDate: "",
+    witnessSignatureDate: "",
+    bodyDiagram: {},
+    receivingName: "",
+    receivingSignature: "",
+    lossOfConsciousnessMinutes: "",
+  };
+
+  const [formData, setFormData] = useState({
+    ...initialFormData,
+    ...(initialData || {}),
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -79,8 +95,6 @@ const PCRForm = ({ onClose }) => {
           [childName]: checked,
         },
       }));
-    } else if (name === "lossOfConsciousness") {
-      setFormData((prev) => ({ ...prev, [name]: value }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -101,18 +115,58 @@ const PCRForm = ({ onClose }) => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleBodyDiagramChange = (diagramData) => {
+    setFormData((prev) => ({ ...prev, bodyDiagram: diagramData }));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log(formData);
-    onClose();
+    setError(null);
+    setIsSubmitting(true);
+
+    // Required fields validation
+    const requiredFields = ["patientName", "date", "recorder"];
+    const missingFields = requiredFields.filter((field) => !formData[field]);
+    if (missingFields.length > 0) {
+      setError(`Please fill in: ${missingFields.join(", ")}`);
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      if (onSubmit) {
+        await onSubmit(formData);
+      } else {
+        const response = await fetch("/api/pcr", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        });
+
+        if (!response.ok) {
+          const { error } = await response.json();
+          throw new Error(error || "Failed to save form");
+        }
+      }
+
+      setFormData(initialFormData);
+      onClose(true);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-5xl relative overflow-y-auto max-h-[95vh] p-8">
         <button
-          onClick={onClose}
+          onClick={() => onClose(false)}
           className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition"
+          disabled={isSubmitting}
         >
           <FiX size={22} />
         </button>
@@ -120,6 +174,12 @@ const PCRForm = ({ onClose }) => {
         <div className="flex flex-col items-center border-b pb-4 mb-4">
           <h1 className="text-xl font-bold text-center">PATIENT CARE REPORT</h1>
         </div>
+
+        {error && (
+          <div className="mb-4 p-2 bg-red-100 text-red-700 rounded">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
@@ -133,6 +193,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.caseType}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -145,6 +206,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.recorder}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -157,6 +219,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.date}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div className="md:col-span-3">
@@ -169,6 +232,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.patientName}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -184,6 +248,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.age}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -196,6 +261,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.gender}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div className="col-span-2">
@@ -211,6 +277,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.category === "Driver"}
                     onChange={handleChange}
                     className="form-radio"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Driver</span>
                 </label>
@@ -222,6 +289,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.category === "Passenger"}
                     onChange={handleChange}
                     className="form-radio"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Passenger</span>
                 </label>
@@ -233,6 +301,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.category === "Patient"}
                     onChange={handleChange}
                     className="form-radio"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Patient</span>
                 </label>
@@ -248,6 +317,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.bloodPressure}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -260,6 +330,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.pr}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -272,6 +343,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.rr}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -284,6 +356,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.o2sat}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -296,6 +369,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.temp}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -311,6 +385,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.hospitalTransported}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -323,6 +398,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.timeCall}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -335,6 +411,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.timeArrivedScene}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -347,6 +424,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.timeLeftScene}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -359,6 +437,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.homeAddress}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -371,6 +450,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.timeArrivedHospital}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -383,6 +463,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.ambulanceNo}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -397,6 +478,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.underInfluence.alcohol}
                     onChange={handleChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Alcohol</span>
                 </label>
@@ -407,6 +489,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.underInfluence.drugs}
                     onChange={handleChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Drugs</span>
                 </label>
@@ -417,6 +500,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.underInfluence.unknown}
                     onChange={handleChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Unknown</span>
                 </label>
@@ -427,6 +511,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.underInfluence.none}
                     onChange={handleChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">None</span>
                 </label>
@@ -444,6 +529,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.evacuationCode.black}
                     onChange={handleChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Black</span>
                 </label>
@@ -454,6 +540,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.evacuationCode.red}
                     onChange={handleChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Red</span>
                 </label>
@@ -464,6 +551,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.evacuationCode.yellow}
                     onChange={handleChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Yellow</span>
                 </label>
@@ -474,6 +562,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.evacuationCode.green}
                     onChange={handleChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Green</span>
                 </label>
@@ -492,6 +581,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.responseTeam.includes("Team 1")}
                     onChange={handleCheckboxArrayChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Team 1</span>
                 </label>
@@ -503,6 +593,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.responseTeam.includes("Team 2")}
                     onChange={handleCheckboxArrayChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Team 2</span>
                 </label>
@@ -514,6 +605,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.responseTeam.includes("Team 3")}
                     onChange={handleCheckboxArrayChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Team 3</span>
                 </label>
@@ -532,6 +624,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.contactPerson}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -544,6 +637,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.relationship}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -556,6 +650,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.contactNumber}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -571,6 +666,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.doi}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -583,6 +679,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.toi}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -595,6 +692,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.noi}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -609,6 +707,7 @@ const PCRForm = ({ onClose }) => {
                   onChange={handleChange}
                   placeholder="Brgy"
                   className="block w-full border-gray-300 rounded-md shadow-sm text-sm mb-1"
+                  disabled={isSubmitting}
                 />
                 <label className="flex items-center text-sm">
                   <input
@@ -617,6 +716,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.poi.highway}
                     onChange={handleChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Highway/Road</span>
                 </label>
@@ -627,6 +727,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.poi.residence}
                     onChange={handleChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Residence</span>
                 </label>
@@ -637,6 +738,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.poi.publicBuilding}
                     onChange={handleChange}
                     className="form-checkbox"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Public Building/Place</span>
                 </label>
@@ -658,6 +760,7 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.lossOfConsciousness === "yes"}
                     onChange={handleChange}
                     className="form-radio"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">Yes</span>
                 </label>
@@ -669,14 +772,18 @@ const PCRForm = ({ onClose }) => {
                     checked={formData.lossOfConsciousness === "no"}
                     onChange={handleChange}
                     className="form-radio"
+                    disabled={isSubmitting}
                   />
                   <span className="ml-2">No</span>
                 </label>
                 {formData.lossOfConsciousness === "yes" && (
                   <input
                     type="text"
+                    name="lossOfConsciousnessMinutes"
                     placeholder="Minutes"
+                    onChange={handleChange}
                     className="w-24 border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 )}
               </div>
@@ -691,6 +798,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.chiefComplaints}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
             <div className="md:col-span-3">
@@ -703,6 +811,7 @@ const PCRForm = ({ onClose }) => {
                 value={formData.interventions}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -721,6 +830,7 @@ const PCRForm = ({ onClose }) => {
                     value={formData.signsSymptoms}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -733,6 +843,7 @@ const PCRForm = ({ onClose }) => {
                     value={formData.allergies}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -745,6 +856,7 @@ const PCRForm = ({ onClose }) => {
                     value={formData.medication}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -757,6 +869,7 @@ const PCRForm = ({ onClose }) => {
                     value={formData.pastHistory}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -769,6 +882,7 @@ const PCRForm = ({ onClose }) => {
                     value={formData.lastIntake}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -781,6 +895,7 @@ const PCRForm = ({ onClose }) => {
                     value={formData.events}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 </div>
               </div>
@@ -795,6 +910,7 @@ const PCRForm = ({ onClose }) => {
                 onChange={handleChange}
                 rows="12"
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
               ></textarea>
             </div>
           </div>
@@ -815,6 +931,7 @@ const PCRForm = ({ onClose }) => {
                     value={formData.driver}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -827,6 +944,7 @@ const PCRForm = ({ onClose }) => {
                     value={formData.teamLeader}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div>
@@ -839,6 +957,7 @@ const PCRForm = ({ onClose }) => {
                     value={formData.crew}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="pt-4">
@@ -851,6 +970,7 @@ const PCRForm = ({ onClose }) => {
                     value={formData.receivingHospital}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="mt-2">
@@ -860,7 +980,10 @@ const PCRForm = ({ onClose }) => {
                   <input
                     type="text"
                     name="receivingName"
+                    value={formData.receivingName}
+                    onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="mt-2">
@@ -870,7 +993,10 @@ const PCRForm = ({ onClose }) => {
                   <input
                     type="text"
                     name="receivingSignature"
+                    value={formData.receivingSignature}
+                    onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
                   />
                 </div>
               </div>
@@ -897,7 +1023,11 @@ const PCRForm = ({ onClose }) => {
                     </label>
                     <input
                       type="text"
+                      name="patientSignature"
+                      value={formData.patientSignature}
+                      onChange={handleChange}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div>
@@ -906,7 +1036,11 @@ const PCRForm = ({ onClose }) => {
                     </label>
                     <input
                       type="text"
+                      name="witnessSignature"
+                      value={formData.witnessSignature}
+                      onChange={handleChange}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div>
@@ -915,7 +1049,11 @@ const PCRForm = ({ onClose }) => {
                     </label>
                     <input
                       type="date"
+                      name="patientSignatureDate"
+                      value={formData.patientSignatureDate}
+                      onChange={handleChange}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div>
@@ -924,25 +1062,29 @@ const PCRForm = ({ onClose }) => {
                     </label>
                     <input
                       type="date"
+                      name="witnessSignatureDate"
+                      value={formData.witnessSignatureDate}
+                      onChange={handleChange}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                      disabled={isSubmitting}
                     />
                   </div>
                 </div>
               </div>
-<div className="relative mt-4">
-  <h3 className="text-sm font-semibold text-gray-800">Body Diagram</h3>
-  <BodyDiagram3D />
-</div>
-
+              <div className="relative mt-4">
+                <h3 className="text-sm font-semibold text-gray-800">Body Diagram</h3>
+                <BodyDiagram3D onChange={handleBodyDiagramChange} />
+              </div>
             </div>
           </div>
 
           <div className="flex justify-end pt-4">
             <button
               type="submit"
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition"
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition disabled:bg-blue-400"
+              disabled={isSubmitting}
             >
-              Save PCR Form
+              {isSubmitting ? "Saving..." : "Save PCR Form"}
             </button>
           </div>
         </form>

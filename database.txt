@@ -11,6 +11,54 @@ CREATE TABLE pcr_forms (
   created_by_id UUID NOT NULL
 );
 
+  '{
+    "case_number": "PCR-20250801-001",
+    "age": 32,
+    "sex": "Male",
+    "contact_number": "09171234567",
+    "address": "Zone 3, Barangay 5",
+    "poi_type": "Vehicular Accident",
+    "poi_details": "Collision with tricycle",
+    "vitals": {
+      "blood_pressure": "120/80",
+      "pulse_rate": 78,
+      "respiratory_rate": 18,
+      "temperature": "36.7",
+      "oxygen_saturation": "98%",
+      "gcs_eye": 4,
+      "gcs_verbal": 5,
+      "gcs_motor": 6
+    },
+    "history_present_illness": "Patient was riding motorcycle, hit from the side by tricycle.",
+    "past_medical_history": "None",
+    "medications": "None",
+    "allergies": "Penicillin",
+    "body_diagram": ["right-leg", "left-arm"],
+    "waiver_signed": true
+  }'::jsonb,
+  'responder',
+  2}
+
+CREATE TABLE provinces (
+  id SERIAL PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL
+);
+CREATE TABLE municipalities (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  province_id INTEGER REFERENCES provinces(id)
+);
+CREATE TABLE barangays (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  municipality_id INTEGER REFERENCES municipalities(id)
+);
+CREATE TABLE streets (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  barangay_id INTEGER REFERENCES barangays(id)
+);
+
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
