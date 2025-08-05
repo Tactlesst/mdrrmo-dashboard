@@ -1,12 +1,24 @@
-import { Client } from '@neondatabase/serverless';
+import pool from '@/lib/db';
 import jwt from 'jsonwebtoken';
 import { serialize } from 'cookie';
 import os from 'os';
 
+// GeoIP helper
 async function getGeoLocation(ip) {
   try {
+    if (
+      ip === 'Unknown' ||
+      ip === '::1' ||
+      ip.startsWith('127.') ||
+      ip.startsWith('192.168.') ||
+      ip.startsWith('10.') ||
+      ip.startsWith('172.')
+    ) {
+      return 'Local/Private IP';
+    }
+
     const response = await fetch(`https://ipapi.co/${ip}/json`);
-    if (!response.ok) throw new Error('GeoIP request failed');
+    if (!response.ok) throw new Error(`GeoIP request failed: ${response.status}`);
     const data = await response.json();
     return `${data.city || ''}, ${data.region || ''}, ${data.country_name || ''}`;
   } catch (error) {
@@ -15,6 +27,7 @@ async function getGeoLocation(ip) {
   }
 }
 
+// IP resolver
 function getIPv4FromRequest(req) {
   let ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
     || req.socket?.remoteAddress
@@ -38,22 +51,19 @@ function getIPv4FromRequest(req) {
   return ip;
 }
 
+// Login handler
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
   const { email, password } = req.body;
-  const client = new Client({ connectionString: process.env.NETLIFY_DATABASE_URL });
 
   try {
-    await client.connect();
-
-    const result = await client.query('SELECT * FROM admins WHERE email = $1', [email]);
+    const result = await pool.query('SELECT * FROM admins WHERE email = $1', [email]);
     const admin = result.rows[0];
 
     if (!admin || password !== admin.password) {
-      await client.end();
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
@@ -61,8 +71,7 @@ export default async function handler(req, res) {
     const userAgent = req.headers['user-agent'] || 'Unknown';
     const location = await getGeoLocation(ip);
 
-    // ✅ Insert into admin_sessions
-    const sessionInsert = await client.query(
+    const sessionInsert = await pool.query(
       `INSERT INTO admin_sessions (admin_email, ip_address, user_agent, is_active)
        VALUES ($1, $2, $3, TRUE)
        RETURNING id`,
@@ -71,14 +80,12 @@ export default async function handler(req, res) {
 
     const sessionId = sessionInsert.rows[0].id;
 
-    // ✅ Insert into login_logs
-    await client.query(
+    await pool.query(
       `INSERT INTO login_logs (admin_id, email, ip_address, user_agent)
        VALUES ($1, $2, $3, $4)`,
       [admin.id, admin.email, ip, userAgent]
     );
 
-    // ✅ JWT token with session ID
     const token = jwt.sign(
       { id: admin.id, email: admin.email, sessionId },
       process.env.JWT_SECRET,
@@ -94,13 +101,10 @@ export default async function handler(req, res) {
     });
 
     res.setHeader('Set-Cookie', serialized);
-
-    await client.end();
     res.status(200).json({ message: 'Login successful', redirect: '/AdminDashboard' });
 
   } catch (error) {
     console.error('Login error:', error);
-    await client.end();
     res.status(500).json({ message: 'Internal server error' });
   }
 }

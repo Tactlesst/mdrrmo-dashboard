@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { FiX } from 'react-icons/fi';
-import Select from 'react-select';
 
 export default function AddUserModal({ onClose, role, onAddUser }) {
   const modalRef = useRef();
@@ -14,31 +13,52 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
     email: '',
     dob: '',
     contact: '',
+    address: '',
+    province: '',
+    municipality: '',
     barangay: '',
     street: '',
   });
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [provinces, setProvinces] = useState([]);
+  const [municipalities, setMunicipalities] = useState([]);
+  const [barangays, setBarangays] = useState([]);
+  const [streets, setStreets] = useState([]);
+  const [manualAddress, setManualAddress] = useState(false);
+  const [selectedProvince, setSelectedProvince] = useState(null);
+  const [selectedMunicipality, setSelectedMunicipality] = useState(null);
+  const [selectedBarangay, setSelectedBarangay] = useState(null);
+  const [selectedStreet, setSelectedStreet] = useState(null);
 
-  const barangayOptions = [
-    'Barangay 1',
-    'Barangay 2',
-    'Barangay 3',
-    'Barangay 4',
-    'Barangay 5',
-    'Others',
-  ].map((b) => ({ label: b, value: b }));
-
-  const streetsByBarangay = {
-    'Barangay 1': ['Maple St', 'Palm Dr', 'Cedar Rd'],
-    'Barangay 2': ['Oak St', 'Birch Ln'],
-    'Barangay 3': ['Pine Ave', 'Elm St'],
-    'Barangay 4': ['Acacia Blvd', 'Mango St'],
-    'Barangay 5': ['Narra St', 'Mahogany Dr'],
-    'Others': ['Custom'],
+  const fetchProvinces = async () => {
+    const res = await fetch('/api/addresses/provinces');
+    const data = await res.json();
+    setProvinces(data);
   };
+
+  const fetchMunicipalities = async (provinceId) => {
+    const res = await fetch(`/api/addresses/municipalities?provinceId=${provinceId}`);
+    const data = await res.json();
+    setMunicipalities(data);
+  };
+
+  const fetchBarangays = async (municipalityId) => {
+    const res = await fetch(`/api/addresses/barangays?municipalityId=${municipalityId}`);
+    const data = await res.json();
+    setBarangays(data);
+  };
+
+  const fetchStreets = async (barangayId) => {
+    const res = await fetch(`/api/addresses/streets?barangayId=${barangayId}`);
+    const data = await res.json();
+    setStreets(data);
+  };
+
+  useEffect(() => {
+    fetchProvinces();
+  }, []);
 
   const validateForm = () => {
     const errors = {};
@@ -55,12 +75,16 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
       errors.contact = 'Contact number must be in format 0917 123 4567.';
     }
 
-    if (!formData.barangay) {
-      errors.barangay = 'Please select a barangay.';
-    }
-
-    if (!formData.street) {
-      errors.street = 'Please select a street.';
+    if (manualAddress) {
+      if (!formData.address) {
+        errors.address = 'Please enter a full address.';
+      }
+    } else {
+      if (!formData.barangay) {
+        errors.address = 'Please select a barangay.';
+      } else if (!formData.street) {
+        errors.address = 'Please select a street.';
+      }
     }
 
     setFieldErrors(errors);
@@ -76,6 +100,11 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
         c ? `${a} ${b} ${c}` : b ? `${a} ${b}` : a
       );
       setFormData((prev) => ({ ...prev, contact: formatted }));
+    } else if (name === 'address') {
+      setFormData((prev) => ({
+        ...prev,
+        address: value.replace(/\b\w/g, (c) => c.toUpperCase()),
+      }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -91,7 +120,16 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
       .trim()
       .replace(/\s+/g, ' ');
 
-    const fullAddress = `${formData.street}, ${formData.barangay}`;
+    const fullAddress = manualAddress
+      ? formData.address
+      : [
+          streets.find((s) => s.id === selectedStreet)?.name,
+          barangays.find((b) => b.id === selectedBarangay)?.name,
+          municipalities.find((m) => m.id === selectedMunicipality)?.name,
+          provinces.find((p) => p.id === selectedProvince)?.name,
+        ]
+          .filter(Boolean)
+          .join(', ');
 
     try {
       const res = await fetch('/api/users/add', {
@@ -135,6 +173,45 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
     }
   };
 
+  useEffect(() => {
+    if (selectedProvince && !manualAddress) {
+      fetchMunicipalities(selectedProvince);
+      setSelectedMunicipality(null);
+      setSelectedBarangay(null);
+      setSelectedStreet(null);
+      setFormData((prev) => ({
+        ...prev,
+        province: selectedProvince,
+        municipality: '',
+        barangay: '',
+        street: '',
+      }));
+    }
+  }, [selectedProvince, manualAddress]);
+
+  useEffect(() => {
+    if (selectedMunicipality && !manualAddress) {
+      fetchBarangays(selectedMunicipality);
+      setSelectedBarangay(null);
+      setSelectedStreet(null);
+      setFormData((prev) => ({ ...prev, municipality: selectedMunicipality, barangay: '', street: '' }));
+    }
+  }, [selectedMunicipality, manualAddress]);
+
+  useEffect(() => {
+    if (selectedBarangay && !manualAddress) {
+      fetchStreets(selectedBarangay);
+      setSelectedStreet(null);
+      setFormData((prev) => ({ ...prev, barangay: selectedBarangay, street: '' }));
+    }
+  }, [selectedBarangay, manualAddress]);
+
+  useEffect(() => {
+    if (selectedStreet && !manualAddress) {
+      setFormData((prev) => ({ ...prev, street: selectedStreet }));
+    }
+  }, [selectedStreet]);
+
   return (
     <div
       className="fixed inset-0 z-50 bg-opacity-40 backdrop-blur-sm flex justify-center items-center p-4"
@@ -170,10 +247,14 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
               name="firstName"
               value={formData.firstName}
               onChange={handleChange}
+              placeholder="Enter first name"
               className={`w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 ${
                 fieldErrors.fullName ? 'border-red-500' : 'border-gray-300'
               }`}
             />
+            {fieldErrors.fullName && (
+              <p className="text-red-500 text-sm mt-1">{fieldErrors.fullName}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Middle Name (optional)</label>
@@ -182,6 +263,7 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
               name="middleName"
               value={formData.middleName}
               onChange={handleChange}
+              placeholder="Enter middle name"
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500"
             />
           </div>
@@ -192,6 +274,7 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
               name="lastName"
               value={formData.lastName}
               onChange={handleChange}
+              placeholder="Enter last name"
               className={`w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 ${
                 fieldErrors.fullName ? 'border-red-500' : 'border-gray-300'
               }`}
@@ -200,7 +283,6 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
               <p className="text-red-500 text-sm mt-1">{fieldErrors.fullName}</p>
             )}
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Date of Birth</label>
             <input
@@ -208,10 +290,10 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
               name="dob"
               value={formData.dob}
               onChange={handleChange}
+              placeholder="Select date of birth"
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500"
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
             <input
@@ -219,6 +301,7 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
               name="email"
               value={formData.email}
               onChange={handleChange}
+              placeholder="Enter email address"
               className={`w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 ${
                 fieldErrors.email ? 'border-red-500' : 'border-gray-300'
               }`}
@@ -227,7 +310,6 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
               <p className="text-red-500 text-sm mt-1">{fieldErrors.email}</p>
             )}
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Contact Number</label>
             <input
@@ -244,53 +326,96 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
               <p className="text-red-500 text-sm mt-1">{fieldErrors.contact}</p>
             )}
           </div>
-
-          <div className="col-span-full">
-            <label className="block text-sm font-medium text-gray-600 mb-1">Barangay</label>
-            <Select
-              options={barangayOptions}
-              placeholder="Select Barangay"
-              value={barangayOptions.find((opt) => opt.value === formData.barangay)}
-              onChange={(selected) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  barangay: selected?.value || '',
-                  street: '',
-                }))
-              }
-              classNamePrefix="react-select"
-              className={fieldErrors.barangay ? 'border border-red-500 rounded-md' : ''}
-            />
-            {fieldErrors.barangay && (
-              <p className="text-red-500 text-sm mt-1">{fieldErrors.barangay}</p>
+          {/* Address Section */}
+          <div className="col-span-2">
+            <label className="text-gray-500 font-medium flex justify-between items-center mb-1">
+              Full Address
+              <button
+                type="button"
+                onClick={() => setManualAddress(!manualAddress)}
+                className="text-blue-600 text-xs underline"
+              >
+                {manualAddress ? 'Use Dropdown' : 'Enter Manually'}
+              </button>
+            </label>
+            {manualAddress ? (
+              <input
+                type="text"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                placeholder="Enter full address"
+                className={`w-full border rounded-md px-3 py-2 ${
+                  fieldErrors.address ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={selectedProvince || ''}
+                  onChange={(e) => setSelectedProvince(e.target.value)}
+                  className={`border px-3 py-2 rounded-md ${
+                    fieldErrors.address ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                >
+                  <option value="">Select Province</option>
+                  {provinces.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedMunicipality || ''}
+                  onChange={(e) => setSelectedMunicipality(e.target.value)}
+                  className={`border px-3 py-2 rounded-md ${
+                    fieldErrors.address ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  disabled={!selectedProvince}
+                >
+                  <option value="">Select Municipality</option>
+                  {municipalities.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedBarangay || ''}
+                  onChange={(e) => setSelectedBarangay(e.target.value)}
+                  className={`border px-3 py-2 rounded-md ${
+                    fieldErrors.address ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  disabled={!selectedMunicipality}
+                >
+                  <option value="">Select Barangay</option>
+                  {barangays.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedStreet || ''}
+                  onChange={(e) => setSelectedStreet(e.target.value)}
+                  className={`border px-3 py-2 rounded-md ${
+                    fieldErrors.address ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  disabled={!selectedBarangay}
+                >
+                  <option value="">Select Street</option>
+                  {streets.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {fieldErrors.address && (
+              <p className="text-red-500 text-xs mt-1">{fieldErrors.address}</p>
             )}
           </div>
-
-          {formData.barangay && (
-            <div className="col-span-full">
-              <label className="block text-sm font-medium text-gray-600 mb-1">Street</label>
-              <Select
-                options={streetsByBarangay[formData.barangay]?.map((s) => ({
-                  label: s,
-                  value: s,
-                }))}
-                placeholder="Select Street"
-                value={
-                  formData.street
-                    ? { label: formData.street, value: formData.street }
-                    : null
-                }
-                onChange={(selected) =>
-                  setFormData((prev) => ({ ...prev, street: selected?.value || '' }))
-                }
-                classNamePrefix="react-select"
-                className={fieldErrors.street ? 'border border-red-500 rounded-md' : ''}
-              />
-              {fieldErrors.street && (
-                <p className="text-red-500 text-sm mt-1">{fieldErrors.street}</p>
-              )}
-            </div>
-          )}
         </div>
 
         <div className="mt-8 flex justify-end gap-3">

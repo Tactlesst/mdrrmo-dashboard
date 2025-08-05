@@ -1,3 +1,15 @@
 @import "tailwindcss";
 @tailwind components;
 @tailwind utilities;
+
+/* styles/globals.css or your main CSS file */
+.leaflet-container {
+  z-index: 0 !important;
+}
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-popup {
+  z-index: 0 !important;
+}

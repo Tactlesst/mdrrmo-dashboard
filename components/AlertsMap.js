@@ -12,6 +12,20 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
+function MapResizer({ watch }) {
+  const map = useMap();
+
+  useEffect(() => {
+    // Wait a bit for DOM transition (like collapse animation)
+    const timeout = setTimeout(() => {
+      map.invalidateSize();
+    }, 200); // adjust to match your sidebar animation duration
+
+    return () => clearTimeout(timeout);
+  }, [watch, map]);
+
+  return null;
+}
 // Helper to fly to and open popup
 function FlyToAndOpenPopup({ alerts, selectedAlertId, markerRefs }) {
   const map = useMap();
@@ -39,42 +53,50 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
   const mapCenter = alerts.length ? alerts[0].coords : fallbackCenter;
 
   return (
- <div className="rounded-lg overflow-hidden h-[40vh] md:h-[75vh]">
-  <MapContainer center={mapCenter} zoom={17} className="w-full h-full">
-    <TileLayer
-      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      attribution="&copy; OpenStreetMap contributors"
-    />
-    {alerts.map(alert => {
-      if (!markerRefs.current[alert.id]) {
-        markerRefs.current[alert.id] = L.marker(alert.coords).bindPopup();
-        markerRefs.current[alert.id] = React.createRef();
-      }
+ <div className="rounded-lg  overflow-hidden h-[40vh] md:h-[65vh]">
+ <MapContainer center={mapCenter} zoom={17} className="w-full h-full">
+  <TileLayer
+    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+    attribution="&copy; OpenStreetMap contributors"
+  />
 
-      return (
-        <Marker
-          key={alert.id}
-          position={alert.coords}
-          ref={markerRefs.current[alert.id]}
-        >
-          <Popup>
-            <div className="text-sm">
-              <p><strong>Type:</strong> {alert.type}</p>
-              <p><strong>Status:</strong> {alert.status}</p>
-              <p><strong>Address:</strong> {alert.address}</p>
-              <p><strong>Date:</strong> {alert.date}</p>
-              <p><strong>Responder:</strong> {alert.user}</p>
-            </div>
-          </Popup>
-        </Marker>
-      );
-    })}
-    <FlyToAndOpenPopup
-      alerts={alerts}
-      selectedAlertId={selectedAlertId}
-      markerRefs={markerRefs}
-    />
-  </MapContainer>
+  {alerts.map(alert => {
+    if (!markerRefs.current[alert.id]) {
+      markerRefs.current[alert.id] = L.marker(alert.coords).bindPopup();
+      markerRefs.current[alert.id] = React.createRef();
+    }
+
+    return (
+      <Marker
+        key={alert.id}
+        position={alert.coords}
+        ref={markerRefs.current[alert.id]}
+      >
+        <Popup>
+          <div className="text-sm space-y-1">
+            <p><strong>Type:</strong> {alert.type || '—'}</p>
+            <p><strong>Status:</strong> {alert.status || '—'}</p>
+            <p><strong>Address:</strong> {alert.address || '—'}</p>
+            <p><strong>Date:</strong> {alert.date || <span className="italic text-gray-500">Unknown</span>}</p>
+            <p><strong>Responder:</strong> {alert.user || <span className="italic text-gray-500">Unassigned</span>}</p>
+            {alert.description
+              ? <p><strong>Description:</strong> {alert.description}</p>
+              : <p className="italic text-gray-500">No description provided</p>}
+          </div>
+        </Popup>
+      </Marker>
+    );
+  })}
+
+  <FlyToAndOpenPopup
+    alerts={alerts}
+    selectedAlertId={selectedAlertId}
+    markerRefs={markerRefs}
+  />
+
+  <MapResizer watch={alerts.length} />
+</MapContainer>
+
 </div>
 
   );

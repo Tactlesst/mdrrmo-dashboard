@@ -1,4 +1,4 @@
-// components/PCRForm.jsx (Updated)
+// components/PCRForm.js (Updated)
 "use client";
 
 import React, { useState } from "react";
@@ -161,7 +161,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center p-4">
+    <div className="fixed inset-0 z-50 bg-opacity-50 flex justify-center items-center p-4">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-5xl relative overflow-y-auto max-h-[95vh] p-8">
         <button
           onClick={() => onClose(false)}

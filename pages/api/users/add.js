@@ -37,7 +37,7 @@ export default async function handler(req, res) {
         INSERT INTO admins (name, email, dob, contact, address, password)
         VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *`;
-      values = [fullName, email, dob, contact, address, "coadmin123"]; // Replace with hashed password if needed
+      values = [fullName, email, dob, contact, address, "admin123"]; // Replace with hashed password if needed
 
     } else {
       return res.status(400).json({ error: "Invalid role specified." });

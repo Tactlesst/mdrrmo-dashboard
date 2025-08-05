@@ -12,32 +12,32 @@ CREATE TABLE pcr_forms (
 );
 
   '{
-    "case_number": "PCR-20250801-001",
-    "age": 32,
-    "sex": "Male",
-    "contact_number": "09171234567",
-    "address": "Zone 3, Barangay 5",
-    "poi_type": "Vehicular Accident",
-    "poi_details": "Collision with tricycle",
+    "case_number": "",
+    "age": ,
+    "sex": "",
+    "contact_number": "",
+    "address": "",
+    "poi_type": "",
+    "poi_details": "",
     "vitals": {
-      "blood_pressure": "120/80",
-      "pulse_rate": 78,
-      "respiratory_rate": 18,
-      "temperature": "36.7",
-      "oxygen_saturation": "98%",
-      "gcs_eye": 4,
-      "gcs_verbal": 5,
-      "gcs_motor": 6
+      "blood_pressure": "",
+      "pulse_rate": ,
+      "respiratory_rate": ,
+      "temperature": "",
+      "oxygen_saturation": "",
+      "gcs_eye": ,
+      "gcs_verbal": ,
+      "gcs_motor": 
     },
-    "history_present_illness": "Patient was riding motorcycle, hit from the side by tricycle.",
-    "past_medical_history": "None",
-    "medications": "None",
-    "allergies": "Penicillin",
+    "history_present_illness": "",
+    "past_medical_history": "",
+    "medications": "",
+    "allergies": "",
     "body_diagram": ["right-leg", "left-arm"],
-    "waiver_signed": true
+    "waiver_signed": 
   }'::jsonb,
   'responder',
-  2}
+  }
 
 CREATE TABLE provinces (
   id SERIAL PRIMARY KEY,
@@ -48,11 +48,13 @@ CREATE TABLE municipalities (
   name TEXT NOT NULL,
   province_id INTEGER REFERENCES provinces(id)
 );
+
 CREATE TABLE barangays (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   municipality_id INTEGER REFERENCES municipalities(id)
 );
+
 CREATE TABLE streets (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -68,35 +70,46 @@ CREATE TABLE users (
   dob DATE,
   contact VARCHAR(20),
   address TEXT,
-  image_url TEXT,
+  profile_image_url TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS alerts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,  -- user (resident) who sent the alert
   address TEXT,
-  type TEXT,                        
+  type TEXT,
   status TEXT DEFAULT 'Not Responded',
   occurred_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   lat DOUBLE PRECISION NOT NULL,
   lng DOUBLE PRECISION NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
   responder_id INTEGER REFERENCES responders(id) ON DELETE SET NULL,
   responded_at TIMESTAMP
 );
+
 
 CREATE TABLE IF NOT EXISTS responders (
   id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
   name TEXT NOT NULL,
-  image_url TEXT DEFAULT NULL,
-  is_active BOOLEAN DEFAULT FALSE,
+  profile_image_url TEXT DEFAULT NULL,
   dob DATE DEFAULT NULL,          -- Date of Birth
   contact TEXT DEFAULT NULL,      -- Contact number
   address TEXT DEFAULT NULL       -- Address
+);
+CREATE TABLE IF NOT EXISTS responder_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  responder_id INTEGER REFERENCES responders(id) ON DELETE CASCADE,
+  is_active BOOLEAN DEFAULT TRUE,
+  status TEXT DEFAULT 'offline'
+    CHECK (status IN ('offline', 'online', 'standby', 'ready to go')),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  ip_address TEXT,
+  user_agent TEXT
 );
 
 CREATE TABLE admin_sessions (

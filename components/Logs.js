@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { FaEye, FaTrash } from 'react-icons/fa';
+import { formatPHDateTime } from '@/lib/dateUtils';
 
 export default function Logs() {
   const [logs, setLogs] = useState([]);
@@ -9,7 +10,6 @@ export default function Logs() {
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
 
-  // Extract only the date portion (e.g., "2025-07-27")
   const formatDate = (dateString) => {
     return new Date(dateString).toISOString().split('T')[0];
   };
@@ -32,7 +32,6 @@ export default function Logs() {
       .finally(() => setLoading(false));
   }, []);
 
-  // When selected date changes, filter logs
   useEffect(() => {
     if (!selectedDate) {
       setFilteredLogs(logs);
@@ -42,73 +41,79 @@ export default function Logs() {
     }
   }, [selectedDate, logs]);
 
-  // Get unique login dates for dropdown
   const uniqueDates = Array.from(
     new Set(logs.map((log) => formatDate(log.login_time)))
-  ).sort((a, b) => (a > b ? -1 : 1)); // Latest first
+  ).sort((a, b) => (a > b ? -1 : 1));
 
   return (
-<div className="flex flex-col p-6 bg-gray-100 font-sans min-h-screen">
-  <h2 className="text-2xl font-semibold mb-6 text-gray-800">Admin Login Logs</h2>
+    <div className="overflow-x-auto max-h-[300vh] overflow-y-auto w-full">
+      <div className="max-w-7xl mx-auto">
+        <h2 className="text-3xl font-bold text-red-700 mb-6">Admin Login Logs</h2>
 
-  <div className="mb-6 flex items-center gap-2">
-    <label className="font-medium text-gray-700">Filter by Date:</label>
-    <select
-      value={selectedDate}
-      onChange={(e) => setSelectedDate(e.target.value)}
-      className="px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-    >
-      <option value="">All Dates</option>
-      {uniqueDates.map((date) => (
-        <option key={date} value={date}>
-          {new Date(date).toLocaleDateString()}
-        </option>
-      ))}
-    </select>
-  </div>
+        <div className="mb-6 flex items-center gap-3">
+          <label className="text-sm font-medium text-red-700">Filter by Date:</label>
+          <select
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="px-4 py-2 text-sm border border-red-300 rounded-xl shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 text-red-800"
+          >
+            <option value="">All Dates</option>
+            {uniqueDates.map((date) => (
+              <option key={date} value={date}>
+                {new Date(date).toLocaleDateString()}
+              </option>
+            ))}
+          </select>
+        </div>
 
-  {loading && <p className="text-gray-600">Loading logs...</p>}
-  {error && <p className="text-red-600">{error}</p>}
-  {!loading && filteredLogs.length === 0 && (
-    <p className="text-gray-500 italic">No logs found for selected date.</p>
-  )}
-
-  {filteredLogs.length > 0 && (
-    <div className="overflow-x-auto rounded-lg shadow">
-      <table className="w-full border border-gray-300 text-sm text-gray-800 bg-white">
-        <thead className="bg-gray-200 text-gray-700 uppercase text-xs tracking-wide">
-          <tr>
-            <th className="border px-4 py-2">Email</th>
-            <th className="border px-4 py-2">IP Address</th>
-            <th className="border px-4 py-2">Device Info</th>
-            <th className="border px-4 py-2">Login Time</th>
-            <th className="border px-4 py-2 text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredLogs.map((log) => (
-            <tr key={log.id} className="hover:bg-gray-50 transition-all">
-              <td className="border px-4 py-2">{log.email}</td>
-              <td className="border px-4 py-2">{log.ip_address}</td>
-              <td className="border px-4 py-2">{log.user_agent}</td>
-              <td className="border px-4 py-2">
-                {new Date(log.login_time).toLocaleString()}
-              </td>
-              <td className="border px-4 py-2 text-center space-x-2">
-                <button className="text-blue-600 hover:text-blue-800" title="View">
-                  <FaEye />
-                </button>
-                <button className="text-red-600 hover:text-red-800" title="Delete">
-                  <FaTrash />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        {loading ? (
+          <div className="text-red-500">Loading logs...</div>
+        ) : error ? (
+          <div className="text-red-600">{error}</div>
+        ) : filteredLogs.length === 0 ? (
+          <div className="text-red-400 italic">No logs found for selected date.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <div className="max-h-[60vh] overflow-y-auto rounded-xl shadow-md border border-red-300 bg-white">
+              <table className="min-w-full">
+                <thead className="bg-red-100 text-sm font-semibold text-red-800 uppercase sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 py-3 text-left border border-red-200">Email</th>
+                    <th className="px-4 py-3 text-left border border-red-200">IP Address</th>
+                    <th className="px-4 py-3 text-left border border-red-200">Device Info</th>
+                    <th className="px-4 py-3 text-left border border-red-200">Login Time</th>
+                    <th className="px-4 py-3 text-center border border-red-200">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm text-gray-700 divide-y divide-red-100">
+                  {filteredLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-red-50 transition-all">
+                      <td className="px-4 py-3">{log.email}</td>
+                      <td className="px-4 py-3">{log.ip_address}</td>
+                      <td className="px-4 py-3 truncate max-w-xs">{log.user_agent}</td>
+                      <td className="px-4 py-3">{formatPHDateTime(log.login_time)}</td>
+                      <td className="px-4 py-3 text-center space-x-2">
+                        <button
+                          className="inline-flex items-center justify-center p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700"
+                          title="View"
+                        >
+                          <FaEye />
+                        </button>
+                        <button
+                          className="inline-flex items-center justify-center p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700"
+                          title="Delete"
+                        >
+                          <FaTrash />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
-  )}
-</div>
-
   );
 }

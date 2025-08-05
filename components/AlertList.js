@@ -1,4 +1,5 @@
 'use client';
+
 import { FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
 
 export default function AlertList({
@@ -27,36 +28,53 @@ export default function AlertList({
   };
 
   return (
-    <div className="w-full lg:w-96 bg-white rounded-xl shadow-lg p-4 sm:p-6 flex flex-col overflow-y-auto max-h-[calc(100vh-6rem)]">
-      <h1 className="text-xl font-bold text-gray-800 mb-4">Alert Management</h1>
+    <div className="w-full lg:w-96 bg-white border border-red-300 rounded-xl shadow-md p-4 sm:p-6 flex flex-col overflow-y-auto max-h-[calc(100vh-6rem)]">
+      <h1 className="text-xl font-bold text-red-700 mb-4">Alert Management</h1>
 
       <div className="flex-1 overflow-y-auto pr-2 min-h-0">
         {alerts.length > 0 ? (
           alerts.map((alert) => (
-            <div key={alert.id} className="bg-gray-50 p-3 rounded-md mb-2 shadow-sm">
-              <div className="flex justify-between">
+            <div key={alert.id} className="bg-red-50 border border-red-200 p-3 rounded-md mb-3 shadow-sm">
+              <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-semibold text-gray-800 text-sm">{alert.user}</p>
+                  <p className="font-semibold text-red-800 text-sm">
+                    {alert.resident_name || <span className="italic text-gray-500">Unknown User</span>}
+                  </p>
                   <p className="text-xs text-gray-600">{alert.address}</p>
                 </div>
-                <div className="flex gap-2 text-sm text-gray-500">
+                <div className="flex gap-2 text-sm text-gray-500 mt-1">
                   <FiEye
-                    className="hover:text-blue-500 cursor-pointer"
+                    className="hover:text-red-600 cursor-pointer"
                     onClick={() => onView(alert.id)}
+                    title="View Alert"
                   />
-                  <FiEdit2 className="hover:text-green-500 cursor-pointer" />
-                  <FiTrash2 className="hover:text-red-500 cursor-pointer" />
+                  <FiEdit2 className="hover:text-green-600 cursor-pointer" title="Edit Alert" />
+                  <FiTrash2 className="hover:text-red-600 cursor-pointer" title="Delete Alert" />
                 </div>
               </div>
-              <div className="text-xs mt-1 space-y-1">
-                <p>Type: {alert.type}</p>
+
+              <div className="text-xs mt-2 space-y-1 text-gray-800">
                 <p>
-                  Status:{' '}
-                  <span className={getStatusBadge(alert.status)}>
-                    {alert.status}
-                  </span>
+                  <span className="font-medium">Responder:</span>{' '}
+                  {alert.responder_name || <span className="text-gray-500 italic">Not Assigned</span>}
                 </p>
-                <p>Date: {alert.date}</p>
+                <p>
+                  <span className="font-medium">Responded At:</span>{' '}
+                  {alert.responded_at
+                    ? new Date(alert.responded_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })
+                    : <span className="text-gray-500 italic">Not yet responded</span>}
+                </p>
+                <p><span className="font-medium">Type:</span> {alert.type || 'Unknown'}</p>
+                <p>
+                  <span className="font-medium">Status:</span>{' '}
+                  <span className={getStatusBadge(alert.status)}>{alert.status}</span>
+                </p>
+                <p>
+                  <span className="font-medium">Reported On:</span>{' '}
+                  {alert.occurred_at
+                    ? new Date(alert.occurred_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })
+                    : <span className="italic text-gray-500">Unknown</span>}
+                </p>
               </div>
             </div>
           ))
@@ -68,8 +86,9 @@ export default function AlertList({
       {/* Pagination */}
       <div className="mt-4 flex flex-col gap-2 text-sm">
         <div className="flex gap-2 items-center">
-          <label>Show</label>
+          <label htmlFor="entriesPerPage">Show</label>
           <select
+            id="entriesPerPage"
             value={entriesPerPage}
             onChange={(e) => {
               setEntriesPerPage(Number(e.target.value));
@@ -78,9 +97,7 @@ export default function AlertList({
             className="border rounded-md px-2 py-1"
           >
             {[5, 10, 25, 50].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
+              <option key={n} value={n}>{n}</option>
             ))}
           </select>
           <span>entries</span>
