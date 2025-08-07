@@ -1,23 +1,19 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useRef } from 'react';
-import { FiX } from 'react-icons/fi';
+import { useEffect, useState, useRef } from "react";
+import { FiX } from "react-icons/fi";
 
 export default function AddUserModal({ onClose, role, onAddUser }) {
   const modalRef = useRef();
 
   const [formData, setFormData] = useState({
-    firstName: '',
-    middleName: '',
-    lastName: '',
-    email: '',
-    dob: '',
-    contact: '',
-    address: '',
-    province: '',
-    municipality: '',
-    barangay: '',
-    street: '',
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    email: "",
+    dob: "",
+    contact: "",
+    address: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -33,7 +29,7 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
   const [selectedStreet, setSelectedStreet] = useState(null);
 
   const fetchProvinces = async () => {
-    const res = await fetch('/api/addresses/provinces');
+    const res = await fetch("/api/addresses/provinces");
     const data = await res.json();
     setProvinces(data);
   };
@@ -60,31 +56,77 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
     fetchProvinces();
   }, []);
 
+  useEffect(() => {
+    if (selectedProvince && !manualAddress) {
+      fetchMunicipalities(selectedProvince);
+      setSelectedMunicipality(null);
+      setSelectedBarangay(null);
+      setSelectedStreet(null);
+    }
+  }, [selectedProvince, manualAddress]);
+
+  useEffect(() => {
+    if (selectedMunicipality && !manualAddress) {
+      fetchBarangays(selectedMunicipality);
+      setSelectedBarangay(null);
+      setSelectedStreet(null);
+    }
+  }, [selectedMunicipality, manualAddress]);
+
+  useEffect(() => {
+    if (selectedBarangay && !manualAddress) {
+      fetchStreets(selectedBarangay);
+      setSelectedStreet(null);
+    }
+  }, [selectedBarangay, manualAddress]);
+
+  // Auto-generate address like EditUserModal
+  useEffect(() => {
+    if (!manualAddress && selectedProvince && selectedMunicipality && selectedBarangay && selectedStreet) {
+      const province = provinces.find((p) => p.id === Number(selectedProvince))?.name || "";
+      const municipality = municipalities.find((m) => m.id === Number(selectedMunicipality))?.name || "";
+      const barangay = barangays.find((b) => b.id === Number(selectedBarangay))?.name || "";
+      const street = streets.find((s) => s.id === Number(selectedStreet))?.name || "";
+      const fullAddress = `${street}, Brgy. ${barangay}, ${municipality}, ${province}`;
+      console.log("Generated address:", fullAddress); // Debugging log
+      setFormData((prev) => ({ ...prev, address: fullAddress }));
+    }
+  }, [selectedProvince, selectedMunicipality, selectedBarangay, selectedStreet, manualAddress, provinces, municipalities, barangays, streets]);
+
   const validateForm = () => {
     const errors = {};
 
     if (!formData.firstName || !formData.lastName) {
-      errors.fullName = 'First and last name are required.';
+      errors.fullName = "First and last name are required.";
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Please enter a valid email address.';
+      errors.email = "Please enter a valid email address.";
     }
 
-    if (!/^\d{4} \d{3} \d{4}$/.test(formData.contact)) {
-      errors.contact = 'Contact number must be in format 0917 123 4567.';
+    if (!/^09\d{9}$/.test(formData.contact)) {
+      errors.contact = "Contact number must be in format 09171234567.";
     }
 
-    if (manualAddress) {
-      if (!formData.address) {
-        errors.address = 'Please enter a full address.';
-      }
+    if (!formData.dob) {
+      errors.dob = "Date of birth is required.";
     } else {
-      if (!formData.barangay) {
-        errors.address = 'Please select a barangay.';
-      } else if (!formData.street) {
-        errors.address = 'Please select a street.';
+      const dob = new Date(formData.dob);
+      const today = new Date();
+      const age = today.getFullYear() - dob.getFullYear();
+      const monthDiff = today.getMonth() - dob.getMonth();
+      const dayDiff = today.getDate() - dob.getDate();
+
+      if (dob > today) {
+        errors.dob = "Date of birth cannot be in the future.";
+      } else if (age < 18 || (age === 18 && (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0))) ) {
+        // Check if user is at least 18 years old
+        errors.dob = "User must be at least 18 years old.";
       }
+    }
+
+    if (!formData.address) {
+      errors.address = "Address is required.";
     }
 
     setFieldErrors(errors);
@@ -94,13 +136,10 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    if (name === 'contact') {
-      const raw = value.replace(/\D/g, '').slice(0, 11);
-      const formatted = raw.replace(/(\d{4})(\d{3})(\d{0,4})/, (_, a, b, c) =>
-        c ? `${a} ${b} ${c}` : b ? `${a} ${b}` : a
-      );
-      setFormData((prev) => ({ ...prev, contact: formatted }));
-    } else if (name === 'address') {
+    if (name === "contact") {
+      const raw = value.replace(/\D/g, "").slice(0, 11);
+      setFormData((prev) => ({ ...prev, contact: raw }));
+    } else if (name === "address") {
       setFormData((prev) => ({
         ...prev,
         address: value.replace(/\b\w/g, (c) => c.toUpperCase()),
@@ -116,44 +155,39 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
     setLoading(true);
     setError(null);
 
-    const fullName = `${formData.firstName} ${formData.middleName} ${formData.lastName}`
-      .trim()
-      .replace(/\s+/g, ' ');
+    const fullName = `${formData.firstName} ${formData.middleName} ${formData.lastName}`.trim().replace(/\s+/g, " ");
 
-    const fullAddress = manualAddress
-      ? formData.address
-      : [
-          streets.find((s) => s.id === selectedStreet)?.name,
-          barangays.find((b) => b.id === selectedBarangay)?.name,
-          municipalities.find((m) => m.id === selectedMunicipality)?.name,
-          provinces.find((p) => p.id === selectedProvince)?.name,
-        ]
-          .filter(Boolean)
-          .join(', ');
+    const payload = {
+      fullName,
+      email: formData.email.trim(),
+      dob: formData.dob,
+      contact: formData.contact.trim(),
+      address: formData.address.trim(),
+      role,
+    };
+
+    console.log("Payload sent to API:", payload); // Debugging log
 
     try {
-      const res = await fetch('/api/users/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          fullName,
-          address: fullAddress,
-          role,
-        }),
+      const res = await fetch("/api/users/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         const newUser = await res.json();
+        console.log("API response:", newUser); // Debugging log
         if (onAddUser) onAddUser(newUser);
         onClose();
       } else {
         const data = await res.json();
-        setError(data.error || 'Failed to add user');
+        setError(data.error || "Failed to add user");
+        console.error("API error response:", data); // Debugging log
       }
     } catch (err) {
-      console.error('Error saving user:', err);
-      setError('Something went wrong while saving.');
+      console.error("Error saving user:", err);
+      setError("Something went wrong while saving.");
     } finally {
       setLoading(false);
     }
@@ -161,10 +195,10 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
 
   useEffect(() => {
     const handleEsc = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === "Escape") onClose();
     };
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
   }, [onClose]);
 
   const handleClickOutside = (e) => {
@@ -172,45 +206,6 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
       onClose();
     }
   };
-
-  useEffect(() => {
-    if (selectedProvince && !manualAddress) {
-      fetchMunicipalities(selectedProvince);
-      setSelectedMunicipality(null);
-      setSelectedBarangay(null);
-      setSelectedStreet(null);
-      setFormData((prev) => ({
-        ...prev,
-        province: selectedProvince,
-        municipality: '',
-        barangay: '',
-        street: '',
-      }));
-    }
-  }, [selectedProvince, manualAddress]);
-
-  useEffect(() => {
-    if (selectedMunicipality && !manualAddress) {
-      fetchBarangays(selectedMunicipality);
-      setSelectedBarangay(null);
-      setSelectedStreet(null);
-      setFormData((prev) => ({ ...prev, municipality: selectedMunicipality, barangay: '', street: '' }));
-    }
-  }, [selectedMunicipality, manualAddress]);
-
-  useEffect(() => {
-    if (selectedBarangay && !manualAddress) {
-      fetchStreets(selectedBarangay);
-      setSelectedStreet(null);
-      setFormData((prev) => ({ ...prev, barangay: selectedBarangay, street: '' }));
-    }
-  }, [selectedBarangay, manualAddress]);
-
-  useEffect(() => {
-    if (selectedStreet && !manualAddress) {
-      setFormData((prev) => ({ ...prev, street: selectedStreet }));
-    }
-  }, [selectedStreet]);
 
   return (
     <div
@@ -241,7 +236,9 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">First Name</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              First Name
+            </label>
             <input
               type="text"
               name="firstName"
@@ -249,7 +246,7 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
               onChange={handleChange}
               placeholder="Enter first name"
               className={`w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 ${
-                fieldErrors.fullName ? 'border-red-500' : 'border-gray-300'
+                fieldErrors.fullName ? "border-red-500" : "border-gray-300"
               }`}
             />
             {fieldErrors.fullName && (
@@ -257,7 +254,9 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Middle Name (optional)</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              Middle Name (optional)
+            </label>
             <input
               type="text"
               name="middleName"
@@ -268,7 +267,9 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Last Name</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              Last Name
+            </label>
             <input
               type="text"
               name="lastName"
@@ -276,7 +277,7 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
               onChange={handleChange}
               placeholder="Enter last name"
               className={`w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 ${
-                fieldErrors.fullName ? 'border-red-500' : 'border-gray-300'
+                fieldErrors.fullName ? "border-red-500" : "border-gray-300"
               }`}
             />
             {fieldErrors.fullName && (
@@ -284,18 +285,27 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Date of Birth</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              Date of Birth
+            </label>
             <input
               type="date"
               name="dob"
               value={formData.dob}
               onChange={handleChange}
               placeholder="Select date of birth"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500"
+              className={`w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 ${
+                fieldErrors.dob ? "border-red-500" : "border-gray-300"
+              }`}
             />
+            {fieldErrors.dob && (
+              <p className="text-red-500 text-sm mt-1">{fieldErrors.dob}</p>
+            )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              Email
+            </label>
             <input
               type="email"
               name="email"
@@ -303,7 +313,7 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
               onChange={handleChange}
               placeholder="Enter email address"
               className={`w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 ${
-                fieldErrors.email ? 'border-red-500' : 'border-gray-300'
+                fieldErrors.email ? "border-red-500" : "border-gray-300"
               }`}
             />
             {fieldErrors.email && (
@@ -311,22 +321,23 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Contact Number</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">
+              Contact Number
+            </label>
             <input
               type="text"
               name="contact"
               value={formData.contact}
               onChange={handleChange}
-              placeholder="e.g. 0917 123 4567"
+              placeholder="e.g. 09171234567"
               className={`w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 ${
-                fieldErrors.contact ? 'border-red-500' : 'border-gray-300'
+                fieldErrors.contact ? "border-red-500" : "border-gray-300"
               }`}
             />
             {fieldErrors.contact && (
               <p className="text-red-500 text-sm mt-1">{fieldErrors.contact}</p>
             )}
           </div>
-          {/* Address Section */}
           <div className="col-span-2">
             <label className="text-gray-500 font-medium flex justify-between items-center mb-1">
               Full Address
@@ -335,7 +346,7 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
                 onClick={() => setManualAddress(!manualAddress)}
                 className="text-blue-600 text-xs underline"
               >
-                {manualAddress ? 'Use Dropdown' : 'Enter Manually'}
+                {manualAddress ? "Use Dropdown" : "Enter Manually"}
               </button>
             </label>
             {manualAddress ? (
@@ -346,68 +357,72 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
                 onChange={handleChange}
                 placeholder="Enter full address"
                 className={`w-full border rounded-md px-3 py-2 ${
-                  fieldErrors.address ? 'border-red-500' : 'border-gray-300'
+                  fieldErrors.address ? "border-red-500" : "border-gray-300"
                 }`}
               />
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <select
-                  value={selectedProvince || ''}
-                  onChange={(e) => setSelectedProvince(e.target.value)}
+                  value={selectedProvince || ""}
+                  onChange={(e) => {
+                    setSelectedProvince(e.target.value);
+                    setSelectedMunicipality(null);
+                    setSelectedBarangay(null);
+                    setSelectedStreet(null);
+                  }}
                   className={`border px-3 py-2 rounded-md ${
-                    fieldErrors.address ? 'border-red-500' : 'border-gray-300'
+                    fieldErrors.address ? "border-red-500" : "border-gray-300"
                   }`}
                 >
                   <option value="">Select Province</option>
                   {provinces.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
+                    <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
                 <select
-                  value={selectedMunicipality || ''}
-                  onChange={(e) => setSelectedMunicipality(e.target.value)}
+                  value={selectedMunicipality || ""}
+                  onChange={(e) => {
+                    setSelectedMunicipality(e.target.value);
+                    setSelectedBarangay(null);
+                    setSelectedStreet(null);
+                  }}
                   className={`border px-3 py-2 rounded-md ${
-                    fieldErrors.address ? 'border-red-500' : 'border-gray-300'
+                    fieldErrors.address ? "border-red-500" : "border-gray-300"
                   }`}
                   disabled={!selectedProvince}
                 >
                   <option value="">Select Municipality</option>
                   {municipalities.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
+                    <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
                 <select
-                  value={selectedBarangay || ''}
-                  onChange={(e) => setSelectedBarangay(e.target.value)}
+                  value={selectedBarangay || ""}
+                  onChange={(e) => {
+                    setSelectedBarangay(e.target.value);
+                    setSelectedStreet(null);
+                  }}
                   className={`border px-3 py-2 rounded-md ${
-                    fieldErrors.address ? 'border-red-500' : 'border-gray-300'
+                    fieldErrors.address ? "border-red-500" : "border-gray-300"
                   }`}
                   disabled={!selectedMunicipality}
                 >
                   <option value="">Select Barangay</option>
                   {barangays.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
+                    <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
                 </select>
                 <select
-                  value={selectedStreet || ''}
+                  value={selectedStreet || ""}
                   onChange={(e) => setSelectedStreet(e.target.value)}
                   className={`border px-3 py-2 rounded-md ${
-                    fieldErrors.address ? 'border-red-500' : 'border-gray-300'
+                    fieldErrors.address ? "border-red-500" : "border-gray-300"
                   }`}
                   disabled={!selectedBarangay}
                 >
                   <option value="">Select Street</option>
                   {streets.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
+                    <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
               </div>
@@ -431,7 +446,7 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
             disabled={loading}
             className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-50"
           >
-            {loading ? 'Saving...' : 'Save User'}
+            {loading ? "Saving..." : "Save User"}
           </button>
         </div>
       </div>

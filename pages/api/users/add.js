@@ -18,14 +18,14 @@ export default async function handler(req, res) {
     let insertQuery = "";
     let values = [];
 
-    if (role === "Residents") {
-      insertQuery = `
-        INSERT INTO users (name, email, dob, contact, address, password)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING *`;
-      values = [fullName, email, dob, contact, address, "user123"]; // Replace with hashed password if needed
-
-    } else if (role === "Responders") {
+if (role === "Residents") {
+  insertQuery = `
+    INSERT INTO users (name, email, dob, contact, address, password)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *`;
+  values = [fullName, email, dob, contact, address, "user123"];
+}
+else if (role === "Responders") {
       insertQuery = `
         INSERT INTO responders (name, email, dob, contact, address, password)
         VALUES ($1, $2, $3, $4, $5, $6)

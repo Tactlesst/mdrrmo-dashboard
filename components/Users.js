@@ -24,10 +24,14 @@ export default function Users() {
     setLoading(true);
     try {
       const res = await fetch(`/api/users?role=${tab}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch users for ${tab}: ${res.statusText}`);
+      }
       const data = await res.json();
+      console.log(`Fetched users for ${tab}:`, data); // Debugging log
       setAllUsers((prev) => ({ ...prev, [tab]: data }));
     } catch (err) {
-      console.error("Failed to fetch users:", err);
+      console.error(`Failed to fetch users for ${tab}:`, err);
     } finally {
       setLoading(false);
     }
@@ -44,11 +48,10 @@ export default function Users() {
     setCurrentPage(1); // Reset page when searching
   }, [searchTerm]);
 
-const filteredUsers = (allUsers[activeTab] || []).filter((user) => {
-  const name = user.fullName || user.name || "";
-  return name.toLowerCase().includes(searchTerm.toLowerCase());
-});
-
+  const filteredUsers = (allUsers[activeTab] || []).filter((user) => {
+    const name = user.fullName || user.name || "";
+    return name.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const indexOfLastUser = currentPage * usersPerPage;
   const indexOfFirstUser = indexOfLastUser - usersPerPage;
@@ -82,7 +85,12 @@ const filteredUsers = (allUsers[activeTab] || []).filter((user) => {
               setShowAddModal(false);
               fetchTabUsers(activeTab);
             }}
-            onUserAdded={() => {
+            onAddUser={(newUser) => {
+              console.log("New user added:", newUser); // Debugging log
+              setAllUsers((prev) => ({
+                ...prev,
+                [activeTab]: [...(prev[activeTab] || []), newUser],
+              }));
               fetchTabUsers(activeTab);
               setShowAddModal(false);
             }}
@@ -141,7 +149,7 @@ const filteredUsers = (allUsers[activeTab] || []).filter((user) => {
                       className="py-3 px-4 font-medium text-red-600 hover:underline cursor-pointer"
                       onClick={() => setViewUser(user)}
                     >
-                      {user.fullName}
+                      {user.fullName || user.name}
                     </td>
                     <td>{user.email}</td>
                     <td>{formatDatePH(user.dob)}</td>
@@ -152,10 +160,10 @@ const filteredUsers = (allUsers[activeTab] || []).filter((user) => {
                         className="cursor-pointer hover:text-blue-500"
                         onClick={() => setViewUser(user)}
                       />
-<FaEdit
-  className="cursor-pointer hover:text-green-500"
-  onClick={() => setEditUser(user)}
-/>
+                      <FaEdit
+                        className="cursor-pointer hover:text-green-500"
+                        onClick={() => setEditUser(user)}
+                      />
                     </td>
                   </tr>
                 ))
@@ -170,7 +178,6 @@ const filteredUsers = (allUsers[activeTab] || []).filter((user) => {
           </table>
         </div>
 
-        {/* Pagination Controls */}
         {filteredUsers.length > usersPerPage && (
           <div className="flex justify-center items-center mt-6 gap-4">
             <button
@@ -202,28 +209,27 @@ const filteredUsers = (allUsers[activeTab] || []).filter((user) => {
         )}
       </div>
 
- {editUser && (
-  <EditUserModal
-    key={editUser.id} // 👈 force re-render when modal is reopened
-    user={editUser}
-    role={activeTab}
-    onClose={() => {
-      setEditUser(null);
-      fetchTabUsers(activeTab);
-    }}
-    onSave={(updatedUser) => {
-      setAllUsers((prev) => ({
-        ...prev,
-        [activeTab]: prev[activeTab].map((u) =>
-          u.email === updatedUser.email ? updatedUser : u
-        ),
-      }));
-      setEditUser(null);
-      fetchTabUsers(activeTab);
-    }}
-  />
-)}
-
+      {editUser && (
+        <EditUserModal
+          key={editUser.id}
+          user={editUser}
+          role={activeTab}
+          onClose={() => {
+            setEditUser(null);
+            fetchTabUsers(activeTab);
+          }}
+          onSave={(updatedUser) => {
+            setAllUsers((prev) => ({
+              ...prev,
+              [activeTab]: prev[activeTab].map((u) =>
+                u.email === updatedUser.email ? updatedUser : u
+              ),
+            }));
+            setEditUser(null);
+            fetchTabUsers(activeTab);
+          }}
+        />
+      )}
 
       {viewUser && (
         <ViewUserModal
