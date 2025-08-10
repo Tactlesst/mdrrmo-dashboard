@@ -8,8 +8,8 @@ export default async function handler(req, res) {
          email,
          ip_address,
          user_agent,
-         -- Convert UTC to Manila time before returning
-         (login_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Manila') AS login_time
+         -- Convert stored UTC time directly to Manila time
+         login_time AT TIME ZONE 'Asia/Manila' AS login_time
        FROM login_logs
        ORDER BY login_time DESC`
     );
