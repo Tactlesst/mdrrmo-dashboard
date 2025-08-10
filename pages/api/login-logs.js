@@ -1,4 +1,4 @@
-import pool from '@/lib/db'; // PostgreSQL connection
+import pool from '@/lib/db'; // Adjust if path differs
 
 export default async function handler(req, res) {
   try {
@@ -8,11 +8,7 @@ export default async function handler(req, res) {
          email,
          ip_address,
          user_agent,
-         -- Convert from UTC to Manila and format nicely
-         TO_CHAR(
-           login_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Manila',
-           'Mon DD, YYYY, HH12:MI AM'
-         ) AS login_time
+         login_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Manila' AS login_time
        FROM login_logs
        ORDER BY login_time DESC`
     );
