@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { FaEye, FaTrash } from 'react-icons/fa';
-import { formatPHDate, formatPHDateTime } from '@/lib/dateUtils';
+import { formatPHDateTime, formatPHDateISO } from '@/lib/dateUtils';
 
 export default function Logs() {
   const [logs, setLogs] = useState([]);
@@ -9,10 +9,6 @@ export default function Logs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toISOString().split('T')[0];
-  };
 
   useEffect(() => {
     fetch('/api/login-logs')
@@ -36,13 +32,15 @@ export default function Logs() {
     if (!selectedDate) {
       setFilteredLogs(logs);
     } else {
-      const filtered = logs.filter((log) => formatDate(log.login_time) === selectedDate);
+      const filtered = logs.filter(
+        (log) => formatPHDateISO(log.login_time) === selectedDate
+      );
       setFilteredLogs(filtered);
     }
   }, [selectedDate, logs]);
 
   const uniqueDates = Array.from(
-    new Set(logs.map((log) => formatDate(log.login_time)))
+    new Set(logs.map((log) => formatPHDateISO(log.login_time)))
   ).sort((a, b) => (a > b ? -1 : 1));
 
   return (
@@ -60,7 +58,12 @@ export default function Logs() {
             <option value="">All Dates</option>
             {uniqueDates.map((date) => (
               <option key={date} value={date}>
-                {new Date(date).toLocaleDateString()}
+                {new Date(date).toLocaleDateString("en-PH", {
+                  timeZone: "Asia/Manila",
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })}
               </option>
             ))}
           </select>

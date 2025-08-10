@@ -1,4 +1,4 @@
-import pool from '@/lib/db'; // Adjust path if needed
+import pool from '@/lib/db'; // PostgreSQL connection
 
 export default async function handler(req, res) {
   try {
@@ -8,8 +8,11 @@ export default async function handler(req, res) {
          email,
          ip_address,
          user_agent,
-         -- Convert stored UTC time directly to Manila time
-         login_time AT TIME ZONE 'Asia/Manila' AS login_time
+         -- Convert from UTC to Manila and format nicely
+         TO_CHAR(
+           login_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Manila',
+           'Mon DD, YYYY, HH12:MI AM'
+         ) AS login_time
        FROM login_logs
        ORDER BY login_time DESC`
     );
