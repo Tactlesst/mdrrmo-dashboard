@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from "react";
 import { FiPlus } from "react-icons/fi";
 import PCRForm from "./PCRForm";
+import PCRAdd from "./PCRAdd"; // ✅ New import
 import PCRView from "./PCRView";
 import PCRPrint from "./PCRPrint";
 import PCREdit from "./PCREdit";
@@ -134,19 +135,19 @@ export default function ManagePCRForm() {
             </table>
           </div>
         </>
-      ) : (
-        <PCRForm onClose={handleFormClose} />
-      )}
+    ) : (
+      <PCRAdd onClose={handleFormClose} /> 
+    )}
 
-      {selectedForm && (
-        <PCRView form={selectedForm} onClose={() => setSelectedForm(null)} />
-      )}
-      {editForm && (
-        <PCREdit form={editForm} onClose={() => setEditForm(null)} />
-      )}
-      {printForm && (
-        <PCRPrint form={printForm} onClose={() => setPrintForm(null)} />
-      )}
-    </div>
+    {selectedForm && (
+      <PCRView form={selectedForm} onClose={() => setSelectedForm(null)} />
+    )}
+    {editForm && (
+      <PCREdit form={editForm} onClose={() => setEditForm(null)} />
+    )}
+    {printForm && (
+      <PCRPrint form={printForm} onClose={() => setPrintForm(null)} />
+    )}
+  </div>
   );
 }

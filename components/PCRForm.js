@@ -1,7 +1,4 @@
-// components/PCRForm.js (Updated)
-"use client";
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FiX } from "react-icons/fi";
 import BodyDiagram3D from "./BodyDiagram3D";
 
@@ -79,44 +76,52 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
     ...initialFormData,
     ...(initialData || {}),
   });
+
+  // ✅ Keep formData in sync when initialData changes
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      ...(initialData || {}),
+    }));
+  }, [initialData]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    if (type === "checkbox") {
-      const parentName = name.split(".")[0];
-      const childName = name.split(".")[1];
-      setFormData((prev) => ({
+    if (type === "checkbox" && name.includes(".")) {
+      const [parentName, childName] = name.split(".");
+      setFormData(prev => ({
         ...prev,
         [parentName]: {
           ...prev[parentName],
           [childName]: checked,
         },
       }));
+    } else if (type === "checkbox") {
+      setFormData(prev => ({
+        ...prev,
+        [name]: checked,
+      }));
     } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
   const handleCheckboxArrayChange = (e) => {
     const { name, value, checked } = e.target;
-    if (checked) {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: [...prev[name], value],
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: prev[name].filter((item) => item !== value),
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked
+        ? [...prev[name], value]
+        : prev[name].filter(item => item !== value),
+    }));
   };
 
   const handleBodyDiagramChange = (diagramData) => {
-    setFormData((prev) => ({ ...prev, bodyDiagram: diagramData }));
+    setFormData(prev => ({ ...prev, bodyDiagram: diagramData }));
   };
 
   const handleSubmit = async (e) => {
@@ -124,9 +129,8 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
     setError(null);
     setIsSubmitting(true);
 
-    // Required fields validation
     const requiredFields = ["patientName", "date", "recorder"];
-    const missingFields = requiredFields.filter((field) => !formData[field]);
+    const missingFields = requiredFields.filter(field => !formData[field]);
     if (missingFields.length > 0) {
       setError(`Please fill in: ${missingFields.join(", ")}`);
       setIsSubmitting(false);
@@ -137,28 +141,25 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
       if (onSubmit) {
         await onSubmit(formData);
       } else {
-        const response = await fetch("/api/pcr", {
+        const res = await fetch("/api/pcr", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),
         });
-
-        if (!response.ok) {
-          const { error } = await response.json();
+        if (!res.ok) {
+          const { error } = await res.json();
           throw new Error(error || "Failed to save form");
         }
       }
-
       setFormData(initialFormData);
       onClose(true);
-    } catch (error) {
-      setError(error.message);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 bg-opacity-50 flex justify-center items-center p-4">

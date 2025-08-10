@@ -5,85 +5,114 @@ import React from "react";
 import PCRForm from "./PCRForm";
 
 const PCREdit = ({ form, onClose }) => {
+  // Helpers
+  const toNull = (value) => {
+    if (value === "" || value === undefined || value === null) return null;
+    return value;
+  };
+
+  const toIntOrNull = (value) => {
+    if (value === "" || value === undefined || value === null) return null;
+    const parsed = parseInt(value);
+    return isNaN(parsed) ? null : parsed;
+  };
+
   const handleSubmit = async (formData) => {
     try {
+      if (!formData.date) {
+        throw new Error("Date is required.");
+      }
+
+      let poiType = null;
+      if (formData.poi?.highway) poiType = "highway";
+      else if (formData.poi?.residence) poiType = "residence";
+      else if (formData.poi?.publicBuilding) poiType = "public_building";
+
       const transformedData = {
-        patient_name: formData.patientName,
-        date: formData.date,
-        location: formData.homeAddress,
-        recorder: formData.recorder,
+        patient_name: toNull(formData.patientName),
+        date: formData.date, // Required
+        location: toNull(formData.location),
+        recorder: toNull(formData.recorder),
         full_form: {
-          case_number: formData.caseType,
-          age: parseInt(formData.age) || 0,
-          sex: formData.gender,
-          contact_number: formData.contactNumber,
-          address: formData.homeAddress,
-          poi_type: formData.poi.brgy,
+          case_number: toNull(formData.caseType),
+          age: toIntOrNull(formData.age),
+          sex: toNull(formData.gender),
+          contact_number: toNull(formData.contactNumber),
+          address: toNull(formData.homeAddress),
+          poi_type: toNull(poiType),
           poi_details: {
-            brgy: formData.poi.brgy,
-            highway: formData.poi.highway,
-            residence: formData.poi.residence,
-            publicBuilding: formData.poi.publicBuilding,
+            brgy: toNull(formData.poi?.brgy),
+            highway: !!formData.poi?.highway,
+            residence: !!formData.poi?.residence,
+            publicBuilding: !!formData.poi?.publicBuilding,
           },
           vitals: {
-            blood_pressure: formData.bloodPressure,
-            pulse_rate: parseInt(formData.pr) || 0,
-            respiratory_rate: parseInt(formData.rr) || 0,
-            temperature: formData.temp,
-            oxygen_saturation: formData.o2sat,
-            gcs_eye: 0, // Add input if needed
-            gcs_verbal: 0, // Add input if needed
-            gcs_motor: 0, // Add input if needed
+            blood_pressure: toNull(formData.bloodPressure),
+            pulse_rate: toIntOrNull(formData.pr),
+            respiratory_rate: toIntOrNull(formData.rr),
+            temperature: toNull(formData.temp),
+            oxygen_saturation: toNull(formData.o2sat),
+            gcs_eye: toIntOrNull(formData.gcs_eye),
+            gcs_verbal: toIntOrNull(formData.gcs_verbal),
+            gcs_motor: toIntOrNull(formData.gcs_motor),
           },
-          history_present_illness: formData.chiefComplaints,
-          past_medical_history: formData.pastHistory,
-          medications: formData.medication,
-          allergies: formData.allergies,
-          body_diagram: Object.keys(formData.bodyDiagram).filter(
-            (key) => formData.bodyDiagram[key]
+          history_present_illness: toNull(formData.chiefComplaints),
+          past_medical_history: toNull(formData.pastHistory),
+          medications: toNull(formData.medication),
+          allergies: toNull(formData.allergies),
+          body_diagram:
+            formData.bodyDiagram && Object.keys(formData.bodyDiagram).length > 0
+              ? Object.keys(formData.bodyDiagram).filter(
+                  (key) => formData.bodyDiagram[key]
+                )
+              : null,
+          waiver_signed:
+            formData.patientSignature || formData.witnessSignature
+              ? true
+              : null,
+          category: toNull(formData.category),
+          hospital_transported: toNull(formData.hospitalTransported),
+          time_call: toNull(formData.timeCall),
+          time_arrived_scene: toNull(formData.timeArrivedScene),
+          time_left_scene: toNull(formData.timeLeftScene),
+          time_arrived_hospital: toNull(formData.timeArrivedHospital),
+          ambulance_no: toNull(formData.ambulanceNo),
+          under_influence: formData.underInfluence || null,
+          evacuation_code: formData.evacuationCode || null,
+          response_team: formData.responseTeam?.length
+            ? formData.responseTeam
+            : null,
+          contact_person: toNull(formData.contactPerson),
+          relationship: toNull(formData.relationship),
+          doi: toNull(formData.doi),
+          toi: toNull(formData.toi),
+          noi: toNull(formData.noi),
+          loss_of_consciousness: toNull(formData.lossOfConsciousness),
+          loss_of_consciousness_minutes: toIntOrNull(
+            formData.lossOfConsciousnessMinutes
           ),
-          waiver_signed: !!formData.patientSignature,
-          category: formData.category,
-          hospital_transported: formData.hospitalTransported,
-          time_call: formData.timeCall,
-          time_arrived_scene: formData.timeArrivedScene,
-          time_left_scene: formData.timeLeftScene,
-          time_arrived_hospital: formData.timeArrivedHospital,
-          ambulance_no: formData.ambulanceNo,
-          under_influence: formData.underInfluence,
-          evacuation_code: formData.evacuationCode,
-          response_team: formData.responseTeam,
-          contact_person: formData.contactPerson,
-          relationship: formData.relationship,
-          doi: formData.doi,
-          toi: formData.toi,
-          noi: formData.noi,
-          loss_of_consciousness: formData.lossOfConsciousness,
-          loss_of_consciousness_minutes: formData.lossOfConsciousnessMinutes,
-          chief_complaints: formData.chiefComplaints,
-          interventions: formData.interventions,
-          signs_symptoms: formData.signsSymptoms,
-          last_intake: formData.lastIntake,
-          events: formData.events,
-          narrative: formData.narrative,
-          driver: formData.driver,
-          team_leader: formData.teamLeader,
-          crew: formData.crew,
-          receiving_hospital: formData.receivingHospital,
-          patient_signature: formData.patientSignature,
-          witness_signature: formData.witnessSignature,
-          patient_signature_date: formData.patientSignatureDate,
-          witness_signature_date: formData.witnessSignatureDate,
-          receiving_name: formData.receivingName,
-          receiving_signature: formData.receivingSignature,
+          chief_complaints: toNull(formData.chiefComplaints),
+          interventions: toNull(formData.interventions),
+          signs_symptoms: toNull(formData.signsSymptoms),
+          last_intake: toNull(formData.lastIntake),
+          events: toNull(formData.events),
+          narrative: toNull(formData.narrative),
+          driver: toNull(formData.driver),
+          team_leader: toNull(formData.teamLeader),
+          crew: toNull(formData.crew),
+          receiving_hospital: toNull(formData.receivingHospital),
+          patient_signature: toNull(formData.patientSignature),
+          witness_signature: toNull(formData.witnessSignature),
+          patient_signature_date: toNull(formData.patientSignatureDate),
+          witness_signature_date: toNull(formData.witnessSignatureDate),
+          receiving_name: toNull(formData.receivingName),
+          receiving_signature: toNull(formData.receivingSignature),
         },
       };
 
       const response = await fetch(`/api/pcr/${form.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(transformedData),
       });
 
@@ -94,14 +123,16 @@ const PCREdit = ({ form, onClose }) => {
 
       onClose();
     } catch (error) {
-      throw error; // Handled by PCRForm
+      alert(error.message);
+      throw error;
     }
   };
 
+  // Map DB format to PCRForm expected props
   const initialData = {
     caseType: form.full_form?.case_number || "",
     recorder: form.recorder || "",
-    date: form.date || "",
+    date: form.date ? form.date.split("T")[0] : "", // <-- formatted for <input type="date">
     patientName: form.patient_name || "",
     age: form.full_form?.age || "",
     gender: form.full_form?.sex || "",
@@ -117,7 +148,8 @@ const PCREdit = ({ form, onClose }) => {
     timeLeftScene: form.full_form?.time_left_scene || "",
     timeArrivedHospital: form.full_form?.time_arrived_hospital || "",
     ambulanceNo: form.full_form?.ambulance_no || "",
-    homeAddress: form.full_form?.address || form.location || "",
+    homeAddress: form.full_form?.address || "",
+    location: form.location || "",
     underInfluence: form.full_form?.under_influence || {
       alcohol: false,
       drugs: false,
@@ -138,14 +170,18 @@ const PCREdit = ({ form, onClose }) => {
     toi: form.full_form?.toi || "",
     noi: form.full_form?.noi || "",
     poi: form.full_form?.poi_details || {
-      brgy: form.full_form?.poi_type || "",
+      brgy: "",
       highway: false,
       residence: false,
       publicBuilding: false,
     },
     lossOfConsciousness: form.full_form?.loss_of_consciousness || "no",
-    lossOfConsciousnessMinutes: form.full_form?.loss_of_consciousness_minutes || "",
-    chiefComplaints: form.full_form?.chief_complaints || form.full_form?.history_present_illness || "",
+    lossOfConsciousnessMinutes:
+      form.full_form?.loss_of_consciousness_minutes || "",
+    chiefComplaints:
+      form.full_form?.chief_complaints ||
+      form.full_form?.history_present_illness ||
+      "",
     interventions: form.full_form?.interventions || "",
     signsSymptoms: form.full_form?.signs_symptoms || "",
     allergies: form.full_form?.allergies || "",
@@ -162,15 +198,21 @@ const PCREdit = ({ form, onClose }) => {
     witnessSignature: form.full_form?.witness_signature || "",
     patientSignatureDate: form.full_form?.patient_signature_date || "",
     witnessSignatureDate: form.full_form?.witness_signature_date || "",
-    bodyDiagram: (form.full_form?.body_diagram || []).reduce((acc, part) => ({
-      ...acc,
-      [part]: true,
-    }), {}),
+    bodyDiagram: (form.full_form?.body_diagram || []).reduce(
+      (acc, part) => ({ ...acc, [part]: true }),
+      {}
+    ),
     receivingName: form.full_form?.receiving_name || "",
     receivingSignature: form.full_form?.receiving_signature || "",
   };
 
-  return <PCRForm onClose={onClose} initialData={initialData} onSubmit={handleSubmit} />;
+  return (
+    <PCRForm
+      onClose={onClose}
+      initialData={initialData}
+      onSubmit={handleSubmit}
+    />
+  );
 };
 
 export default PCREdit;

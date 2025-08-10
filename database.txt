@@ -1,43 +1,42 @@
+
 CREATE TABLE pcr_forms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   patient_name TEXT NOT NULL,
   date DATE NOT NULL,
   location TEXT,
-  recorder TEXT,
-  full_form JSONB,
+  recorder TEXT NOT NULL, -- auto-filled from admin/responders.name
+  full_form JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
   created_by_type TEXT NOT NULL CHECK (created_by_type IN ('admin', 'responder')),
-  created_by_id UUID NOT NULL
+  created_by_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE -- we'll adjust FK for responders below
 );
 
-  '{
-    "case_number": "",
-    "age": ,
-    "sex": "",
-    "contact_number": "",
-    "address": "",
-    "poi_type": "",
-    "poi_details": "",
-    "vitals": {
-      "blood_pressure": "",
-      "pulse_rate": ,
-      "respiratory_rate": ,
-      "temperature": "",
-      "oxygen_saturation": "",
-      "gcs_eye": ,
-      "gcs_verbal": ,
-      "gcs_motor": 
-    },
-    "history_present_illness": "",
-    "past_medical_history": "",
-    "medications": "",
-    "allergies": "",
-    "body_diagram": ["right-leg", "left-arm"],
-    "waiver_signed": 
-  }'::jsonb,
-  'responder',
-  }
+{
+  "case_number": "",
+  "age": null,
+  "sex": "",
+  "contact_number": "",
+  "address": "",
+  "poi_type": "",
+  "poi_details": "",
+  "vitals": {
+    "blood_pressure": "",
+    "pulse_rate": null,
+    "respiratory_rate": null,
+    "temperature": "",
+    "oxygen_saturation": "",
+    "gcs_eye": null,
+    "gcs_verbal": null,
+    "gcs_motor": null
+  },
+  "history_present_illness": "",
+  "past_medical_history": "",
+  "medications": "",
+  "allergies": "",
+  "body_diagram": ["right-leg", "left-arm"],
+  "waiver_signed": null
+}
+
 
 CREATE TABLE provinces (
   id SERIAL PRIMARY KEY,
@@ -100,6 +99,7 @@ CREATE TABLE IF NOT EXISTS responders (
   contact TEXT DEFAULT NULL,      -- Contact number
   address TEXT DEFAULT NULL       -- Address
 );
+
 CREATE TABLE IF NOT EXISTS responder_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   responder_id INTEGER REFERENCES responders(id) ON DELETE CASCADE,
@@ -124,12 +124,12 @@ CREATE TABLE admin_sessions (
 
 CREATE TABLE login_logs (
   id SERIAL PRIMARY KEY,
-    admin_id INTEGER REFERENCES admins(id),
-      email TEXT,
-        ip_address TEXT,
-          user_agent TEXT,
-            login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
+  admin_id INTEGER REFERENCES admins(id) ON DELETE CASCADE,
+  email TEXT,
+  ip_address TEXT,
+  user_agent TEXT,
+  login_time TIMESTAMPTZ DEFAULT NOW()
+);
 
 CREATE TABLE IF NOT EXISTS admins (
   id SERIAL PRIMARY KEY,
