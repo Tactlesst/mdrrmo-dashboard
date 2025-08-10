@@ -1,4 +1,4 @@
-import pool from '@/lib/db'; // Adjust if path differs
+import pool from '@/lib/db'; // Adjust path if needed
 
 export default async function handler(req, res) {
   try {
@@ -8,7 +8,8 @@ export default async function handler(req, res) {
          email,
          ip_address,
          user_agent,
-         login_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Manila' AS login_time
+         -- Convert stored UTC time directly to Manila time
+         login_time AT TIME ZONE 'Asia/Manila' AS login_time
        FROM login_logs
        ORDER BY login_time DESC`
     );

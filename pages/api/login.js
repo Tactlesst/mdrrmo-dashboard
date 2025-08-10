@@ -51,7 +51,6 @@ function getIPv4FromRequest(req) {
   return ip;
 }
 
-// Login handler
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
@@ -80,12 +79,29 @@ export default async function handler(req, res) {
 
     const sessionId = sessionInsert.rows[0].id;
 
-    await pool.query(
+    // Insert into login_logs
+    const logInsert = await pool.query(
       `INSERT INTO login_logs (admin_id, email, ip_address, user_agent)
-       VALUES ($1, $2, $3, $4)`,
+       VALUES ($1, $2, $3, $4)
+       RETURNING id`,
       [admin.id, admin.email, ip, userAgent]
     );
 
+    const logId = logInsert.rows[0].id;
+
+    // Fetch the just-inserted log in UTC ISO format with Z
+    const logData = await pool.query(
+      `SELECT 
+         id,
+         to_char(login_time AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS login_time
+       FROM login_logs
+       WHERE id = $1`,
+      [logId]
+    );
+
+    const loginTimeISO = logData.rows[0]?.login_time || null;
+
+    // Generate token
     const token = jwt.sign(
       { id: admin.id, email: admin.email, sessionId },
       process.env.JWT_SECRET,
@@ -101,7 +117,13 @@ export default async function handler(req, res) {
     });
 
     res.setHeader('Set-Cookie', serialized);
-    res.status(200).json({ message: 'Login successful', redirect: '/AdminDashboard' });
+
+    // Send UTC ISO login_time in response
+    res.status(200).json({ 
+      message: 'Login successful', 
+      redirect: '/AdminDashboard',
+      login_time: loginTimeISO
+    });
 
   } catch (error) {
     console.error('Login error:', error);

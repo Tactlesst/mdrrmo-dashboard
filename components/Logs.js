@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { FaEye, FaTrash } from 'react-icons/fa';
-import { formatPHDateTime } from '@/lib/dateUtils';
+import { formatPHDate, formatPHDateTime } from '@/lib/dateUtils';
 
 export default function Logs() {
   const [logs, setLogs] = useState([]);
