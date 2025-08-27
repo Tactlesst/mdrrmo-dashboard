@@ -1,47 +1,53 @@
-// pages/api/pcr.js
-import pool from '@/lib/db';
+// pages/api/pcr/[id].js
+import pool from "@/lib/db";
 
 export default async function handler(req, res) {
-  if (req.method === 'GET') {
-    try {
-      const result = await pool.query('SELECT * FROM pcr_forms ORDER BY created_at DESC');
-      res.status(200).json({ data: result.rows });
-    } catch (error) {
-      console.error('Error fetching PCR forms:', error);
-      res.status(500).json({ error: 'Database error while fetching PCR forms.' });
-    }
-  } else if (req.method === 'POST') {
-    const {
-      patient_name,
-      date,
-      location,
-      recorder,
-      full_form,
-      created_by_type,
-      created_by_id,
-    } = req.body;
+  const { id } = req.query;
 
-    // Basic validation
-    if (!patient_name || !date || !recorder || !created_by_type || !created_by_id) {
-      return res.status(400).json({ error: 'Missing required fields.' });
-    }
-
+  if (req.method === "PUT") {
     try {
+      const { patient_name, date, location, recorder, full_form } = req.body;
+
       const result = await pool.query(
-        `INSERT INTO pcr_forms (
-          patient_name, date, location, recorder, full_form, created_by_type, created_by_id
-        ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)
-        RETURNING *`,
-        [patient_name, date, location, recorder, full_form, created_by_type, created_by_id]
+        `UPDATE pcr_forms
+         SET patient_name = $1,
+             date = $2,
+             location = $3,
+             recorder = $4,
+             full_form = $5::jsonb,
+             updated_at = NOW()
+         WHERE id = $6
+         RETURNING *`,
+        [patient_name, date, location, recorder, full_form, id]
       );
 
-      res.status(201).json({ success: true, data: result.rows[0] });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Form not found" });
+      }
+
+      res.status(200).json({ success: true, data: result.rows[0] });
     } catch (error) {
-      console.error('Error creating PCR form:', error);
-      res.status(500).json({ error: 'Database error while creating PCR form.' });
+      console.error("Error updating PCR form:", error);
+      res.status(500).json({ error: "Database error while updating PCR form." });
+    }
+  } else if (req.method === "DELETE") {
+    try {
+      const result = await pool.query(
+        "DELETE FROM pcr_forms WHERE id = $1 RETURNING *",
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Form not found" });
+      }
+
+      res.status(200).json({ success: true, message: "Form deleted successfully." });
+    } catch (error) {
+      console.error("Error deleting PCR form:", error);
+      res.status(500).json({ error: "Database error while deleting PCR form." });
     }
   } else {
-    res.setHeader('Allow', ['GET', 'POST']);
+    res.setHeader("Allow", ["PUT", "DELETE"]);
     res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 }

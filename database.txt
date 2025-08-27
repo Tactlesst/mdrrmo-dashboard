@@ -1,4 +1,3 @@
-
 CREATE TABLE pcr_forms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   patient_name TEXT NOT NULL,
@@ -7,9 +6,11 @@ CREATE TABLE pcr_forms (
   recorder TEXT NOT NULL, -- auto-filled from admin/responders.name
   full_form JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   created_by_type TEXT NOT NULL CHECK (created_by_type IN ('admin', 'responder')),
-  created_by_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE -- we'll adjust FK for responders below
+  created_by_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE
 );
+
 
 {
   "case_number": "",
@@ -142,4 +143,19 @@ CREATE TABLE IF NOT EXISTS admins (
   dob DATE DEFAULT NULL,          -- Date of Birth
   contact TEXT DEFAULT NULL,      -- Contact number
   address TEXT DEFAULT NULL       -- Address
+);
+
+CREATE TABLE responder_pins (
+  id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  responder_id INTEGER NOT NULL UNIQUE,
+  pin TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (responder_id) REFERENCES responders(id) ON DELETE CASCADE
+);
+
+INSERT INTO responder_pins (responder_id, pin, expires_at)
+VALUES (
+  1,                 
+  '1233',            
+  NOW() + INTERVAL '1 hour'  
 );

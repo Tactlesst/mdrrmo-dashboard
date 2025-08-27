@@ -22,52 +22,55 @@ const PCRView = ({ form, onClose }) => {
         </div>
 
         <div className="space-y-4">
+          {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
             <div>
               <label className="block text-sm font-medium text-gray-700">Patient Name:</label>
-              <p className="mt-1 text-sm">{form.patient_name}</p>
+              <p className="mt-1 text-sm">{form.patient_name || "N/A"}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Date:</label>
-              <p className="mt-1 text-sm">{form.date}</p>
+              <p className="mt-1 text-sm">{form.date ? form.date.split("T")[0] : "N/A"}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Recorder:</label>
-              <p className="mt-1 text-sm">{form.recorder}</p>
+              <p className="mt-1 text-sm">{form.recorder || "N/A"}</p>
             </div>
-            <div>
+            <div className="md:col-span-3">
               <label className="block text-sm font-medium text-gray-700">Location:</label>
-              <p className="mt-1 text-sm">{form.location}</p>
+              <p className="mt-1 text-sm">{form.location || "N/A"}</p>
             </div>
           </div>
 
+          {/* Patient Details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
             <div>
               <label className="block text-sm font-medium text-gray-700">Case Type:</label>
-              <p className="mt-1 text-sm">{fullForm.case_number}</p>
+              <p className="mt-1 text-sm">{fullForm.case_number || "N/A"}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Age:</label>
-              <p className="mt-1 text-sm">{fullForm.age}</p>
+              <p className="mt-1 text-sm">{fullForm.age || "N/A"}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Gender:</label>
-              <p className="mt-1 text-sm">{fullForm.sex}</p>
+              <p className="mt-1 text-sm">{fullForm.sex || "N/A"}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Category:</label>
-              <p className="mt-1 text-sm">{fullForm.category}</p>
+              <p className="mt-1 text-sm">{fullForm.category || "N/A"}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Contact Number:</label>
-              <p className="mt-1 text-sm">{fullForm.contact_number}</p>
+              <p className="mt-1 text-sm">{fullForm.contact_number || "N/A"}</p>
             </div>
-            <div>
+            <div className="md:col-span-3">
               <label className="block text-sm font-medium text-gray-700">Address:</label>
-              <p className="mt-1 text-sm">{fullForm.address}</p>
+              <p className="mt-1 text-sm">{fullForm.address || "N/A"}</p>
             </div>
           </div>
 
+          {/* Vitals and Incident Details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
             <div>
               <label className="block text-sm font-medium text-gray-700">Vitals:</label>
@@ -77,12 +80,13 @@ const PCRView = ({ form, onClose }) => {
                 RR: {fullForm.vitals?.respiratory_rate || "N/A"}<br />
                 Temp: {fullForm.vitals?.temperature || "N/A"}<br />
                 O2Sat: {fullForm.vitals?.oxygen_saturation || "N/A"}<br />
-                GCS: E{fullForm.vitals?.gcs_eye || 0} V{fullForm.vitals?.gcs_verbal || 0} M{fullForm.vitals?.gcs_motor || 0}
+                GCS: E{fullForm.vitals?.gcs_eye || "N/A"} V{fullForm.vitals?.gcs_verbal || "N/A"} M{fullForm.vitals?.gcs_motor || "N/A"}
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">POI:</label>
+              <label className="block text-sm font-medium text-gray-700">Place of Incident (POI):</label>
               <p className="mt-1 text-sm">
+                Type: {fullForm.poi_type || "N/A"}<br />
                 Brgy: {fullForm.poi_details?.brgy || "N/A"}<br />
                 Highway: {fullForm.poi_details?.highway ? "Yes" : "No"}<br />
                 Residence: {fullForm.poi_details?.residence ? "Yes" : "No"}<br />
@@ -99,6 +103,7 @@ const PCRView = ({ form, onClose }) => {
             </div>
           </div>
 
+          {/* Medical and Evacuation Details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
             <div>
               <label className="block text-sm font-medium text-gray-700">Under Influence:</label>
@@ -120,21 +125,23 @@ const PCRView = ({ form, onClose }) => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Response Team:</label>
-              <p className="mt-1 text-sm">{fullForm.response_team?.join(", ") || "N/A"}</p>
+              <p className="mt-1 text-sm">{fullForm.response_team?.length ? fullForm.response_team.join(", ") : "N/A"}</p>
             </div>
           </div>
 
+          {/* Medical History */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded">
             <div>
-              <label className="block text-sm font-medium text-gray-700">History:</label>
+              <label className="block text-sm font-medium text-gray-700">Medical History:</label>
               <p className="mt-1 text-sm">
-                Chief Complaints: {fullForm.chief_complaints || "N/A"}<br />
+                Chief Complaints: {fullForm.chief_complaints || fullForm.history_present_illness || "N/A"}<br />
                 Signs & Symptoms: {fullForm.signs_symptoms || "N/A"}<br />
                 Allergies: {fullForm.allergies || "N/A"}<br />
                 Medications: {fullForm.medications || "N/A"}<br />
-                Past History: {fullForm.past_medical_history || "N/A"}<br />
+                Past Medical History: {fullForm.past_medical_history || "N/A"}<br />
                 Last Intake: {fullForm.last_intake || "N/A"}<br />
-                Events: {fullForm.events || "N/A"}
+                Events: {fullForm.events || "N/A"}<br />
+                Interventions: {fullForm.interventions || "N/A"}
               </p>
             </div>
             <div>
@@ -143,11 +150,12 @@ const PCRView = ({ form, onClose }) => {
             </div>
           </div>
 
+          {/* Transport and Contact Details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
             <div>
               <label className="block text-sm font-medium text-gray-700">Transport Details:</label>
               <p className="mt-1 text-sm">
-                Hospital: {fullForm.hospital_transported || "N/A"}<br />
+                Hospital Transported: {fullForm.hospital_transported || "N/A"}<br />
                 Time of Call: {fullForm.time_call || "N/A"}<br />
                 Arrived Scene: {fullForm.time_arrived_scene || "N/A"}<br />
                 Left Scene: {fullForm.time_left_scene || "N/A"}<br />
@@ -171,11 +179,7 @@ const PCRView = ({ form, onClose }) => {
             </div>
           </div>
 
-          <div className="border p-4 rounded">
-            <label className="block text-sm font-medium text-gray-700">Body Diagram:</label>
-            <BodyDiagram3D initialData={fullForm.body_diagram} readOnly />
-          </div>
-
+          {/* Crew and Receiving Hospital */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded">
             <div>
               <label className="block text-sm font-medium text-gray-700">Crew Details:</label>
@@ -195,15 +199,25 @@ const PCRView = ({ form, onClose }) => {
             </div>
           </div>
 
-          <div className="border p-4 rounded">
-            <label className="block text-sm font-medium text-gray-700">Waiver:</label>
-            <p className="mt-1 text-sm">
-              Signed: {fullForm.waiver_signed ? "Yes" : "No"}<br />
-              Patient Signature: {fullForm.patient_signature || "N/A"}<br />
-              Witness Signature: {fullForm.witness_signature || "N/A"}<br />
-              Patient Signature Date: {fullForm.patient_signature_date || "N/A"}<br />
-              Witness Signature Date: {fullForm.witness_signature_date || "N/A"}
-            </p>
+          {/* Waiver and Body Diagram */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Waiver:</label>
+              <p className="mt-1 text-sm">
+                Signed: {fullForm.waiver_signed ? "Yes" : "No"}<br />
+                Patient Signature: {fullForm.patient_signature || "N/A"}<br />
+                Witness Signature: {fullForm.witness_signature || "N/A"}<br />
+                Patient Signature Date: {fullForm.patient_signature_date || "N/A"}<br />
+                Witness Signature Date: {fullForm.witness_signature_date || "N/A"}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Body Diagram:</label>
+              <p className="mt-1 text-sm">
+                {fullForm.body_diagram?.length ? fullForm.body_diagram.join(", ") : "N/A"}
+              </p>
+              <BodyDiagram3D initialData={fullForm.body_diagram} readOnly />
+            </div>
           </div>
         </div>
       </div>

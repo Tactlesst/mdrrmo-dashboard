@@ -1,4 +1,3 @@
-// components/PCREdit.jsx
 "use client";
 
 import React from "react";
@@ -121,7 +120,7 @@ const PCREdit = ({ form, onClose }) => {
         throw new Error(error || "Failed to update form");
       }
 
-      onClose();
+      onClose(true); // Updated to pass true for refresh
     } catch (error) {
       alert(error.message);
       throw error;

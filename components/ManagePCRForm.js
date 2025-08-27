@@ -1,10 +1,8 @@
-// components/ManagePCRForm.jsx
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { FiPlus } from "react-icons/fi";
-import PCRForm from "./PCRForm";
-import PCRAdd from "./PCRAdd"; // ✅ New import
+import PCRAdd from "./PCRAdd";
 import PCRView from "./PCRView";
 import PCRPrint from "./PCRPrint";
 import PCREdit from "./PCREdit";
@@ -86,68 +84,80 @@ export default function ManagePCRForm() {
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-4 text-center text-red-600">
+                    <td
+                      colSpan="5"
+                      className="px-6 py-4 text-center text-red-600"
+                    >
                       {error}
                     </td>
                   </tr>
                 ) : pcrForms.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                    <td
+                      colSpan="5"
+                      className="px-6 py-4 text-center text-gray-500"
+                    >
                       No PCR forms found.
                     </td>
                   </tr>
                 ) : (
-                  pcrForms.map((form, index) => (
-                    <tr
-                      key={form.id}
-                      className={`${
-                        index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                      } border-t border-gray-200 hover:bg-gray-100 transition`}
-                    >
-                      <td className="px-6 py-4">{form.patient_name}</td>
-                      <td className="px-6 py-4">{formatPHDateTime(form.date)}</td>
-                      <td className="px-6 py-4">{form.location}</td>
-                      <td className="px-6 py-4">{form.recorder}</td>
-                      <td className="px-6 py-4 space-x-2">
-                        <button
-                          onClick={() => setSelectedForm(form)}
-                          className="inline-block text-sm text-blue-600 hover:underline font-medium"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => setEditForm(form)}
-                          className="inline-block text-sm text-blue-600 hover:underline font-medium"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => setPrintForm(form)}
-                          className="inline-block text-sm text-green-600 hover:underline font-medium"
-                        >
-                          Print
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  [...pcrForms]
+                    .sort(
+                      (a, b) => new Date(b.date) - new Date(a.date) // 🔹 newest first
+                    )
+                    .map((form, index) => (
+                      <tr
+                        key={form.id}
+                        className={`${
+                          index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                        } border-t border-gray-200 hover:bg-gray-100 transition`}
+                      >
+                        <td className="px-6 py-4">{form.patient_name}</td>
+                        <td className="px-6 py-4">
+                          {formatPHDateTime(form.date)}
+                        </td>
+                        <td className="px-6 py-4">{form.location}</td>
+                        <td className="px-6 py-4">{form.recorder}</td>
+                        <td className="px-6 py-4 space-x-2">
+                          <button
+                            onClick={() => setSelectedForm(form)}
+                            className="inline-block text-sm text-blue-600 hover:underline font-medium"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => setEditForm(form)}
+                            className="inline-block text-sm text-blue-600 hover:underline font-medium"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setPrintForm(form)}
+                            className="inline-block text-sm text-green-600 hover:underline font-medium"
+                          >
+                            Print
+                          </button>
+                        </td>
+                      </tr>
+                    ))
                 )}
               </tbody>
             </table>
           </div>
         </>
-    ) : (
-      <PCRAdd onClose={handleFormClose} /> 
-    )}
+      ) : (
+        <PCRAdd onClose={handleFormClose} onSubmitSuccess={fetchForms} />
+      )}
 
-    {selectedForm && (
-      <PCRView form={selectedForm} onClose={() => setSelectedForm(null)} />
-    )}
-    {editForm && (
-      <PCREdit form={editForm} onClose={() => setEditForm(null)} />
-    )}
-    {printForm && (
-      <PCRPrint form={printForm} onClose={() => setPrintForm(null)} />
-    )}
-  </div>
+      {selectedForm && (
+        <PCRView form={selectedForm} onClose={() => setSelectedForm(null)} />
+      )}
+      {editForm && (
+        <PCREdit form={editForm} onClose={() => setEditForm(null)} />
+      )}
+      {printForm && (
+        <PCRPrint form={printForm} onClose={() => setPrintForm(null)} />
+      )}
+    </div>
   );
 }

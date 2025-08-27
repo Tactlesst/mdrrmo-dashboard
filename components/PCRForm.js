@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { FiX } from "react-icons/fi";
 import BodyDiagram3D from "./BodyDiagram3D";
@@ -23,6 +25,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
     timeArrivedHospital: "",
     ambulanceNo: "",
     homeAddress: "",
+    location: "", // Added location to initialFormData
     underInfluence: {
       alcohol: false,
       drugs: false,
@@ -77,7 +80,6 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
     ...(initialData || {}),
   });
 
-  // ✅ Keep formData in sync when initialData changes
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
@@ -160,7 +162,6 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
     }
   };
 
-
   return (
     <div className="fixed inset-0 z-50 bg-opacity-50 flex justify-center items-center p-4">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-5xl relative overflow-y-auto max-h-[95vh] p-8">
@@ -236,6 +237,19 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
                 disabled={isSubmitting}
               />
             </div>
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Location:
+              </label>
+              <input
+                type="text"
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-7 gap-4 border p-4 rounded">
@@ -256,14 +270,18 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
               <label className="block text-sm font-medium text-gray-700">
                 Gender:
               </label>
-              <input
-                type="text"
+              <select
                 name="gender"
                 value={formData.gender}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
                 disabled={isSubmitting}
-              />
+              >
+                <option value="" disabled>Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700">
@@ -310,13 +328,14 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Blood Pressure:
+                BP:
               </label>
               <input
                 type="text"
                 name="bloodPressure"
                 value={formData.bloodPressure}
                 onChange={handleChange}
+                placeholder="e.g., 120/80"
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
                 disabled={isSubmitting}
               />
@@ -782,6 +801,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
                     type="text"
                     name="lossOfConsciousnessMinutes"
                     placeholder="Minutes"
+                    value={formData.lossOfConsciousnessMinutes}
                     onChange={handleChange}
                     className="w-24 border-gray-300 rounded-md shadow-sm text-sm"
                     disabled={isSubmitting}
