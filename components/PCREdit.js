@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -18,8 +19,14 @@ const PCREdit = ({ form, onClose }) => {
 
   const handleSubmit = async (formData) => {
     try {
+      if (!formData.patientName) {
+        throw new Error("Patient Name is required.");
+      }
       if (!formData.date) {
         throw new Error("Date is required.");
+      }
+      if (!formData.recorder) {
+        throw new Error("Recorder is required.");
       }
 
       let poiType = null;
@@ -28,7 +35,7 @@ const PCREdit = ({ form, onClose }) => {
       else if (formData.poi?.publicBuilding) poiType = "public_building";
 
       const transformedData = {
-        patient_name: toNull(formData.patientName),
+        patient_name: formData.patientName, // Remove toNull to ensure non-null
         date: formData.date, // Required
         location: toNull(formData.location),
         recorder: toNull(formData.recorder),
@@ -109,6 +116,8 @@ const PCREdit = ({ form, onClose }) => {
         },
       };
 
+      console.log("Submitting transformedData:", transformedData);
+
       const response = await fetch(`/api/pcr/${form.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -122,6 +131,7 @@ const PCREdit = ({ form, onClose }) => {
 
       onClose(true); // Updated to pass true for refresh
     } catch (error) {
+      console.error("Error submitting form:", error);
       alert(error.message);
       throw error;
     }
@@ -131,7 +141,7 @@ const PCREdit = ({ form, onClose }) => {
   const initialData = {
     caseType: form.full_form?.case_number || "",
     recorder: form.recorder || "",
-    date: form.date ? form.date.split("T")[0] : "", // <-- formatted for <input type="date">
+    date: form.date ? form.date.split("T")[0] : "", // Formatted for <input type="date">
     patientName: form.patient_name || "",
     age: form.full_form?.age || "",
     gender: form.full_form?.sex || "",

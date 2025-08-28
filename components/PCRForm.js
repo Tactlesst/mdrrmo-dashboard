@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { FiX } from "react-icons/fi";
 import BodyDiagram3D from "./BodyDiagram3D";
+import SignatureCanvas from "react-signature-canvas";
 
-const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
+const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, createdById }) => {
   const initialFormData = {
     caseType: "",
     recorder: "",
@@ -25,7 +26,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
     timeArrivedHospital: "",
     ambulanceNo: "",
     homeAddress: "",
-    location: "", // Added location to initialFormData
+    location: "",
     underInfluence: {
       alcohol: false,
       drugs: false,
@@ -69,7 +70,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
     witnessSignature: "",
     patientSignatureDate: "",
     witnessSignatureDate: "",
-    bodyDiagram: {},
+    bodyDiagram: [],
     receivingName: "",
     receivingSignature: "",
     lossOfConsciousnessMinutes: "",
@@ -80,15 +81,19 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
     ...(initialData || {}),
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const patientSigRef = useRef(null);
+  const witnessSigRef = useRef(null);
+  const receivingSigRef = useRef(null);
+
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
       ...(initialData || {}),
     }));
   }, [initialData]);
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(null);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -126,6 +131,28 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
     setFormData(prev => ({ ...prev, bodyDiagram: diagramData }));
   };
 
+  const uploadSignature = async (sigRef, fieldName) => {
+    if (!sigRef.current || sigRef.current.isEmpty()) {
+      return formData[fieldName] || null;
+    }
+    const dataUrl = sigRef.current.toDataURL();
+    try {
+      const response = await fetch("/api/upload-signature", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature: dataUrl }),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to upload ${fieldName} signature`);
+      }
+      const { url } = await response.json();
+      return url;
+    } catch (error) {
+      console.error(`Error uploading ${fieldName} signature:`, error);
+      throw error;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -140,13 +167,29 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
     }
 
     try {
+      // Upload signatures and update formData
+      const patientSignatureUrl = await uploadSignature(patientSigRef, "patientSignature");
+      const witnessSignatureUrl = await uploadSignature(witnessSigRef, "witnessSignature");
+      const receivingSignatureUrl = await uploadSignature(receivingSigRef, "receivingSignature");
+
+      const updatedFormData = {
+        ...formData,
+        patientSignature: patientSignatureUrl,
+        witnessSignature: witnessSignatureUrl,
+        receivingSignature: receivingSignatureUrl,
+        createdByType,
+        createdById,
+      };
+
+      console.log("Submitting formData:", updatedFormData);
+
       if (onSubmit) {
-        await onSubmit(formData);
+        await onSubmit(updatedFormData);
       } else {
         const res = await fetch("/api/pcr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(updatedFormData),
         });
         if (!res.ok) {
           const { error } = await res.json();
@@ -154,12 +197,31 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
         }
       }
       setFormData(initialFormData);
+      patientSigRef.current?.clear();
+      witnessSigRef.current?.clear();
+      receivingSigRef.current?.clear();
       onClose(true);
     } catch (err) {
       setError(err.message);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const clearSignature = (sigRef, fieldName, dateFieldName) => {
+    if (sigRef.current) {
+      sigRef.current.clear();
+      setFormData(prev => ({
+        ...prev,
+        [fieldName]: "",
+        [dateFieldName]: "", // Clear the corresponding date field
+      }));
+    }
+  };
+
+  // Helper to get current date in YYYY-MM-DD format
+  const getCurrentDate = () => {
+    return new Date().toISOString().split("T")[0];
   };
 
   return (
@@ -1011,14 +1073,27 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
                   <label className="block text-sm font-medium text-gray-700">
                     SIGNATURE:
                   </label>
-                  <input
-                    type="text"
-                    name="receivingSignature"
-                    value={formData.receivingSignature}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                  <SignatureCanvas
+                    ref={receivingSigRef}
+                    penColor="black"
+                    canvasProps={{
+                      className: "border border-gray-300 rounded-md w-full h-24",
+                    }}
+                    onEnd={() =>
+                      setFormData(prev => ({
+                        ...prev,
+                        receivingSignature: receivingSigRef.current.toDataURL(),
+                      }))
+                    }
                   />
+                  <button
+                    type="button"
+                    onClick={() => clearSignature(receivingSigRef, "receivingSignature", "")}
+                    className="mt-1 text-sm text-blue-600 hover:underline"
+                    disabled={isSubmitting}
+                  >
+                    Clear Signature
+                  </button>
                 </div>
               </div>
             </div>
@@ -1042,27 +1117,55 @@ const PCRForm = ({ onClose, initialData = null, onSubmit }) => {
                     <label className="block font-medium text-gray-700">
                       Patient Signature:
                     </label>
-                    <input
-                      type="text"
-                      name="patientSignature"
-                      value={formData.patientSignature}
-                      onChange={handleChange}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-                      disabled={isSubmitting}
+                    <SignatureCanvas
+                      ref={patientSigRef}
+                      penColor="black"
+                      canvasProps={{
+                        className: "border border-gray-300 rounded-md w-full h-24",
+                      }}
+                      onEnd={() =>
+                        setFormData(prev => ({
+                          ...prev,
+                          patientSignature: patientSigRef.current.toDataURL(),
+                          patientSignatureDate: getCurrentDate(), // Set date when signed
+                        }))
+                      }
                     />
+                    <button
+                      type="button"
+                      onClick={() => clearSignature(patientSigRef, "patientSignature", "patientSignatureDate")}
+                      className="mt-1 text-sm text-blue-600 hover:underline"
+                      disabled={isSubmitting}
+                    >
+                      Clear Signature
+                    </button>
                   </div>
                   <div>
                     <label className="block font-medium text-gray-700">
                       Witness Signature:
                     </label>
-                    <input
-                      type="text"
-                      name="witnessSignature"
-                      value={formData.witnessSignature}
-                      onChange={handleChange}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-                      disabled={isSubmitting}
+                    <SignatureCanvas
+                      ref={witnessSigRef}
+                      penColor="black"
+                      canvasProps={{
+                        className: "border border-gray-300 rounded-md w-full h-24",
+                      }}
+                      onEnd={() =>
+                        setFormData(prev => ({
+                          ...prev,
+                          witnessSignature: witnessSigRef.current.toDataURL(),
+                          witnessSignatureDate: getCurrentDate(), // Set date when signed
+                        }))
+                      }
                     />
+                    <button
+                      type="button"
+                      onClick={() => clearSignature(witnessSigRef, "witnessSignature", "witnessSignatureDate")}
+                      className="mt-1 text-sm text-blue-600 hover:underline"
+                      disabled={isSubmitting}
+                    >
+                      Clear Signature
+                    </button>
                   </div>
                   <div>
                     <label className="block font-medium text-gray-700">
