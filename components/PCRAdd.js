@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useEffect, useState } from "react";
 import PCRForm from "./PCRForm";
 
@@ -7,35 +8,44 @@ const PCRAdd = ({ onClose }) => {
 
   useEffect(() => {
     fetch("/api/auth/me")
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         if (data?.name) {
           setCurrentUser(data);
         }
       })
-      .catch(err => console.error("Failed to fetch current user", err));
+      .catch((err) => console.error("Failed to fetch current user:", err));
   }, []);
 
   const handleSubmit = async (formData) => {
-    const payload = {
-      ...formData,
-      recorder: currentUser?.name || "", // ensure it's sent
-      created_by_type: currentUser?.type || "",
-      created_by_id: currentUser?.id || null,
-    };
+    try {
+      const payload = {
+        ...formData,
+        recorder: formData.recorder || currentUser?.name || "", // Ensure recorder is set
+        created_by_type: currentUser?.type || "",
+        created_by_id: currentUser?.id || null,
+      };
 
-    const response = await fetch(`/api/pcr`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      console.log("Submitting payload to /api/pcr:", JSON.stringify(payload, null, 2));
 
-    if (!response.ok) {
-      const { error } = await response.json();
-      throw new Error(error || "Failed to create form");
+      const response = await fetch("/api/pcr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const { error } = await response.json();
+        console.error("PCR submission error:", error);
+        throw new Error(error || "Failed to create form");
+      }
+
+      console.log("PCR form submitted successfully");
+      onClose(true); // Close with success
+    } catch (error) {
+      console.error("Error submitting PCR form:", error);
+      throw error; // Let PCRForm handle error display
     }
-
-    onClose();
   };
 
   return (
@@ -43,9 +53,11 @@ const PCRAdd = ({ onClose }) => {
       onClose={onClose}
       onSubmit={handleSubmit}
       initialData={{
-        date: new Date().toISOString().slice(0, 10),
-        recorder: currentUser?.name || "", // pre-fill the field
+        date: new Date().toISOString().split("T")[0], // Consistent YYYY-MM-DD format
+        recorder: currentUser?.name || "",
       }}
+      createdByType={currentUser?.type || ""}
+      createdById={currentUser?.id || null}
     />
   );
 };

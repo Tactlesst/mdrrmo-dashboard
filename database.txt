@@ -1,15 +1,50 @@
+DROP TABLE IF EXISTS pcr_forms CASCADE;
+
 CREATE TABLE pcr_forms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   patient_name TEXT NOT NULL,
   date DATE NOT NULL,
   location TEXT,
-  recorder TEXT NOT NULL, -- auto-filled from admin/responders.name
+  recorder TEXT NOT NULL,
   full_form JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   created_by_type TEXT NOT NULL CHECK (created_by_type IN ('admin', 'responder')),
-  created_by_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE
+  created_by_id UUID NOT NULL
 );
+
+-- Trigger function to auto-update updated_at
+CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_set_updated_at
+BEFORE UPDATE ON pcr_forms
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+-- Trigger function to validate created_by_id
+CREATE OR REPLACE FUNCTION check_created_by() RETURNS trigger AS $$
+BEGIN
+  IF NEW.created_by_type = 'admin' THEN
+    IF NOT EXISTS (SELECT 1 FROM admins WHERE id = NEW.created_by_id) THEN
+      RAISE EXCEPTION 'Admin ID % does not exist', NEW.created_by_id;
+    END IF;
+  ELSIF NEW.created_by_type = 'responder' THEN
+    IF NOT EXISTS (SELECT 1 FROM responders WHERE id = NEW.created_by_id) THEN
+      RAISE EXCEPTION 'Responder ID % does not exist', NEW.created_by_id;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_check_created_by
+BEFORE INSERT OR UPDATE ON pcr_forms
+FOR EACH ROW EXECUTE FUNCTION check_created_by();
 
 
 {
@@ -34,7 +69,7 @@ CREATE TABLE pcr_forms (
   "past_medical_history": "",
   "medications": "",
   "allergies": "",
-  "body_diagram": ["right-leg", "left-arm"],
+  "body_diagram": ["null"],
   "waiver_signed": null
 }
 

@@ -1,23 +1,130 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { FiX } from "react-icons/fi";
 import BodyDiagram3D from "./BodyDiagram3D";
 
 const PCRView = ({ form, onClose }) => {
   const fullForm = form.full_form || {};
+  const [imageLoaded, setImageLoaded] = useState({
+    patientSignature: false,
+    witnessSignature: false,
+    receivingSignature: false,
+  });
+  const [imageErrors, setImageErrors] = useState({
+    patientSignature: null,
+    witnessSignature: null,
+    receivingSignature: null,
+  });
+
+  // Format date for Manila timezone
+  const formatPHDate = (dateString) => {
+    if (!dateString) return "N/A";
+    try {
+      return new Date(dateString).toLocaleDateString("en-PH", {
+        timeZone: "Asia/Manila",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+    } catch (error) {
+      console.error(`Error formatting date ${dateString}:`, error);
+      return "N/A";
+    }
+  };
+
+  // Format time for Manila timezone
+  const formatPHTime = (timeString) => {
+    if (!timeString) return "N/A";
+    try {
+      return new Date(timeString).toLocaleTimeString("en-PH", {
+        timeZone: "Asia/Manila",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+    } catch (error) {
+      console.error(`Error formatting time ${timeString}:`, error);
+      return "N/A";
+    }
+  };
+
+  // Display raw string value, handling null/undefined
+  const displayRaw = (value) => {
+    return value ?? "N/A"; // Use ?? to handle null/undefined, keep empty strings
+  };
+
+  // Proxy image URL to avoid CORS issues
+  const getProxyImageUrl = (url) => {
+    if (!url || !url.startsWith("https://res.cloudinary.com")) return url;
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  };
+
+  // Preload images to ensure they are ready for display
+  useEffect(() => {
+    console.log("PCRView form data:", form);
+    console.log("Full form data:", fullForm);
+
+    const preloadImages = async () => {
+      const images = [
+        { field: "patientSignature", url: fullForm.patientSignature },
+        { field: "witnessSignature", url: fullForm.witnessSignature },
+        { field: "receivingSignature", url: fullForm.receivingSignature },
+      ];
+
+      const loadPromises = images.map(({ field, url }) => {
+        if (url && url.startsWith("https://res.cloudinary.com")) {
+          const proxyUrl = getProxyImageUrl(url);
+          console.log(`Preloading ${field} image:`, proxyUrl);
+          return new Promise((resolve) => {
+            const img = new Image();
+            img.src = proxyUrl;
+            img.onload = () => {
+              console.log(`${field} image loaded successfully`);
+              setImageLoaded((prev) => ({ ...prev, [field]: true }));
+              setImageErrors((prev) => ({ ...prev, [field]: null }));
+              resolve();
+            };
+            img.onerror = async () => {
+              console.error(`${field} image failed to load:`, proxyUrl);
+              try {
+                const response = await fetch(proxyUrl);
+                const errorText = response.ok ? "Loaded after retry" : await response.text().catch(() => "No error details");
+                setImageErrors((prev) => ({
+                  ...prev,
+                  [field]: `Failed to load ${field} (${url}): HTTP ${response.status} - ${errorText}`,
+                }));
+              } catch (fetchError) {
+                setImageErrors((prev) => ({
+                  ...prev,
+                  [field]: `Failed to load ${field} (${url}): ${fetchError.message}`,
+                }));
+              }
+              setImageLoaded((prev) => ({ ...prev, [field]: false }));
+              resolve();
+            };
+          });
+        }
+        console.log(`No valid URL for ${field}:`, url);
+        setImageLoaded((prev) => ({ ...prev, [field]: false }));
+        setImageErrors((prev) => ({ ...prev, [field]: null }));
+        return Promise.resolve();
+      });
+
+      await Promise.all(loadPromises);
+    };
+
+    preloadImages();
+  }, [fullForm.patientSignature, fullForm.witnessSignature, fullForm.receivingSignature]);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-center items-center p-4">
-      {/* Background Overlay */}
       <div
         className="fixed inset-0 bg-opacity-50 z-40"
         onClick={onClose}
       ></div>
 
-      {/* Modal Content */}
       <div className="bg-white rounded-xl shadow-lg w-full max-w-5xl relative flex flex-col max-h-[95vh] z-50">
-        {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition"
@@ -25,9 +132,7 @@ const PCRView = ({ form, onClose }) => {
           <FiX size={22} />
         </button>
 
-        {/* Scrollable Content */}
         <div className="overflow-y-auto p-8 space-y-4">
-          {/* Header */}
           <div className="flex flex-col items-center border-b pb-4 mb-4">
             <h1 className="text-xl font-bold text-center">
               PATIENT CARE REPORT (View)
@@ -35,7 +140,7 @@ const PCRView = ({ form, onClose }) => {
           </div>
 
           {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border p-4 rounded">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Patient Name:
@@ -46,21 +151,13 @@ const PCRView = ({ form, onClose }) => {
               <label className="block text-sm font-medium text-gray-700">
                 Date:
               </label>
-              <p className="mt-1 text-sm">
-                {form.date ? form.date.split("T")[0] : "N/A"}
-              </p>
+              <p className="mt-1 text-sm">{formatPHDate(form.date)}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Recorder:
               </label>
               <p className="mt-1 text-sm">{form.recorder || "N/A"}</p>
-            </div>
-            <div className="md:col-span-3">
-              <label className="block text-sm font-medium text-gray-700">
-                Location:
-              </label>
-              <p className="mt-1 text-sm">{form.location || "N/A"}</p>
             </div>
           </div>
 
@@ -70,7 +167,7 @@ const PCRView = ({ form, onClose }) => {
               <label className="block text-sm font-medium text-gray-700">
                 Case Type:
               </label>
-              <p className="mt-1 text-sm">{fullForm.case_number || "N/A"}</p>
+              <p className="mt-1 text-sm">{fullForm.caseNumber || "N/A"}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -94,7 +191,7 @@ const PCRView = ({ form, onClose }) => {
               <label className="block text-sm font-medium text-gray-700">
                 Contact Number:
               </label>
-              <p className="mt-1 text-sm">{fullForm.contact_number || "N/A"}</p>
+              <p className="mt-1 text-sm">{fullForm.contactNumber || "N/A"}</p>
             </div>
             <div className="md:col-span-3">
               <label className="block text-sm font-medium text-gray-700">
@@ -111,19 +208,12 @@ const PCRView = ({ form, onClose }) => {
                 Vitals:
               </label>
               <p className="mt-1 text-sm">
-                BP: {fullForm.vitals?.blood_pressure || "N/A"}
-                <br />
-                PR: {fullForm.vitals?.pulse_rate || "N/A"}
-                <br />
-                RR: {fullForm.vitals?.respiratory_rate || "N/A"}
-                <br />
-                Temp: {fullForm.vitals?.temperature || "N/A"}
-                <br />
-                O2Sat: {fullForm.vitals?.oxygen_saturation || "N/A"}
-                <br />
-                GCS: E{fullForm.vitals?.gcs_eye || "N/A"} V
-                {fullForm.vitals?.gcs_verbal || "N/A"} M
-                {fullForm.vitals?.gcs_motor || "N/A"}
+                BP: {fullForm.vitals?.bloodPressure || "N/A"}<br />
+                PR: {fullForm.vitals?.pulseRate || "N/A"}<br />
+                RR: {fullForm.vitals?.respiratoryRate || "N/A"}<br />
+                Temp: {fullForm.vitals?.temperature || "N/A"}<br />
+                O2Sat: {fullForm.vitals?.oxygenSaturation || "N/A"}<br />
+                GCS: E{fullForm.vitals?.gcsEye || "N/A"} V{fullForm.vitals?.gcsVerbal || "N/A"} M{fullForm.vitals?.gcsMotor || "N/A"}
               </p>
             </div>
             <div>
@@ -131,16 +221,11 @@ const PCRView = ({ form, onClose }) => {
                 Place of Incident (POI):
               </label>
               <p className="mt-1 text-sm">
-                Type: {fullForm.poi_type || "N/A"}
-                <br />
-                Brgy: {fullForm.poi_details?.brgy || "N/A"}
-                <br />
-                Highway: {fullForm.poi_details?.highway ? "Yes" : "No"}
-                <br />
-                Residence: {fullForm.poi_details?.residence ? "Yes" : "No"}
-                <br />
-                Public Building:{" "}
-                {fullForm.poi_details?.publicBuilding ? "Yes" : "No"}
+                Type: {fullForm.poiType || "N/A"}<br />
+                Brgy: {fullForm.poiDetails?.brgy || "N/A"}<br />
+                Highway: {fullForm.poiDetails?.highway ? "Yes" : "No"}<br />
+                Residence: {fullForm.poiDetails?.residence ? "Yes" : "No"}<br />
+                Public Building: {fullForm.poiDetails?.publicBuilding ? "Yes" : "No"}
               </p>
             </div>
             <div>
@@ -148,10 +233,8 @@ const PCRView = ({ form, onClose }) => {
                 Incident Details:
               </label>
               <p className="mt-1 text-sm">
-                DOI: {fullForm.doi || "N/A"}
-                <br />
-                TOI: {fullForm.toi || "N/A"}
-                <br />
+                DOI: {displayRaw(fullForm.doi)}<br />
+                TOI: {displayRaw(fullForm.toi)}<br />
                 NOI: {fullForm.noi || "N/A"}
               </p>
             </div>
@@ -164,13 +247,10 @@ const PCRView = ({ form, onClose }) => {
                 Under Influence:
               </label>
               <p className="mt-1 text-sm">
-                Alcohol: {fullForm.under_influence?.alcohol ? "Yes" : "No"}
-                <br />
-                Drugs: {fullForm.under_influence?.drugs ? "Yes" : "No"}
-                <br />
-                Unknown: {fullForm.under_influence?.unknown ? "Yes" : "No"}
-                <br />
-                None: {fullForm.under_influence?.none ? "Yes" : "No"}
+                Alcohol: {fullForm.underInfluence?.alcohol ? "Yes" : "No"}<br />
+                Drugs: {fullForm.underInfluence?.drugs ? "Yes" : "No"}<br />
+                Unknown: {fullForm.underInfluence?.unknown ? "Yes" : "No"}<br />
+                None: {fullForm.underInfluence?.none ? "Yes" : "No"}
               </p>
             </div>
             <div>
@@ -178,13 +258,10 @@ const PCRView = ({ form, onClose }) => {
                 Evacuation Code:
               </label>
               <p className="mt-1 text-sm">
-                Black: {fullForm.evacuation_code?.black ? "Yes" : "No"}
-                <br />
-                Red: {fullForm.evacuation_code?.red ? "Yes" : "No"}
-                <br />
-                Yellow: {fullForm.evacuation_code?.yellow ? "Yes" : "No"}
-                <br />
-                Green: {fullForm.evacuation_code?.green ? "Yes" : "No"}
+                Black: {fullForm.evacuationCode?.black ? "Yes" : "No"}<br />
+                Red: {fullForm.evacuationCode?.red ? "Yes" : "No"}<br />
+                Yellow: {fullForm.evacuationCode?.yellow ? "Yes" : "No"}<br />
+                Green: {fullForm.evacuationCode?.green ? "Yes" : "No"}
               </p>
             </div>
             <div>
@@ -192,9 +269,7 @@ const PCRView = ({ form, onClose }) => {
                 Response Team:
               </label>
               <p className="mt-1 text-sm">
-                {fullForm.response_team?.length
-                  ? fullForm.response_team.join(", ")
-                  : "N/A"}
+                {fullForm.responseTeam?.length ? fullForm.responseTeam.join(", ") : "N/A"}
               </p>
             </div>
           </div>
@@ -206,23 +281,13 @@ const PCRView = ({ form, onClose }) => {
                 Medical History:
               </label>
               <p className="mt-1 text-sm">
-                Chief Complaints:{" "}
-                {fullForm.chief_complaints ||
-                  fullForm.history_present_illness ||
-                  "N/A"}
-                <br />
-                Signs & Symptoms: {fullForm.signs_symptoms || "N/A"}
-                <br />
-                Allergies: {fullForm.allergies || "N/A"}
-                <br />
-                Medications: {fullForm.medications || "N/A"}
-                <br />
-                Past Medical History: {fullForm.past_medical_history || "N/A"}
-                <br />
-                Last Intake: {fullForm.last_intake || "N/A"}
-                <br />
-                Events: {fullForm.events || "N/A"}
-                <br />
+                Chief Complaints: {fullForm.chiefComplaints || fullForm.historyPresentIllness || "N/A"}<br />
+                Signs & Symptoms: {fullForm.signsSymptoms || "N/A"}<br />
+                Allergies: {fullForm.allergies || "N/A"}<br />
+                Medications: {fullForm.medications || "N/A"}<br />
+                Past Medical History: {fullForm.pastMedicalHistory || "N/A"}<br />
+                Last Intake: {fullForm.lastIntake || "N/A"}<br />
+                Events: {fullForm.events || "N/A"}<br />
                 Interventions: {fullForm.interventions || "N/A"}
               </p>
             </div>
@@ -241,17 +306,12 @@ const PCRView = ({ form, onClose }) => {
                 Transport Details:
               </label>
               <p className="mt-1 text-sm">
-                Hospital Transported: {fullForm.hospital_transported || "N/A"}
-                <br />
-                Time of Call: {fullForm.time_call || "N/A"}
-                <br />
-                Arrived Scene: {fullForm.time_arrived_scene || "N/A"}
-                <br />
-                Left Scene: {fullForm.time_left_scene || "N/A"}
-                <br />
-                Arrived Hospital: {fullForm.time_arrived_hospital || "N/A"}
-                <br />
-                Ambulance No: {fullForm.ambulance_no || "N/A"}
+                Hospital Transported: {fullForm.hospitalTransported || "N/A"}<br />
+                Time of Call: {displayRaw(fullForm.timeCall)}<br />
+                Arrived Scene: {displayRaw(fullForm.timeArrivedScene)}<br />
+                Left Scene: {displayRaw(fullForm.timeLeftScene)}<br />
+                Arrived Hospital: {displayRaw(fullForm.timeArrivedHospital)}<br />
+                Ambulance No: {fullForm.ambulanceNo || "N/A"}
               </p>
             </div>
             <div>
@@ -259,11 +319,9 @@ const PCRView = ({ form, onClose }) => {
                 Contact Person:
               </label>
               <p className="mt-1 text-sm">
-                Name: {fullForm.contact_person || "N/A"}
-                <br />
-                Relationship: {fullForm.relationship || "N/A"}
-                <br />
-                Contact Number: {fullForm.contact_number || "N/A"}
+                Name: {fullForm.contactPerson || "N/A"}<br />
+                Relationship: {fullForm.relationship || "N/A"}<br />
+                Contact Number: {fullForm.contactNumber || "N/A"}
               </p>
             </div>
             <div>
@@ -271,8 +329,8 @@ const PCRView = ({ form, onClose }) => {
                 Loss of Consciousness:
               </label>
               <p className="mt-1 text-sm">
-                {fullForm.loss_of_consciousness || "N/A"} (
-                {fullForm.loss_of_consciousness_minutes || "0"} minutes)
+                {fullForm.lossOfConsciousness || "N/A"}
+                {fullForm.lossOfConsciousness === "yes" ? ` (${fullForm.lossOfConsciousnessMinutes || "0"} minutes)` : ""}
               </p>
             </div>
           </div>
@@ -284,10 +342,8 @@ const PCRView = ({ form, onClose }) => {
                 Crew Details:
               </label>
               <p className="mt-1 text-sm">
-                Driver: {fullForm.driver || "N/A"}
-                <br />
-                Team Leader: {fullForm.team_leader || "N/A"}
-                <br />
+                Driver: {fullForm.driver || "N/A"}<br />
+                Team Leader: {fullForm.teamLeader || "N/A"}<br />
                 Crew: {fullForm.crew || "N/A"}
               </p>
             </div>
@@ -296,18 +352,31 @@ const PCRView = ({ form, onClose }) => {
                 Receiving Hospital:
               </label>
               <p className="mt-1 text-sm">
-                Hospital: {fullForm.receiving_hospital || "N/A"}
-                <br />
-                Name: {fullForm.receiving_name || "N/A"}
+                Hospital: {fullForm.receivingHospital || "N/A"}<br />
+                Name: {fullForm.receivingName || "N/A"}<br />
+                {fullForm.receivingSignature ? (
+                  <>
+                    Signature: <br />
+                    {imageErrors.receivingSignature ? (
+                      <span className="text-red-600">{imageErrors.receivingSignature}</span>
+                    ) : imageLoaded.receivingSignature ? (
+                      <img
+                        src={getProxyImageUrl(fullForm.receivingSignature)}
+                        alt="Receiving Signature"
+                        className="mt-2 h-16 object-contain border rounded"
+                      />
+                    ) : (
+                      <span className="text-gray-500">Loading signature...</span>
+                    )}
+                  </>
+                ) : (
+                  "Signature: N/A"
+                )}
               </p>
-              {fullForm.receiving_signature ? (
-                <img
-                  src={fullForm.receiving_signature}
-                  alt="Receiving Signature"
-                  className="mt-2 h-16 object-contain border rounded"
-                />
-              ) : (
-                <p className="mt-1 text-sm">Signature: N/A</p>
+              {fullForm.receivingSignatureDate && (
+                <p className="mt-1 text-sm">
+                  Signature Date: {formatPHDate(fullForm.receivingSignatureDate)}
+                </p>
               )}
             </div>
           </div>
@@ -319,40 +388,52 @@ const PCRView = ({ form, onClose }) => {
                 Waiver:
               </label>
               <p className="mt-1 text-sm">
-                Signed: {fullForm.waiver_signed ? "Yes" : "No"}
+                Signed: {fullForm.waiverSigned ? "Yes" : "No"}
               </p>
               <div className="mt-2 space-y-2">
                 <div>
                   <span className="font-medium">Patient Signature:</span>{" "}
-                  {fullForm.patient_signature ? (
-                    <img
-                      src={fullForm.patient_signature}
-                      alt="Patient Signature"
-                      className="mt-1 h-16 object-contain border rounded"
-                    />
-                  ) : (
-                    "N/A"
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium">Witness Signature:</span>{" "}
-                  {fullForm.witness_signature ? (
-                    <img
-                      src={fullForm.witness_signature}
-                      alt="Witness Signature"
-                      className="mt-1 h-16 object-contain border rounded"
-                    />
+                  {fullForm.patientSignature ? (
+                    imageErrors.patientSignature ? (
+                      <span className="text-red-600">{imageErrors.patientSignature}</span>
+                    ) : imageLoaded.patientSignature ? (
+                      <img
+                        src={getProxyImageUrl(fullForm.patientSignature)}
+                        alt="Patient Signature"
+                        className="mt-1 h-16 object-contain border rounded"
+                      />
+                    ) : (
+                      <span className="text-gray-500">Loading signature...</span>
+                    )
                   ) : (
                     "N/A"
                   )}
                 </div>
                 <div>
                   <span className="font-medium">Patient Signature Date:</span>{" "}
-                  {fullForm.patient_signature_date || "N/A"}
+                  {formatPHDate(fullForm.patientSignatureDate)}
+                </div>
+                <div>
+                  <span className="font-medium">Witness Signature:</span>{" "}
+                  {fullForm.witnessSignature ? (
+                    imageErrors.witnessSignature ? (
+                      <span className="text-red-600">{imageErrors.witnessSignature}</span>
+                    ) : imageLoaded.witnessSignature ? (
+                      <img
+                        src={getProxyImageUrl(fullForm.witnessSignature)}
+                        alt="Witness Signature"
+                        className="mt-1 h-16 object-contain border rounded"
+                      />
+                    ) : (
+                      <span className="text-gray-500">Loading signature...</span>
+                    )
+                  ) : (
+                    "N/A"
+                  )}
                 </div>
                 <div>
                   <span className="font-medium">Witness Signature Date:</span>{" "}
-                  {fullForm.witness_signature_date || "N/A"}
+                  {formatPHDate(fullForm.witnessSignatureDate)}
                 </div>
               </div>
             </div>
@@ -361,11 +442,9 @@ const PCRView = ({ form, onClose }) => {
                 Body Diagram:
               </label>
               <p className="mt-1 text-sm">
-                {fullForm.body_diagram?.length
-                  ? fullForm.body_diagram.join(", ")
-                  : "No injuries marked"}
+                {fullForm.bodyDiagram?.length ? fullForm.bodyDiagram.join(", ") : "No injuries marked"}
               </p>
-              <BodyDiagram3D initialData={fullForm.body_diagram} readOnly />
+              <BodyDiagram3D initialData={fullForm.bodyDiagram} readOnly />
             </div>
           </div>
         </div>

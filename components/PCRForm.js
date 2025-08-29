@@ -5,7 +5,7 @@ import { FiX } from "react-icons/fi";
 import BodyDiagram3D from "./BodyDiagram3D";
 import SignatureCanvas from "react-signature-canvas";
 
-const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, createdById }) => {
+const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, createdById, imageStatus }) => {
   const initialFormData = {
     caseType: "",
     recorder: "",
@@ -21,9 +21,13 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
     temp: "",
     hospitalTransported: "",
     timeCall: "",
+    timeCallPeriod: "AM", // New field for AM/PM
     timeArrivedScene: "",
+    timeArrivedScenePeriod: "AM", // New field for AM/PM
     timeLeftScene: "",
+    timeLeftScenePeriod: "AM", // New field for AM/PM
     timeArrivedHospital: "",
+    timeArrivedHospitalPeriod: "AM", // New field for AM/PM
     ambulanceNo: "",
     homeAddress: "",
     location: "",
@@ -74,13 +78,13 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
     receivingName: "",
     receivingSignature: "",
     lossOfConsciousnessMinutes: "",
+    receivingSignatureDate: "",
   };
 
   const [formData, setFormData] = useState({
     ...initialFormData,
     ...(initialData || {}),
   });
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -133,10 +137,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
 
   const uploadSignature = async (sigRef, fieldName) => {
     if (!sigRef.current || sigRef.current.isEmpty()) {
+      console.log(`No new ${fieldName} drawn, retaining existing:`, formData[fieldName]);
       return formData[fieldName] || null;
     }
-    const dataUrl = sigRef.current.toDataURL();
+    const dataUrl = sigRef.current.toDataURL("image/png");
     try {
+      console.log(`Uploading new ${fieldName}`);
       const response = await fetch("/api/upload-signature", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -146,11 +152,17 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
         throw new Error(`Failed to upload ${fieldName} signature`);
       }
       const { url } = await response.json();
+      console.log(`Uploaded ${fieldName} URL:`, url);
       return url;
     } catch (error) {
       console.error(`Error uploading ${fieldName} signature:`, error);
       throw error;
     }
+  };
+
+  const combineTimeWithPeriod = (time, period) => {
+    if (!time || !/^\d{2}:\d{2}$/.test(time)) return "";
+    return `${time} ${period}`;
   };
 
   const handleSubmit = async (e) => {
@@ -167,13 +179,18 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
     }
 
     try {
-      // Upload signatures and update formData
+      // Upload signatures
       const patientSignatureUrl = await uploadSignature(patientSigRef, "patientSignature");
       const witnessSignatureUrl = await uploadSignature(witnessSigRef, "witnessSignature");
       const receivingSignatureUrl = await uploadSignature(receivingSigRef, "receivingSignature");
 
+      // Combine time fields with AM/PM
       const updatedFormData = {
         ...formData,
+        timeCall: combineTimeWithPeriod(formData.timeCall, formData.timeCallPeriod),
+        timeArrivedScene: combineTimeWithPeriod(formData.timeArrivedScene, formData.timeArrivedScenePeriod),
+        timeLeftScene: combineTimeWithPeriod(formData.timeLeftScene, formData.timeLeftScenePeriod),
+        timeArrivedHospital: combineTimeWithPeriod(formData.timeArrivedHospital, formData.timeArrivedHospitalPeriod),
         patientSignature: patientSignatureUrl,
         witnessSignature: witnessSignatureUrl,
         receivingSignature: receivingSignatureUrl,
@@ -214,7 +231,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
       setFormData(prev => ({
         ...prev,
         [fieldName]: "",
-        [dateFieldName]: "", // Clear the corresponding date field
+        [dateFieldName]: "",
       }));
     }
   };
@@ -474,40 +491,76 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               <label className="block text-sm font-medium text-gray-700">
                 Time of Call:
               </label>
-              <input
-                type="time"
-                name="timeCall"
-                value={formData.timeCall}
-                onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
-              />
+              <div className="flex items-center space-x-2">
+                <input
+                  type="time"
+                  name="timeCall"
+                  value={formData.timeCall}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting}
+                />
+                <select
+                  name="timeCallPeriod"
+                  value={formData.timeCallPeriod}
+                  onChange={handleChange}
+                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting}
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Time Arrived at Scene:
               </label>
-              <input
-                type="time"
-                name="timeArrivedScene"
-                value={formData.timeArrivedScene}
-                onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
-              />
+              <div className="flex items-center space-x-2">
+                <input
+                  type="time"
+                  name="timeArrivedScene"
+                  value={formData.timeArrivedScene}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting}
+                />
+                <select
+                  name="timeArrivedScenePeriod"
+                  value={formData.timeArrivedScenePeriod}
+                  onChange={handleChange}
+                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting}
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Time Left Scene:
               </label>
-              <input
-                type="time"
-                name="timeLeftScene"
-                value={formData.timeLeftScene}
-                onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
-              />
+              <div className="flex items-center space-x-2">
+                <input
+                  type="time"
+                  name="timeLeftScene"
+                  value={formData.timeLeftScene}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting}
+                />
+                <select
+                  name="timeLeftScenePeriod"
+                  value={formData.timeLeftScenePeriod}
+                  onChange={handleChange}
+                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting}
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -526,14 +579,26 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               <label className="block text-sm font-medium text-gray-700">
                 Time Arrived at Hospital:
               </label>
-              <input
-                type="time"
-                name="timeArrivedHospital"
-                value={formData.timeArrivedHospital}
-                onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
-              />
+              <div className="flex items-center space-x-2">
+                <input
+                  type="time"
+                  name="timeArrivedHospital"
+                  value={formData.timeArrivedHospital}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting}
+                />
+                <select
+                  name="timeArrivedHospitalPeriod"
+                  value={formData.timeArrivedHospitalPeriod}
+                  onChange={handleChange}
+                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting}
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -566,7 +631,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 </label>
                 <label className="flex items-center text-sm">
                   <input
-                    type="checkbox"
+                    type="time"
                     name="underInfluence.drugs"
                     checked={formData.underInfluence.drugs}
                     onChange={handleChange}
@@ -1073,27 +1138,59 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                   <label className="block text-sm font-medium text-gray-700">
                     SIGNATURE:
                   </label>
+                  {formData.receivingSignature && (
+                    <div className="mt-1">
+                      {imageStatus?.receivingSignature?.error ? (
+                        <span className="text-red-600">
+                          {imageStatus.receivingSignature.error}
+                        </span>
+                      ) : imageStatus?.receivingSignature?.loaded ? (
+                        <img
+                          src={formData.receivingSignature}
+                          alt="Current Receiving Signature"
+                          className="h-24 object-contain border rounded"
+                          crossOrigin="anonymous"
+                        />
+                      ) : (
+                        <span className="text-gray-500">Loading signature...</span>
+                      )}
+                    </div>
+                  )}
                   <SignatureCanvas
                     ref={receivingSigRef}
                     penColor="black"
                     canvasProps={{
-                      className: "border border-gray-300 rounded-md w-full h-24",
+                      className: "border border-gray-300 rounded-md w-full h-24 mt-2",
                     }}
                     onEnd={() =>
                       setFormData(prev => ({
                         ...prev,
                         receivingSignature: receivingSigRef.current.toDataURL(),
+                        receivingSignatureDate: getCurrentDate(),
                       }))
                     }
                   />
                   <button
                     type="button"
-                    onClick={() => clearSignature(receivingSigRef, "receivingSignature", "")}
+                    onClick={() => clearSignature(receivingSigRef, "receivingSignature", "receivingSignatureDate")}
                     className="mt-1 text-sm text-blue-600 hover:underline"
                     disabled={isSubmitting}
                   >
                     Clear Signature
                   </button>
+                </div>
+                <div className="mt-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Date:
+                  </label>
+                  <input
+                    type="date"
+                    name="receivingSignatureDate"
+                    value={formData.receivingSignatureDate}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    disabled={isSubmitting}
+                  />
                 </div>
               </div>
             </div>
@@ -1117,17 +1214,35 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     <label className="block font-medium text-gray-700">
                       Patient Signature:
                     </label>
+                    {formData.patientSignature && (
+                      <div className="mt-1">
+                        {imageStatus?.patientSignature?.error ? (
+                          <span className="text-red-600">
+                            {imageStatus.patientSignature.error}
+                          </span>
+                        ) : imageStatus?.patientSignature?.loaded ? (
+                          <img
+                            src={formData.patientSignature}
+                            alt="Current Patient Signature"
+                            className="h-24 object-contain border rounded"
+                            crossOrigin="anonymous"
+                          />
+                        ) : (
+                          <span className="text-gray-500">Loading signature...</span>
+                        )}
+                      </div>
+                    )}
                     <SignatureCanvas
                       ref={patientSigRef}
                       penColor="black"
                       canvasProps={{
-                        className: "border border-gray-300 rounded-md w-full h-24",
+                        className: "border border-gray-300 rounded-md w-full h-24 mt-2",
                       }}
                       onEnd={() =>
                         setFormData(prev => ({
                           ...prev,
                           patientSignature: patientSigRef.current.toDataURL(),
-                          patientSignatureDate: getCurrentDate(), // Set date when signed
+                          patientSignatureDate: getCurrentDate(),
                         }))
                       }
                     />
@@ -1144,17 +1259,35 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     <label className="block font-medium text-gray-700">
                       Witness Signature:
                     </label>
+                    {formData.witnessSignature && (
+                      <div className="mt-1">
+                        {imageStatus?.witnessSignature?.error ? (
+                          <span className="text-red-600">
+                            {imageStatus.witnessSignature.error}
+                          </span>
+                        ) : imageStatus?.witnessSignature?.loaded ? (
+                          <img
+                            src={formData.witnessSignature}
+                            alt="Current Witness Signature"
+                            className="h-24 object-contain border rounded"
+                            crossOrigin="anonymous"
+                          />
+                        ) : (
+                          <span className="text-gray-500">Loading signature...</span>
+                        )}
+                      </div>
+                    )}
                     <SignatureCanvas
                       ref={witnessSigRef}
                       penColor="black"
                       canvasProps={{
-                        className: "border border-gray-300 rounded-md w-full h-24",
+                        className: "border border-gray-300 rounded-md w-full h-24 mt-2",
                       }}
                       onEnd={() =>
                         setFormData(prev => ({
                           ...prev,
                           witnessSignature: witnessSigRef.current.toDataURL(),
-                          witnessSignatureDate: getCurrentDate(), // Set date when signed
+                          witnessSignatureDate: getCurrentDate(),
                         }))
                       }
                     />
