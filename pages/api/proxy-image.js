@@ -1,6 +1,4 @@
 // pages/api/proxy-image.js
-import fetch from "node-fetch";
-
 export default async function handler(req, res) {
   const { url } = req.query;
   if (!url) {
@@ -14,17 +12,23 @@ export default async function handler(req, res) {
       headers: {
         Accept: "image/*",
       },
+      cache: "no-store", // ensure we don't use stale cache
     });
+
     if (!response.ok) {
       const errorText = await response.text().catch(() => "No error details available");
       console.error(`Cloudinary fetch failed: HTTP ${response.status} - ${errorText}`);
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
+      return res
+        .status(response.status)
+        .json({ error: `Cloudinary fetch failed: ${errorText}` });
     }
-    const buffer = await response.buffer();
+
+    // Pass headers directly
     res.setHeader("Content-Type", response.headers.get("content-type") || "image/png");
-    res.setHeader("Cache-Control", "public, max-age=31536000");
-    console.log("Image fetched successfully:", url);
-    res.send(buffer);
+    res.setHeader("Cache-Control", "no-store"); // disable caching so updates always show
+
+    // Stream instead of buffering
+    response.body.pipe(res);
   } catch (error) {
     console.error("Image proxy error:", error.message, { url });
     res.status(500).json({ error: `Failed to fetch image: ${error.message}` });
