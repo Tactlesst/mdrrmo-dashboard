@@ -33,16 +33,22 @@ const PCRView = ({ form, onClose }) => {
     }
   };
 
-  // Format time for Manila timezone
+  // Format time string (e.g., "12:23 PM" or "HH:mm" to 12-hour format with AM/PM)
   const formatPHTime = (timeString) => {
     if (!timeString) return "N/A";
     try {
-      return new Date(timeString).toLocaleTimeString("en-PH", {
-        timeZone: "Asia/Manila",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
+      // Check if timeString includes AM/PM (new format: "12:23 PM")
+      if (/\d{2}:\d{2}\s?(AM|PM)/i.test(timeString)) {
+        return timeString.trim(); // Already in desired format
+      }
+      // Handle legacy 24-hour format (e.g., "12:23")
+      if (/^\d{2}:\d{2}$/.test(timeString)) {
+        const [hours, minutes] = timeString.split(":").map(Number);
+        const period = hours >= 12 ? "PM" : "AM";
+        const adjustedHours = hours % 12 || 12; // Convert 0 to 12 for midnight
+        return `${adjustedHours}:${minutes.toString().padStart(2, "0")} ${period}`;
+      }
+      return "N/A";
     } catch (error) {
       console.error(`Error formatting time ${timeString}:`, error);
       return "N/A";
@@ -79,6 +85,7 @@ const PCRView = ({ form, onClose }) => {
           return new Promise((resolve) => {
             const img = new Image();
             img.src = proxyUrl;
+            img.crossOrigin = "anonymous";
             img.onload = () => {
               console.log(`${field} image loaded successfully`);
               setImageLoaded((prev) => ({ ...prev, [field]: true }));
@@ -158,6 +165,12 @@ const PCRView = ({ form, onClose }) => {
                 Recorder:
               </label>
               <p className="mt-1 text-sm">{form.recorder || "N/A"}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Location:
+              </label>
+              <p className="mt-1 text-sm">{form.location || "N/A"}</p>
             </div>
           </div>
 
@@ -307,10 +320,10 @@ const PCRView = ({ form, onClose }) => {
               </label>
               <p className="mt-1 text-sm">
                 Hospital Transported: {fullForm.hospitalTransported || "N/A"}<br />
-                Time of Call: {displayRaw(fullForm.timeCall)}<br />
-                Arrived Scene: {displayRaw(fullForm.timeArrivedScene)}<br />
-                Left Scene: {displayRaw(fullForm.timeLeftScene)}<br />
-                Arrived Hospital: {displayRaw(fullForm.timeArrivedHospital)}<br />
+                Time of Call: {formatPHTime(fullForm.timeCall)}<br />
+                Arrived Scene: {formatPHTime(fullForm.timeArrivedScene)}<br />
+                Left Scene: {formatPHTime(fullForm.timeLeftScene)}<br />
+                Arrived Hospital: {formatPHTime(fullForm.timeArrivedHospital)}<br />
                 Ambulance No: {fullForm.ambulanceNo || "N/A"}
               </p>
             </div>
@@ -364,6 +377,7 @@ const PCRView = ({ form, onClose }) => {
                         src={getProxyImageUrl(fullForm.receivingSignature)}
                         alt="Receiving Signature"
                         className="mt-2 h-16 object-contain border rounded"
+                        crossOrigin="anonymous"
                       />
                     ) : (
                       <span className="text-gray-500">Loading signature...</span>
@@ -401,6 +415,7 @@ const PCRView = ({ form, onClose }) => {
                         src={getProxyImageUrl(fullForm.patientSignature)}
                         alt="Patient Signature"
                         className="mt-1 h-16 object-contain border rounded"
+                        crossOrigin="anonymous"
                       />
                     ) : (
                       <span className="text-gray-500">Loading signature...</span>
@@ -423,6 +438,7 @@ const PCRView = ({ form, onClose }) => {
                         src={getProxyImageUrl(fullForm.witnessSignature)}
                         alt="Witness Signature"
                         className="mt-1 h-16 object-contain border rounded"
+                        crossOrigin="anonymous"
                       />
                     ) : (
                       <span className="text-gray-500">Loading signature...</span>
