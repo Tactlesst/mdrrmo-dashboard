@@ -1,21 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { FiX } from "react-icons/fi";
 import BodyDiagram3D from "./BodyDiagram3D";
 
 const PCRView = ({ form, onClose }) => {
   const fullForm = form.full_form || {};
-  const [imageLoaded, setImageLoaded] = useState({
-    patientSignature: false,
-    witnessSignature: false,
-    receivingSignature: false,
-  });
-  const [imageErrors, setImageErrors] = useState({
-    patientSignature: null,
-    witnessSignature: null,
-    receivingSignature: null,
-  });
 
   // Format date for Manila timezone
   const formatPHDate = (dateString) => {
@@ -33,19 +23,17 @@ const PCRView = ({ form, onClose }) => {
     }
   };
 
-  // Format time string (e.g., "12:23 PM" or "HH:mm" to 12-hour format with AM/PM)
+  // Format time string
   const formatPHTime = (timeString) => {
     if (!timeString) return "N/A";
     try {
-      // Check if timeString includes AM/PM (new format: "12:23 PM")
       if (/\d{2}:\d{2}\s?(AM|PM)/i.test(timeString)) {
-        return timeString.trim(); // Already in desired format
+        return timeString.trim();
       }
-      // Handle legacy 24-hour format (e.g., "12:23")
       if (/^\d{2}:\d{2}$/.test(timeString)) {
         const [hours, minutes] = timeString.split(":").map(Number);
         const period = hours >= 12 ? "PM" : "AM";
-        const adjustedHours = hours % 12 || 12; // Convert 0 to 12 for midnight
+        const adjustedHours = hours % 12 || 12;
         return `${adjustedHours}:${minutes.toString().padStart(2, "0")} ${period}`;
       }
       return "N/A";
@@ -55,81 +43,11 @@ const PCRView = ({ form, onClose }) => {
     }
   };
 
-  // Display raw string value, handling null/undefined
-  const displayRaw = (value) => {
-    return value ?? "N/A"; // Use ?? to handle null/undefined, keep empty strings
-  };
-
-  // Proxy image URL to avoid CORS issues
-  const getProxyImageUrl = (url) => {
-    if (!url || !url.startsWith("https://res.cloudinary.com")) return url;
-    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
-  };
-
-  // Preload images to ensure they are ready for display
-  useEffect(() => {
-    console.log("PCRView form data:", form);
-    console.log("Full form data:", fullForm);
-
-    const preloadImages = async () => {
-      const images = [
-        { field: "patientSignature", url: fullForm.patientSignature },
-        { field: "witnessSignature", url: fullForm.witnessSignature },
-        { field: "receivingSignature", url: fullForm.receivingSignature },
-      ];
-
-      const loadPromises = images.map(({ field, url }) => {
-        if (url && url.startsWith("https://res.cloudinary.com")) {
-          const proxyUrl = getProxyImageUrl(url);
-          console.log(`Preloading ${field} image:`, proxyUrl);
-          return new Promise((resolve) => {
-            const img = new Image();
-            img.src = proxyUrl;
-            img.crossOrigin = "anonymous";
-            img.onload = () => {
-              console.log(`${field} image loaded successfully`);
-              setImageLoaded((prev) => ({ ...prev, [field]: true }));
-              setImageErrors((prev) => ({ ...prev, [field]: null }));
-              resolve();
-            };
-            img.onerror = async () => {
-              console.error(`${field} image failed to load:`, proxyUrl);
-              try {
-                const response = await fetch(proxyUrl);
-                const errorText = response.ok ? "Loaded after retry" : await response.text().catch(() => "No error details");
-                setImageErrors((prev) => ({
-                  ...prev,
-                  [field]: `Failed to load ${field} (${url}): HTTP ${response.status} - ${errorText}`,
-                }));
-              } catch (fetchError) {
-                setImageErrors((prev) => ({
-                  ...prev,
-                  [field]: `Failed to load ${field} (${url}): ${fetchError.message}`,
-                }));
-              }
-              setImageLoaded((prev) => ({ ...prev, [field]: false }));
-              resolve();
-            };
-          });
-        }
-        console.log(`No valid URL for ${field}:`, url);
-        setImageLoaded((prev) => ({ ...prev, [field]: false }));
-        setImageErrors((prev) => ({ ...prev, [field]: null }));
-        return Promise.resolve();
-      });
-
-      await Promise.all(loadPromises);
-    };
-
-    preloadImages();
-  }, [fullForm.patientSignature, fullForm.witnessSignature, fullForm.receivingSignature]);
+  const displayRaw = (value) => value ?? "N/A";
 
   return (
     <div className="fixed inset-0 z-50 flex justify-center items-center p-4">
-      <div
-        className="fixed inset-0 bg-opacity-50 z-40"
-        onClick={onClose}
-      ></div>
+      <div className="fixed inset-0 bg-opacity-50 z-40" onClick={onClose}></div>
 
       <div className="bg-white rounded-xl shadow-lg w-full max-w-5xl relative flex flex-col max-h-[95vh] z-50">
         <button
@@ -369,19 +287,12 @@ const PCRView = ({ form, onClose }) => {
                 Name: {fullForm.receivingName || "N/A"}<br />
                 {fullForm.receivingSignature ? (
                   <>
-                    Signature: <br />
-                    {imageErrors.receivingSignature ? (
-                      <span className="text-red-600">{imageErrors.receivingSignature}</span>
-                    ) : imageLoaded.receivingSignature ? (
-                      <img
-                        src={getProxyImageUrl(fullForm.receivingSignature)}
-                        alt="Receiving Signature"
-                        className="mt-2 h-16 object-contain border rounded"
-                        crossOrigin="anonymous"
-                      />
-                    ) : (
-                      <span className="text-gray-500">Loading signature...</span>
-                    )}
+                    Signature:<br />
+                    <img
+                      src={fullForm.receivingSignature}
+                      alt="Receiving Signature"
+                      className="mt-2 h-16 object-contain border rounded"
+                    />
                   </>
                 ) : (
                   "Signature: N/A"
@@ -408,18 +319,11 @@ const PCRView = ({ form, onClose }) => {
                 <div>
                   <span className="font-medium">Patient Signature:</span>{" "}
                   {fullForm.patientSignature ? (
-                    imageErrors.patientSignature ? (
-                      <span className="text-red-600">{imageErrors.patientSignature}</span>
-                    ) : imageLoaded.patientSignature ? (
-                      <img
-                        src={getProxyImageUrl(fullForm.patientSignature)}
-                        alt="Patient Signature"
-                        className="mt-1 h-16 object-contain border rounded"
-                        crossOrigin="anonymous"
-                      />
-                    ) : (
-                      <span className="text-gray-500">Loading signature...</span>
-                    )
+                    <img
+                      src={fullForm.patientSignature}
+                      alt="Patient Signature"
+                      className="mt-1 h-16 object-contain border rounded"
+                    />
                   ) : (
                     "N/A"
                   )}
@@ -431,18 +335,11 @@ const PCRView = ({ form, onClose }) => {
                 <div>
                   <span className="font-medium">Witness Signature:</span>{" "}
                   {fullForm.witnessSignature ? (
-                    imageErrors.witnessSignature ? (
-                      <span className="text-red-600">{imageErrors.witnessSignature}</span>
-                    ) : imageLoaded.witnessSignature ? (
-                      <img
-                        src={getProxyImageUrl(fullForm.witnessSignature)}
-                        alt="Witness Signature"
-                        className="mt-1 h-16 object-contain border rounded"
-                        crossOrigin="anonymous"
-                      />
-                    ) : (
-                      <span className="text-gray-500">Loading signature...</span>
-                    )
+                    <img
+                      src={fullForm.witnessSignature}
+                      alt="Witness Signature"
+                      className="mt-1 h-16 object-contain border rounded"
+                    />
                   ) : (
                     "N/A"
                   )}
