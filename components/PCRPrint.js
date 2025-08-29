@@ -44,12 +44,6 @@ const PCRPrint = ({ form, onClose }) => {
     return value ?? "N/A"; // Use ?? to handle null/undefined, keep empty strings
   };
 
-  // Proxy image URL to avoid CORS issues
-  const getProxyImageUrl = (url) => {
-    if (!url || !url.startsWith("https://res.cloudinary.com")) return url;
-    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
-  };
-
   // Preload images to ensure they are ready for printing/PDF
   useEffect(() => {
     console.log("PCRPrint form data:", form);
@@ -64,11 +58,10 @@ const PCRPrint = ({ form, onClose }) => {
 
       const loadPromises = images.map(({ field, url }) => {
         if (url && url.startsWith("https://res.cloudinary.com")) {
-          const proxyUrl = getProxyImageUrl(url);
-          console.log(`Preloading ${field} image:`, proxyUrl);
+          console.log(`Preloading ${field} image:`, url);
           return new Promise((resolve) => {
             const img = new Image();
-            img.src = proxyUrl;
+            img.src = url;
             img.crossOrigin = "anonymous";
             img.onload = () => {
               console.log(`${field} image loaded successfully`);
@@ -77,9 +70,9 @@ const PCRPrint = ({ form, onClose }) => {
               resolve();
             };
             img.onerror = async () => {
-              console.error(`${field} image failed to load:`, proxyUrl);
+              console.error(`${field} image failed to load:`, url);
               try {
-                const response = await fetch(proxyUrl);
+                const response = await fetch(url);
                 const errorText = response.ok ? "Loaded after retry" : await response.text().catch(() => "No error details");
                 setImageErrors((prev) => ({
                   ...prev,
@@ -291,7 +284,9 @@ const PCRPrint = ({ form, onClose }) => {
             <button
               onClick={handlePrint}
               disabled={!isReady || Object.values(imageErrors).some((error) => error)}
-              className={`flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition no-print ${!isReady || Object.values(imageErrors).some((error) => error) ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition no-print ${
+                !isReady || Object.values(imageErrors).some((error) => error) ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
               <FiPrinter className="mr-2" size={18} />
               Print Report
@@ -299,7 +294,9 @@ const PCRPrint = ({ form, onClose }) => {
             <button
               onClick={handleDownload}
               disabled={!isReady || Object.values(imageErrors).some((error) => error)}
-              className={`flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition no-print ${!isReady || Object.values(imageErrors).some((error) => error) ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition no-print ${
+                !isReady || Object.values(imageErrors).some((error) => error) ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
               <FiDownload className="mr-2" size={18} />
               Download PDF
@@ -351,7 +348,7 @@ const PCRPrint = ({ form, onClose }) => {
                 max-width: 100%;
               }
               .print-image {
-                max-width: 150px;
+                max-width:150px;
                 max-height: 50px;
                 object-fit: contain;
                 margin-top: 4px;
@@ -552,7 +549,7 @@ const PCRPrint = ({ form, onClose }) => {
                       <span className="text-red-600 print:print-text">Error: {imageErrors.receivingSignature}</span>
                     ) : imageLoaded.receivingSignature ? (
                       <img
-                        src={getProxyImageUrl(fullForm.receivingSignature)}
+                        src={fullForm.receivingSignature}
                         alt="Receiving Signature"
                         className="print-image"
                         crossOrigin="anonymous"
@@ -581,7 +578,7 @@ const PCRPrint = ({ form, onClose }) => {
                       <span className="text-red-600 print:print-text">Error: {imageErrors.patientSignature}</span>
                     ) : imageLoaded.patientSignature ? (
                       <img
-                        src={getProxyImageUrl(fullForm.patientSignature)}
+                        src={fullForm.patientSignature}
                         alt="Patient Signature"
                         className="print-image"
                         crossOrigin="anonymous"
@@ -600,7 +597,7 @@ const PCRPrint = ({ form, onClose }) => {
                       <span className="text-red-600 print:print-text">Error: {imageErrors.witnessSignature}</span>
                     ) : imageLoaded.witnessSignature ? (
                       <img
-                        src={getProxyImageUrl(fullForm.witnessSignature)}
+                        src={fullForm.witnessSignature}
                         alt="Witness Signature"
                         className="print-image"
                         crossOrigin="anonymous"
