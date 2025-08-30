@@ -9,6 +9,9 @@ export default function Logs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedEmail, setSelectedEmail] = useState('');
+  const [modalLogs, setModalLogs] = useState([]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toISOString().split('T')[0];
@@ -45,6 +48,23 @@ export default function Logs() {
     new Set(logs.map((log) => formatDate(log.login_time)))
   ).sort((a, b) => (a > b ? -1 : 1));
 
+  const uniqueEmails = Array.from(
+    new Set(logs.map((log) => log.email))
+  ).sort();
+
+  const handleEmailClick = (email) => {
+    setSelectedEmail(email);
+    const emailLogs = logs.filter((log) => log.email === email);
+    setModalLogs(emailLogs);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setSelectedEmail('');
+    setModalLogs([]);
+  };
+
   return (
     <div className="overflow-x-auto max-h-[300vh] overflow-y-auto w-full">
       <div className="max-w-7xl mx-auto">
@@ -64,6 +84,19 @@ export default function Logs() {
               </option>
             ))}
           </select>
+        </div>
+
+        <h3 className="text-xl font-semibold text-red-700 mb-4">Accounts</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+          {uniqueEmails.map((email) => (
+            <div
+              key={email}
+              className="p-4 bg-red-50 border border-red-200 rounded-xl cursor-pointer hover:bg-red-100 transition-all"
+              onClick={() => handleEmailClick(email)}
+            >
+              <p className="text-sm font-medium text-red-800">{email}</p>
+            </div>
+          ))}
         </div>
 
         {loading ? (
@@ -110,6 +143,63 @@ export default function Logs() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {modalOpen && (
+          <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-red-700">Logs for {selectedEmail}</h3>
+                  <button
+                    onClick={closeModal}
+                    className="text-red-700 hover:text-red-900 font-semibold"
+                  >
+                    Close
+                  </button>
+                </div>
+                {modalLogs.length === 0 ? (
+                  <div className="text-red-400 italic">No logs found for this account.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full">
+                      <thead className="bg-red-100 text-sm font-semibold text-red-800 uppercase sticky top-0 z-10">
+                        <tr>
+                          <th className="px-4 py-3 text-left border border-red-200">IP Address</th>
+                          <th className="px-4 py-3 text-left border border-red-200">Device Info</th>
+                          <th className="px-4 py-3 text-left border border-red-200">Login Time</th>
+                          <th className="px-4 py-3 text-center border border-red-200">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm text-gray-700 divide-y divide-red-100">
+                        {modalLogs.map((log) => (
+                          <tr key={log.id} className="hover:bg-red-50 transition-all">
+                            <td className="px-4 py-3">{log.ip_address}</td>
+                            <td className="px-4 py-3 truncate max-w-xs">{log.user_agent}</td>
+                            <td className="px-4 py-3">{formatPHDateTime(log.login_time)}</td>
+                            <td className="px-4 py-3 text-center space-x-2">
+                              <button
+                                className="inline-flex items-center justify-center p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700"
+                                title="View"
+                              >
+                                <FaEye />
+                              </button>
+                              <button
+                                className="inline-flex items-center justify-center p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700"
+                                title="Delete"
+                              >
+                                <FaTrash />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

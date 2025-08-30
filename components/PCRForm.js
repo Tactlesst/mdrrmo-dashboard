@@ -21,13 +21,9 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
     temp: "",
     hospitalTransported: "",
     timeCall: "",
-    timeCallPeriod: "AM", // New field for AM/PM
     timeArrivedScene: "",
-    timeArrivedScenePeriod: "AM", // New field for AM/PM
     timeLeftScene: "",
-    timeLeftScenePeriod: "AM", // New field for AM/PM
     timeArrivedHospital: "",
-    timeArrivedHospitalPeriod: "AM", // New field for AM/PM
     ambulanceNo: "",
     homeAddress: "",
     location: "",
@@ -93,6 +89,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
   const receivingSigRef = useRef(null);
 
   useEffect(() => {
+    console.log("PCRForm initialData:", JSON.stringify(initialData, null, 2));
     setFormData(prev => ({
       ...prev,
       ...(initialData || {}),
@@ -160,9 +157,13 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
     }
   };
 
-  const combineTimeWithPeriod = (time, period) => {
+  // Helper to format time to "HH:mm AM/PM"
+  const formatTimeToAMPM = (time) => {
     if (!time || !/^\d{2}:\d{2}$/.test(time)) return "";
-    return `${time} ${period}`;
+    const [hours, minutes] = time.split(":").map(Number);
+    const period = hours >= 12 ? "PM" : "AM";
+    const adjustedHours = hours % 12 || 12; // Convert 0 to 12 for midnight
+    return `${adjustedHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")} ${period}`;
   };
 
   const handleSubmit = async (e) => {
@@ -184,13 +185,13 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
       const witnessSignatureUrl = await uploadSignature(witnessSigRef, "witnessSignature");
       const receivingSignatureUrl = await uploadSignature(receivingSigRef, "receivingSignature");
 
-      // Combine time fields with AM/PM
+      // Format time fields to ensure "HH:mm AM/PM"
       const updatedFormData = {
         ...formData,
-        timeCall: combineTimeWithPeriod(formData.timeCall, formData.timeCallPeriod),
-        timeArrivedScene: combineTimeWithPeriod(formData.timeArrivedScene, formData.timeArrivedScenePeriod),
-        timeLeftScene: combineTimeWithPeriod(formData.timeLeftScene, formData.timeLeftScenePeriod),
-        timeArrivedHospital: combineTimeWithPeriod(formData.timeArrivedHospital, formData.timeArrivedHospitalPeriod),
+        timeCall: formatTimeToAMPM(formData.timeCall),
+        timeArrivedScene: formatTimeToAMPM(formData.timeArrivedScene),
+        timeLeftScene: formatTimeToAMPM(formData.timeLeftScene),
+        timeArrivedHospital: formatTimeToAMPM(formData.timeArrivedHospital),
         patientSignature: patientSignatureUrl,
         witnessSignature: witnessSignatureUrl,
         receivingSignature: receivingSignatureUrl,
@@ -198,7 +199,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
         createdById,
       };
 
-      console.log("Submitting formData:", updatedFormData);
+      console.log("PCRForm submitting formData:", JSON.stringify(updatedFormData, null, 2));
 
       if (onSubmit) {
         await onSubmit(updatedFormData);
@@ -491,76 +492,40 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               <label className="block text-sm font-medium text-gray-700">
                 Time of Call:
               </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="time"
-                  name="timeCall"
-                  value={formData.timeCall}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                  disabled={isSubmitting}
-                />
-                <select
-                  name="timeCallPeriod"
-                  value={formData.timeCallPeriod}
-                  onChange={handleChange}
-                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
-                  disabled={isSubmitting}
-                >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
-              </div>
+              <input
+                type="time"
+                name="timeCall"
+                value={formData.timeCall}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Time Arrived at Scene:
               </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="time"
-                  name="timeArrivedScene"
-                  value={formData.timeArrivedScene}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                  disabled={isSubmitting}
-                />
-                <select
-                  name="timeArrivedScenePeriod"
-                  value={formData.timeArrivedScenePeriod}
-                  onChange={handleChange}
-                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
-                  disabled={isSubmitting}
-                >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
-              </div>
+              <input
+                type="time"
+                name="timeArrivedScene"
+                value={formData.timeArrivedScene}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Time Left Scene:
               </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="time"
-                  name="timeLeftScene"
-                  value={formData.timeLeftScene}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                  disabled={isSubmitting}
-                />
-                <select
-                  name="timeLeftScenePeriod"
-                  value={formData.timeLeftScenePeriod}
-                  onChange={handleChange}
-                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
-                  disabled={isSubmitting}
-                >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
-              </div>
+              <input
+                type="time"
+                name="timeLeftScene"
+                value={formData.timeLeftScene}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -579,26 +544,14 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               <label className="block text-sm font-medium text-gray-700">
                 Time Arrived at Hospital:
               </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="time"
-                  name="timeArrivedHospital"
-                  value={formData.timeArrivedHospital}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                  disabled={isSubmitting}
-                />
-                <select
-                  name="timeArrivedHospitalPeriod"
-                  value={formData.timeArrivedHospitalPeriod}
-                  onChange={handleChange}
-                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
-                  disabled={isSubmitting}
-                >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
-              </div>
+              <input
+                type="time"
+                name="timeArrivedHospital"
+                value={formData.timeArrivedHospital}
+                onChange={handleChange}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                disabled={isSubmitting}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -631,7 +584,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 </label>
                 <label className="flex items-center text-sm">
                   <input
-                    type="time"
+                    type="checkbox"
                     name="underInfluence.drugs"
                     checked={formData.underInfluence.drugs}
                     onChange={handleChange}

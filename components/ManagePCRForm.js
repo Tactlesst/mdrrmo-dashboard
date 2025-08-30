@@ -40,16 +40,36 @@ export default function ManagePCRForm() {
     fetchForms();
   }, []);
 
-const handleFormClose = (refresh = false) => {
-  setShowForm(false);
-  setSelectedForm(null);
-  setEditForm(null);
-  setPrintForm(null);
-  if (refresh) {
-    fetchForms();
-  }
-};
+  const handleFormClose = (refresh = false) => {
+    setShowForm(false);
+    setSelectedForm(null);
+    setEditForm(null);
+    setPrintForm(null);
+    if (refresh) {
+      fetchForms();
+    }
+  };
 
+  // Format date/time for Manila timezone
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      const options = {
+        timeZone: "Asia/Manila",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      };
+      return date.toLocaleString("en-PH", options).replace(",", "");
+    } catch (error) {
+      console.error(`Error formatting date/time ${dateString}:`, error);
+      return "N/A";
+    }
+  };
 
   return (
     <div className="min-h-screen p-6 bg-gray-100 font-sans relative">
@@ -107,7 +127,7 @@ const handleFormClose = (refresh = false) => {
                 ) : (
                   [...pcrForms]
                     .sort(
-                      (a, b) => new Date(b.date) - new Date(a.date) // 🔹 newest first
+                      (a, b) => new Date(b.date) - new Date(a.date) // Newest first
                     )
                     .map((form, index) => (
                       <tr
@@ -116,22 +136,10 @@ const handleFormClose = (refresh = false) => {
                           index % 2 === 0 ? "bg-white" : "bg-gray-50"
                         } border-t border-gray-200 hover:bg-gray-100 transition`}
                       >
-                        <td className="px-6 py-4">{form.patient_name}</td>
-<p className="mt-1 text-sm">
-  {form.created_at
-    ? new Date(form.created_at).toLocaleString("en-PH", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      })
-    : "N/A"}
-</p>
-
-                        <td className="px-6 py-4">{form.location}</td>
-                        <td className="px-6 py-4">{form.recorder}</td>
+                        <td className="px-6 py-4">{form.patient_name || "N/A"}</td>
+                        <td className="px-6 py-4">{formatDateTime(form.created_at)}</td>
+                        <td className="px-6 py-4">{form.location || "N/A"}</td>
+                        <td className="px-6 py-4">{form.recorder || "N/A"}</td>
                         <td className="px-6 py-4 space-x-2">
                           <button
                             onClick={() => setSelectedForm(form)}
@@ -163,25 +171,24 @@ const handleFormClose = (refresh = false) => {
         <PCRAdd onClose={handleFormClose} onSubmitSuccess={fetchForms} />
       )}
 
-{selectedForm && (
-  <PCRView
-    form={selectedForm}
-    onClose={() => handleFormClose(true)}
-  />
-)}
-{editForm && (
-  <PCREdit
-    form={editForm}
-    onClose={() => handleFormClose(true)}
-  />
-)}
-{printForm && (
-  <PCRPrint
-    form={printForm}
-    onClose={() => handleFormClose(true)}
-  />
-)}
-
+      {selectedForm && (
+        <PCRView
+          form={selectedForm}
+          onClose={() => handleFormClose(true)}
+        />
+      )}
+      {editForm && (
+        <PCREdit
+          form={editForm}
+          onClose={() => handleFormClose(true)}
+        />
+      )}
+      {printForm && (
+        <PCRPrint
+          form={printForm}
+          onClose={() => handleFormClose(true)}
+        />
+      )}
     </div>
   );
 }

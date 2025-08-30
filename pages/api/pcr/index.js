@@ -1,23 +1,20 @@
-// pages/api/pcr/index.js
 import pool from "@/lib/db";
 import jwt from "jsonwebtoken";
 
 export default async function handler(req, res) {
-if (req.method === "GET") {
-  try {
-    const { rows } = await pool.query(`
-      SELECT *
-      FROM pcr_forms
-      ORDER BY created_at DESC
-    `);
-    res.status(200).json({ data: rows });
-  } catch (error) {
-    console.error("Failed to fetch PCR forms:", error);
-    res.status(500).json({ error: "Failed to fetch PCR forms" });
-  }
-}
-
-  else if (req.method === "POST") {
+  if (req.method === "GET") {
+    try {
+      const { rows } = await pool.query(`
+        SELECT *
+        FROM pcr_forms
+        ORDER BY created_at DESC
+      `);
+      res.status(200).json({ data: rows });
+    } catch (error) {
+      console.error("Failed to fetch PCR forms:", error);
+      res.status(500).json({ error: "Failed to fetch PCR forms" });
+    }
+  } else if (req.method === "POST") {
     try {
       const token = req.cookies.auth;
       if (!token) return res.status(401).json({ error: "Not authenticated" });
@@ -46,9 +43,16 @@ if (req.method === "GET") {
 
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      const { patientName, date, poi, ...fullForm } = req.body;
-      if (!patientName || !date)
-        return res.status(400).json({ error: "Missing required fields" });
+      const { patientName, date, location, recorder, poi, ...fullForm } = req.body;
+      if (!patientName || !date || !recorder) {
+        return res.status(400).json({ error: "Missing required fields: patientName, date, recorder" });
+      }
+
+      console.log("Incoming POST req.body:", JSON.stringify(req.body, null, 2));
+
+      const validateTimeFormat = (time) => {
+        return time && /^\d{2}:\d{2}\s(AM|PM)$/.test(time) ? time : "";
+      };
 
       const { rows } = await pool.query(
         `
@@ -67,23 +71,126 @@ if (req.method === "GET") {
         [
           patientName,
           date,
-          poi?.brgy || "",
-          user.name,
-          fullForm,
+          location || poi?.brgy || "",
+          recorder,
+          {
+            ...fullForm,
+            poi: poi || {},
+            timeCall: validateTimeFormat(fullForm.timeCall),
+            timeArrivedScene: validateTimeFormat(fullForm.timeArrivedScene),
+            timeLeftScene: validateTimeFormat(fullForm.timeLeftScene),
+            timeArrivedHospital: validateTimeFormat(fullForm.timeArrivedHospital),
+          },
           type,
           user.id
         ]
       );
 
+      console.log("Inserted data:", JSON.stringify(rows[0], null, 2));
       res.status(201).json({ data: rows[0] });
     } catch (error) {
       console.error("Failed to save PCR form:", error);
       res.status(500).json({ error: "Failed to save PCR form" });
     }
-  }
+  } else if (req.method === "PUT") {
+    try {
+      const id = req.query.id || req.url.split("/").pop();
+      if (!id) return res.status(400).json({ error: "Form ID is required" });
 
-  else {
-    res.setHeader("Allow", ["GET", "POST"]);
+      const token = req.cookies.auth;
+      if (!token) return res.status(401).json({ error: "Not authenticated" });
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      let user;
+      let type;
+      const adminRes = await pool.query(
+        "SELECT id, name FROM admins WHERE id = $1",
+        [decoded.id]
+      );
+      if (adminRes.rows.length > 0) {
+        user = adminRes.rows[0];
+        type = "admin";
+      } else {
+        const responderRes = await pool.query(
+          "SELECT id, name FROM responders WHERE id = $1",
+          [decoded.id]
+        );
+        if (responderRes.rows.length > 0) {
+          user = responderRes.rows[0];
+          type = "responder";
+        }
+      }
+
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const { patient_name, date, location, recorder, full_form } = req.body;
+      if (!patient_name || !date || !recorder) {
+        return res.status(400).json({ error: "Missing required fields: patient_name, date, recorder" });
+      }
+
+      console.log("Incoming PUT req.body:", JSON.stringify(req.body, null, 2));
+
+      // Fetch existing form to merge with updates
+      const existingFormRes = await pool.query(
+        "SELECT full_form FROM pcr_forms WHERE id = $1",
+        [id]
+      );
+      if (existingFormRes.rows.length === 0) {
+        return res.status(404).json({ error: "Form not found" });
+      }
+
+      const existingFullForm = existingFormRes.rows[0].full_form || {};
+
+      const validateTimeFormat = (time) => {
+        return time && /^\d{2}:\d{2}\s(AM|PM)$/.test(time) ? time : "";
+      };
+
+      const updatedFullForm = {
+        ...existingFullForm,
+        ...full_form,
+        poi: full_form.poi || existingFullForm.poi || {},
+        timeCall: validateTimeFormat(full_form.timeCall || existingFullForm.timeCall),
+        timeArrivedScene: validateTimeFormat(full_form.timeArrivedScene || existingFullForm.timeArrivedScene),
+        timeLeftScene: validateTimeFormat(full_form.timeLeftScene || existingFullForm.timeLeftScene),
+        timeArrivedHospital: validateTimeFormat(full_form.timeArrivedHospital || existingFullForm.timeArrivedHospital),
+      };
+
+      const { rows } = await pool.query(
+        `
+        UPDATE pcr_forms
+        SET
+          patient_name = $1,
+          date = $2,
+          location = $3,
+          recorder = $4,
+          full_form = $5,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $6
+        RETURNING *
+        `,
+        [
+          patient_name,
+          date,
+          location || updatedFullForm.poi?.brgy || "",
+          recorder,
+          updatedFullForm,
+          id
+        ]
+      );
+
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "Form not found" });
+      }
+
+      console.log("Updated data:", JSON.stringify(rows[0], null, 2));
+      res.status(200).json({ data: rows[0] });
+    } catch (error) {
+      console.error("Failed to update PCR form:", error);
+      res.status(500).json({ error: "Failed to update PCR form" });
+    }
+  } else {
+    res.setHeader("Allow", ["GET", "POST", "PUT"]);
     res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 }

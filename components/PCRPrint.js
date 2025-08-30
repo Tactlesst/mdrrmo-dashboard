@@ -20,8 +20,8 @@ const PCRPrint = ({ form, onClose }) => {
     receivingSignature: null,
   });
 
-  // Format date/time for Manila timezone
-  const formatPHDateTime = (dateString, dateOnly = false) => {
+  // Format date for Manila timezone
+  const formatPHDate = (dateString) => {
     if (!dateString) return "N/A";
     try {
       const date = new Date(dateString);
@@ -30,12 +30,29 @@ const PCRPrint = ({ form, onClose }) => {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
-        ...(dateOnly ? {} : { hour: "2-digit", minute: "2-digit", hour12: false }),
       };
-      return date.toLocaleString("en-PH", options);
+      return date.toLocaleDateString("en-PH", options);
     } catch (error) {
-      console.error(`Error formatting date/time ${dateString}:`, error);
+      console.error(`Error formatting date ${dateString}:`, error);
       return "N/A";
+    }
+  };
+
+  // Format time (expects "HH:mm AM/PM" or empty string)
+  const formatTime = (timeString) => {
+    if (!timeString) return "";
+    if (/^\d{2}:\d{2} (AM|PM)$/.test(timeString)) {
+      return timeString; // Already in "HH:mm AM/PM" format
+    }
+    try {
+      const [hours, minutes] = timeString.split(":").map(Number);
+      if (isNaN(hours) || isNaN(minutes)) return "";
+      const period = hours >= 12 ? "PM" : "AM";
+      const adjustedHours = hours % 12 || 12;
+      return `${adjustedHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")} ${period}`;
+    } catch (error) {
+      console.error(`Error formatting time ${timeString}:`, error);
+      return "";
     }
   };
 
@@ -46,8 +63,8 @@ const PCRPrint = ({ form, onClose }) => {
 
   // Preload images to ensure they are ready for printing/PDF
   useEffect(() => {
-    console.log("PCRPrint form data:", form);
-    console.log("Full form data:", fullForm);
+    console.log("PCRPrint form data:", JSON.stringify(form, null, 2));
+    console.log("Full form data:", JSON.stringify(fullForm, null, 2));
 
     const preloadImages = async () => {
       const images = [
@@ -169,34 +186,32 @@ const PCRPrint = ({ form, onClose }) => {
       Basic Information
       ----------------
       Patient Name: ${form.patient_name || "N/A"}
-      Date: ${formatPHDateTime(form.date, true)}
+      Date: ${formatPHDate(form.date)}
       Recorder: ${form.recorder || "N/A"}
       Location: ${form.location || "N/A"}
 
       Patient Details
       ---------------
-      Case Type: ${fullForm.caseNumber || "N/A"}
+      Case Type: ${fullForm.caseType || "N/A"}
       Age: ${fullForm.age || "N/A"}
-      Gender: ${fullForm.sex || "N/A"}
+      Gender: ${fullForm.gender || "N/A"}
       Category: ${fullForm.category || "N/A"}
       Contact Number: ${fullForm.contactNumber || "N/A"}
-      Address: ${fullForm.address || "N/A"}
+      Address: ${fullForm.homeAddress || "N/A"}
 
       Vitals and Incident Details
       ---------------------------
       Vitals:
-        BP: ${fullForm.vitals?.bloodPressure || "N/A"}
-        PR: ${fullForm.vitals?.pulseRate || "N/A"}
-        RR: ${fullForm.vitals?.respiratoryRate || "N/A"}
-        Temp: ${fullForm.vitals?.temperature || "N/A"}
-        O2Sat: ${fullForm.vitals?.oxygenSaturation || "N/A"}
-        GCS: E${fullForm.vitals?.gcsEye || "N/A"} V${fullForm.vitals?.gcsVerbal || "N/A"} M${fullForm.vitals?.gcsMotor || "N/A"}
+        BP: ${fullForm.bloodPressure || "N/A"}
+        PR: ${fullForm.pr || "N/A"}
+        RR: ${fullForm.rr || "N/A"}
+        Temp: ${fullForm.temp || "N/A"}
+        O2Sat: ${fullForm.o2sat || "N/A"}
       Place of Incident (POI):
-        Type: ${fullForm.poiType || "N/A"}
-        Brgy: ${fullForm.poiDetails?.brgy || "N/A"}
-        Highway: ${fullForm.poiDetails?.highway ? "Yes" : "No"}
-        Residence: ${fullForm.poiDetails?.residence ? "Yes" : "No"}
-        Public Building: ${fullForm.poiDetails?.publicBuilding ? "Yes" : "No"}
+        Brgy: ${fullForm.poi?.brgy || "N/A"}
+        Highway: ${fullForm.poi?.highway ? "Yes" : "No"}
+        Residence: ${fullForm.poi?.residence ? "Yes" : "No"}
+        Public Building: ${fullForm.poi?.publicBuilding ? "Yes" : "No"}
       Incident Details:
         DOI: ${displayRaw(fullForm.doi)}
         TOI: ${displayRaw(fullForm.toi)}
@@ -218,11 +233,11 @@ const PCRPrint = ({ form, onClose }) => {
 
       Medical History
       ---------------
-      Chief Complaints: ${fullForm.chiefComplaints || fullForm.historyPresentIllness || "N/A"}
+      Chief Complaints: ${fullForm.chiefComplaints || "N/A"}
       Signs & Symptoms: ${fullForm.signsSymptoms || "N/A"}
       Allergies: ${fullForm.allergies || "N/A"}
-      Medications: ${fullForm.medications || "N/A"}
-      Past Medical History: ${fullForm.pastMedicalHistory || "N/A"}
+      Medications: ${fullForm.medication || "N/A"}
+      Past Medical History: ${fullForm.pastHistory || "N/A"}
       Last Intake: ${fullForm.lastIntake || "N/A"}
       Events: ${fullForm.events || "N/A"}
       Interventions: ${fullForm.interventions || "N/A"}
@@ -232,10 +247,10 @@ const PCRPrint = ({ form, onClose }) => {
       -----------------------------
       Transport Details:
         Hospital Transported: ${fullForm.hospitalTransported || "N/A"}
-        Time of Call: ${displayRaw(fullForm.timeCall)}
-        Arrived Scene: ${displayRaw(fullForm.timeArrivedScene)}
-        Left Scene: ${displayRaw(fullForm.timeLeftScene)}
-        Arrived Hospital: ${displayRaw(fullForm.timeArrivedHospital)}
+        Time of Call: ${formatTime(fullForm.timeCall)}
+        Arrived Scene: ${formatTime(fullForm.timeArrivedScene)}
+        Left Scene: ${formatTime(fullForm.timeLeftScene)}
+        Arrived Hospital: ${formatTime(fullForm.timeArrivedHospital)}
         Ambulance No: ${fullForm.ambulanceNo || "N/A"}
       Contact Person:
         Name: ${fullForm.contactPerson || "N/A"}
@@ -257,11 +272,11 @@ const PCRPrint = ({ form, onClose }) => {
       Waiver and Body Diagram
       -----------------------
       Waiver:
-        Signed: ${fullForm.waiverSigned ? "Yes" : "No"}
+        Signed: ${fullForm.patientSignature || fullForm.witnessSignature ? "Yes" : "No"}
         Patient Signature URL: ${fullForm.patientSignature || "N/A"}
         Witness Signature URL: ${fullForm.witnessSignature || "N/A"}
-        Patient Signature Date: ${formatPHDateTime(fullForm.patientSignatureDate, true)}
-        Witness Signature Date: ${formatPHDateTime(fullForm.witnessSignatureDate, true)}
+        Patient Signature Date: ${formatPHDate(fullForm.patientSignatureDate)}
+        Witness Signature Date: ${formatPHDate(fullForm.witnessSignatureDate)}
       Body Diagram: ${fullForm.bodyDiagram?.length ? fullForm.bodyDiagram.join(", ") : "N/A"}
     `;
 
@@ -348,7 +363,7 @@ const PCRPrint = ({ form, onClose }) => {
                 max-width: 100%;
               }
               .print-image {
-                max-width:150px;
+                max-width: 150px;
                 max-height: 50px;
                 object-fit: contain;
                 margin-top: 4px;
@@ -377,7 +392,7 @@ const PCRPrint = ({ form, onClose }) => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Date:</label>
-              <p className="mt-1 text-sm print:print-text">{formatPHDateTime(form.date, true)}</p>
+              <p className="mt-1 text-sm print:print-text">{formatPHDate(form.date)}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Recorder:</label>
@@ -393,7 +408,7 @@ const PCRPrint = ({ form, onClose }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded print:print-border print-font">
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Case Type:</label>
-              <p className="mt-1 text-sm print:print-text">{fullForm.caseNumber || "N/A"}</p>
+              <p className="mt-1 text-sm print:print-text">{fullForm.caseType || "N/A"}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Age:</label>
@@ -401,7 +416,7 @@ const PCRPrint = ({ form, onClose }) => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Gender:</label>
-              <p className="mt-1 text-sm print:print-text">{fullForm.sex || "N/A"}</p>
+              <p className="mt-1 text-sm print:print-text">{fullForm.gender || "N/A"}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Category:</label>
@@ -413,7 +428,7 @@ const PCRPrint = ({ form, onClose }) => {
             </div>
             <div className="md:col-span-3">
               <label className="block text-sm font-medium text-gray-700 print:print-label">Address:</label>
-              <p className="mt-1 text-sm print:print-text">{fullForm.address || "N/A"}</p>
+              <p className="mt-1 text-sm print:print-text">{fullForm.homeAddress || "N/A"}</p>
             </div>
           </div>
 
@@ -422,22 +437,20 @@ const PCRPrint = ({ form, onClose }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Vitals:</label>
               <p className="mt-1 text-sm print:print-text">
-                BP: {fullForm.vitals?.bloodPressure || "N/A"}<br />
-                PR: {fullForm.vitals?.pulseRate || "N/A"}<br />
-                RR: {fullForm.vitals?.respiratoryRate || "N/A"}<br />
-                Temp: {fullForm.vitals?.temperature || "N/A"}<br />
-                O2Sat: {fullForm.vitals?.oxygenSaturation || "N/A"}<br />
-                GCS: E{fullForm.vitals?.gcsEye || "N/A"} V{fullForm.vitals?.gcsVerbal || "N/A"} M{fullForm.vitals?.gcsMotor || "N/A"}
+                BP: {fullForm.bloodPressure || "N/A"}<br />
+                PR: {fullForm.pr || "N/A"}<br />
+                RR: {fullForm.rr || "N/A"}<br />
+                Temp: {fullForm.temp || "N/A"}<br />
+                O2Sat: {fullForm.o2sat || "N/A"}
               </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Place of Incident (POI):</label>
               <p className="mt-1 text-sm print:print-text">
-                Type: {fullForm.poiType || "N/A"}<br />
-                Brgy: {fullForm.poiDetails?.brgy || "N/A"}<br />
-                Highway: {fullForm.poiDetails?.highway ? "Yes" : "No"}<br />
-                Residence: {fullForm.poiDetails?.residence ? "Yes" : "No"}<br />
-                Public Building: {fullForm.poiDetails?.publicBuilding ? "Yes" : "No"}
+                Brgy: {fullForm.poi?.brgy || "N/A"}<br />
+                Highway: {fullForm.poi?.highway ? "Yes" : "No"}<br />
+                Residence: {fullForm.poi?.residence ? "Yes" : "No"}<br />
+                Public Building: {fullForm.poi?.publicBuilding ? "Yes" : "No"}
               </p>
             </div>
             <div>
@@ -481,11 +494,11 @@ const PCRPrint = ({ form, onClose }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Medical History:</label>
               <p className="mt-1 text-sm print:print-text">
-                Chief Complaints: {fullForm.chiefComplaints || fullForm.historyPresentIllness || "N/A"}<br />
+                Chief Complaints: {fullForm.chiefComplaints || "N/A"}<br />
                 Signs & Symptoms: {fullForm.signsSymptoms || "N/A"}<br />
                 Allergies: {fullForm.allergies || "N/A"}<br />
-                Medications: {fullForm.medications || "N/A"}<br />
-                Past Medical History: {fullForm.pastMedicalHistory || "N/A"}<br />
+                Medications: {fullForm.medication || "N/A"}<br />
+                Past Medical History: {fullForm.pastHistory || "N/A"}<br />
                 Last Intake: {fullForm.lastIntake || "N/A"}<br />
                 Events: {fullForm.events || "N/A"}<br />
                 Interventions: {fullForm.interventions || "N/A"}
@@ -503,10 +516,10 @@ const PCRPrint = ({ form, onClose }) => {
               <label className="block text-sm font-medium text-gray-700 print:print-label">Transport Details:</label>
               <p className="mt-1 text-sm print:print-text">
                 Hospital Transported: {fullForm.hospitalTransported || "N/A"}<br />
-                Time of Call: {displayRaw(fullForm.timeCall)}<br />
-                Arrived Scene: {displayRaw(fullForm.timeArrivedScene)}<br />
-                Left Scene: {displayRaw(fullForm.timeLeftScene)}<br />
-                Arrived Hospital: {displayRaw(fullForm.timeArrivedHospital)}<br />
+                Time of Call: {formatTime(fullForm.timeCall)}<br />
+                Arrived Scene: {formatTime(fullForm.timeArrivedScene)}<br />
+                Left Scene: {formatTime(fullForm.timeArrivedHospital)}<br />
+                Arrived Hospital: {formatTime(fullForm.timeLeftScene)}<br />
                 Ambulance No: {fullForm.ambulanceNo || "N/A"}
               </p>
             </div>
@@ -570,7 +583,7 @@ const PCRPrint = ({ form, onClose }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Waiver:</label>
               <p className="mt-1 text-sm print:print-text">
-                Signed: {fullForm.waiverSigned ? "Yes" : "No"}<br />
+                Signed: {fullForm.patientSignature || fullForm.witnessSignature ? "Yes" : "No"}<br />
                 {fullForm.patientSignature ? (
                   <>
                     Patient Signature: <br />
@@ -609,8 +622,8 @@ const PCRPrint = ({ form, onClose }) => {
                 ) : (
                   "Witness Signature: N/A"
                 )}<br />
-                Patient Signature Date: {formatPHDateTime(fullForm.patientSignatureDate, true)}<br />
-                Witness Signature Date: {formatPHDateTime(fullForm.witnessSignatureDate, true)}
+                Patient Signature Date: {formatPHDate(fullForm.patientSignatureDate)}<br />
+                Witness Signature Date: {formatPHDate(fullForm.witnessSignatureDate)}
               </p>
             </div>
             <div>

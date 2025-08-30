@@ -98,7 +98,7 @@ const PCRView = ({ form, onClose }) => {
               <label className="block text-sm font-medium text-gray-700">
                 Case Type:
               </label>
-              <p className="mt-1 text-sm">{fullForm.caseNumber || "N/A"}</p>
+              <p className="mt-1 text-sm">{fullForm.caseType || "N/A"}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -110,7 +110,7 @@ const PCRView = ({ form, onClose }) => {
               <label className="block text-sm font-medium text-gray-700">
                 Gender:
               </label>
-              <p className="mt-1 text-sm">{fullForm.sex || "N/A"}</p>
+              <p className="mt-1 text-sm">{fullForm.gender || "N/A"}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -126,9 +126,9 @@ const PCRView = ({ form, onClose }) => {
             </div>
             <div className="md:col-span-3">
               <label className="block text-sm font-medium text-gray-700">
-                Address:
+                Home Address:
               </label>
-              <p className="mt-1 text-sm">{fullForm.address || "N/A"}</p>
+              <p className="mt-1 text-sm">{fullForm.homeAddress || "N/A"}</p>
             </div>
           </div>
 
@@ -139,12 +139,11 @@ const PCRView = ({ form, onClose }) => {
                 Vitals:
               </label>
               <p className="mt-1 text-sm">
-                BP: {fullForm.vitals?.bloodPressure || "N/A"}<br />
-                PR: {fullForm.vitals?.pulseRate || "N/A"}<br />
-                RR: {fullForm.vitals?.respiratoryRate || "N/A"}<br />
-                Temp: {fullForm.vitals?.temperature || "N/A"}<br />
-                O2Sat: {fullForm.vitals?.oxygenSaturation || "N/A"}<br />
-                GCS: E{fullForm.vitals?.gcsEye || "N/A"} V{fullForm.vitals?.gcsVerbal || "N/A"} M{fullForm.vitals?.gcsMotor || "N/A"}
+                BP: {fullForm.bloodPressure || "N/A"}<br />
+                PR: {fullForm.pr || "N/A"}<br />
+                RR: {fullForm.rr || "N/A"}<br />
+                Temp: {fullForm.temp || "N/A"}<br />
+                O2Sat: {fullForm.o2sat || "N/A"}
               </p>
             </div>
             <div>
@@ -152,11 +151,10 @@ const PCRView = ({ form, onClose }) => {
                 Place of Incident (POI):
               </label>
               <p className="mt-1 text-sm">
-                Type: {fullForm.poiType || "N/A"}<br />
-                Brgy: {fullForm.poiDetails?.brgy || "N/A"}<br />
-                Highway: {fullForm.poiDetails?.highway ? "Yes" : "No"}<br />
-                Residence: {fullForm.poiDetails?.residence ? "Yes" : "No"}<br />
-                Public Building: {fullForm.poiDetails?.publicBuilding ? "Yes" : "No"}
+                Brgy: {fullForm.poi?.brgy || "N/A"}<br />
+                Highway: {fullForm.poi?.highway ? "Yes" : "No"}<br />
+                Residence: {fullForm.poi?.residence ? "Yes" : "No"}<br />
+                Public Building: {fullForm.poi?.publicBuilding ? "Yes" : "No"}
               </p>
             </div>
             <div>
@@ -212,11 +210,11 @@ const PCRView = ({ form, onClose }) => {
                 Medical History:
               </label>
               <p className="mt-1 text-sm">
-                Chief Complaints: {fullForm.chiefComplaints || fullForm.historyPresentIllness || "N/A"}<br />
+                Chief Complaints: {fullForm.chiefComplaints || "N/A"}<br />
                 Signs & Symptoms: {fullForm.signsSymptoms || "N/A"}<br />
                 Allergies: {fullForm.allergies || "N/A"}<br />
-                Medications: {fullForm.medications || "N/A"}<br />
-                Past Medical History: {fullForm.pastMedicalHistory || "N/A"}<br />
+                Medications: {fullForm.medication || "N/A"}<br />
+                Past Medical History: {fullForm.pastHistory || "N/A"}<br />
                 Last Intake: {fullForm.lastIntake || "N/A"}<br />
                 Events: {fullForm.events || "N/A"}<br />
                 Interventions: {fullForm.interventions || "N/A"}
@@ -313,7 +311,7 @@ const PCRView = ({ form, onClose }) => {
                 Waiver:
               </label>
               <p className="mt-1 text-sm">
-                Signed: {fullForm.waiverSigned ? "Yes" : "No"}
+                Signed: {fullForm.patientSignature || fullForm.witnessSignature ? "Yes" : "No"}
               </p>
               <div className="mt-2 space-y-2">
                 <div>
