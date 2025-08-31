@@ -45,6 +45,19 @@ const PCRView = ({ form, onClose }) => {
 
   const displayRaw = (value) => value ?? "N/A";
 
+  // Clean bodyDiagram data
+  const cleanedBodyDiagram = Array.isArray(fullForm.bodyDiagram)
+    ? fullForm.bodyDiagram.filter(
+        (entry) =>
+          entry &&
+          typeof entry === "object" &&
+          entry.bodyPart &&
+          typeof entry.bodyPart === "string" &&
+          entry.condition &&
+          typeof entry.condition === "string"
+      )
+    : [];
+
   return (
     <div className="fixed inset-0 z-50 flex justify-center items-center p-4">
       <div className="fixed inset-0 bg-opacity-50 z-40" onClick={onClose}></div>
@@ -352,10 +365,7 @@ const PCRView = ({ form, onClose }) => {
               <label className="block text-sm font-medium text-gray-700">
                 Body Diagram:
               </label>
-              <p className="mt-1 text-sm">
-                {fullForm.bodyDiagram?.length ? fullForm.bodyDiagram.join(", ") : "No injuries marked"}
-              </p>
-              <BodyDiagram3D initialData={fullForm.bodyDiagram} readOnly />
+              <BodyDiagram3D initialData={cleanedBodyDiagram} readOnly />
             </div>
           </div>
         </div>

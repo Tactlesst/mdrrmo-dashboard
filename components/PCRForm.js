@@ -5,7 +5,8 @@ import { FiX } from "react-icons/fi";
 import BodyDiagram3D from "./BodyDiagram3D";
 import SignatureCanvas from "react-signature-canvas";
 
-const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, createdById, imageStatus }) => {
+
+const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, createdById, imageStatus, readOnly = false }) => {
   const initialFormData = {
     caseType: "",
     recorder: "",
@@ -1283,7 +1284,11 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               </div>
               <div className="relative mt-4">
                 <h3 className="text-sm font-semibold text-gray-800">Body Diagram</h3>
-                <BodyDiagram3D onChange={handleBodyDiagramChange} />
+<BodyDiagram3D 
+  onChange={handleBodyDiagramChange} 
+  initialData={formData.bodyDiagram}  // Add this line
+  readOnly={readOnly}                 // And this line
+/>
               </div>
             </div>
           </div>

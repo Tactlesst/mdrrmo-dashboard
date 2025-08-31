@@ -136,6 +136,18 @@ const PCREdit = ({ form, onClose }) => {
       const witnessSignature = await uploadSignature(formData.witnessSignature, "witnessSignature");
       const receivingSignature = await uploadSignature(formData.receivingSignature, "receivingSignature");
 
+      const cleanedBodyDiagram = Array.isArray(formData.bodyDiagram)
+        ? formData.bodyDiagram.filter(
+            (entry) =>
+              entry &&
+              typeof entry === "object" &&
+              entry.bodyPart &&
+              typeof entry.bodyPart === "string" &&
+              entry.condition &&
+              typeof entry.condition === "string"
+          )
+        : [];
+
       const transformedData = {
         patient_name: formData.patientName,
         date: formData.date,
@@ -195,12 +207,7 @@ const PCREdit = ({ form, onClose }) => {
           witnessSignatureDate: toNull(formData.witnessSignatureDate),
           receivingSignatureDate: toNull(formData.receivingSignatureDate),
           receivingName: toNull(formData.receivingName),
-          bodyDiagram:
-            formData.bodyDiagram && Object.keys(formData.bodyDiagram).length > 0
-              ? Object.keys(formData.bodyDiagram).filter(
-                  (key) => formData.bodyDiagram[key]
-                )
-              : null,
+          bodyDiagram: cleanedBodyDiagram,
         },
       };
 
@@ -224,6 +231,18 @@ const PCREdit = ({ form, onClose }) => {
       throw error;
     }
   };
+
+  const cleanedBodyDiagram = Array.isArray(form.full_form?.bodyDiagram)
+    ? form.full_form.bodyDiagram.filter(
+        (entry) =>
+          entry &&
+          typeof entry === "object" &&
+          entry.bodyPart &&
+          typeof entry.bodyPart === "string" &&
+          entry.condition &&
+          typeof entry.condition === "string"
+      )
+    : [];
 
   const initialData = {
     caseType: form.full_form?.caseType || "",
@@ -297,22 +316,10 @@ const PCREdit = ({ form, onClose }) => {
     receivingName: form.full_form?.receivingName || "",
     receivingSignature: form.full_form?.receivingSignature || "",
     receivingSignatureDate: form.full_form?.receivingSignatureDate || "",
-    bodyDiagram: (form.full_form?.bodyDiagram || []).reduce(
-      (acc, part) => ({ ...acc, [part]: true }),
-      {}
-    ),
+    bodyDiagram: cleanedBodyDiagram,
   };
 
-  console.log("PCREdit initialData time fields:", {
-    timeCall: initialData.timeCall,
-    timeCallPeriod: initialData.timeCallPeriod,
-    timeArrivedScene: initialData.timeArrivedScene,
-    timeArrivedScenePeriod: initialData.timeArrivedScenePeriod,
-    timeLeftScene: initialData.timeLeftScene,
-    timeLeftScenePeriod: initialData.timeLeftScenePeriod,
-    timeArrivedHospital: initialData.timeArrivedHospital,
-    timeArrivedHospitalPeriod: initialData.timeArrivedHospitalPeriod,
-  });
+  console.log("PCREdit initialData:", JSON.stringify(initialData, null, 2));
 
   return (
     <PCRForm

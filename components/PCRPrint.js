@@ -578,64 +578,61 @@ const PCRPrint = ({ form, onClose }) => {
             </div>
           </div>
 
-          {/* Waiver and Body Diagram */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded print:print-border print-font print-break">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Waiver:</label>
-              <p className="mt-1 text-sm print:print-text">
-                Signed: {fullForm.patientSignature || fullForm.witnessSignature ? "Yes" : "No"}<br />
-                {fullForm.patientSignature ? (
-                  <>
-                    Patient Signature: <br />
-                    {imageErrors.patientSignature ? (
-                      <span className="text-red-600 print:print-text">Error: {imageErrors.patientSignature}</span>
-                    ) : imageLoaded.patientSignature ? (
-                      <img
-                        src={fullForm.patientSignature}
-                        alt="Patient Signature"
-                        className="print-image"
-                        crossOrigin="anonymous"
-                      />
-                    ) : (
-                      <span className="text-gray-500 print:print-text">Loading signature...</span>
-                    )}
-                  </>
-                ) : (
-                  "Patient Signature: N/A"
-                )}<br />
-                {fullForm.witnessSignature ? (
-                  <>
-                    Witness Signature: <br />
-                    {imageErrors.witnessSignature ? (
-                      <span className="text-red-600 print:print-text">Error: {imageErrors.witnessSignature}</span>
-                    ) : imageLoaded.witnessSignature ? (
-                      <img
-                        src={fullForm.witnessSignature}
-                        alt="Witness Signature"
-                        className="print-image"
-                        crossOrigin="anonymous"
-                      />
-                    ) : (
-                      <span className="text-gray-500 print:print-text">Loading signature...</span>
-                    )}
-                  </>
-                ) : (
-                  "Witness Signature: N/A"
-                )}<br />
-                Patient Signature Date: {formatPHDate(fullForm.patientSignatureDate)}<br />
-                Witness Signature Date: {formatPHDate(fullForm.witnessSignatureDate)}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Body Diagram:</label>
-              <p className="mt-1 text-sm print:print-text">
-                {fullForm.bodyDiagram?.length ? fullForm.bodyDiagram.join(", ") : "N/A"}
-              </p>
-              <div className="no-print">
-                <BodyDiagram3D initialData={fullForm.bodyDiagram} readOnly />
-              </div>
-            </div>
-          </div>
+{/* Waiver and Body Diagram */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded print:print-border print-font print-break">
+  <div>
+    <label className="block text-sm font-medium text-gray-700 print:print-label">Waiver:</label>
+    <p className="mt-1 text-sm print:print-text">
+      Signed: {fullForm.patientSignature || fullForm.witnessSignature ? "Yes" : "No"}<br />
+      {fullForm.patientSignature ? (
+        <>
+          Patient Signature: <br />
+          {imageErrors.patientSignature ? (
+            <span className="text-red-600 print:print-text">Error: {imageErrors.patientSignature}</span>
+          ) : imageLoaded.patientSignature ? (
+            <img
+              src={fullForm.patientSignature}
+              alt="Patient Signature"
+              className="print-image"
+              crossOrigin="anonymous"
+            />
+          ) : (
+            <span className="text-gray-500 print:print-text">Loading signature...</span>
+          )}
+        </>
+      ) : (
+        "Patient Signature: N/A"
+      )}<br />
+      {fullForm.witnessSignature ? (
+        <>
+          Witness Signature: <br />
+          {imageErrors.witnessSignature ? (
+            <span className="text-red-600 print:print-text">Error: {imageErrors.witnessSignature}</span>
+          ) : imageLoaded.witnessSignature ? (
+            <img
+              src={fullForm.witnessSignature}
+              alt="Witness Signature"
+              className="print-image"
+              crossOrigin="anonymous"
+            />
+          ) : (
+            <span className="text-gray-500 print:print-text">Loading signature...</span>
+          )}
+        </>
+      ) : (
+        "Witness Signature: N/A"
+      )}<br />
+      Patient Signature Date: {formatPHDate(fullForm.patientSignatureDate)}<br />
+      Witness Signature Date: {formatPHDate(fullForm.witnessSignatureDate)}
+    </p>
+  </div>
+  <div>
+
+    <div className="no-print mt-4">
+      <BodyDiagram3D initialData={fullForm.bodyDiagram} readOnly />
+    </div>
+  </div>
+</div>
         </div>
       </div>
     </div>
