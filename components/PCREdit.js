@@ -327,6 +327,7 @@ const PCREdit = ({ form, onClose }) => {
       initialData={initialData}
       onSubmit={handleSubmit}
       imageStatus={imageStatus}
+      readOnly={true} // Make BodyDiagram3D read-only
     />
   );
 };
