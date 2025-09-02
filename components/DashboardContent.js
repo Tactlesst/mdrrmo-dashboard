@@ -7,8 +7,9 @@ import Users from './Users';
 import ManagePCRForm from './ManagePCRForm';
 import Logs from './Logs';
 import AdminProfileModal from './AdminProfileModal';
-import OnlineAdminsList from './OnlineAdminsList'; 
-import { FiBell, FiX, FiCheck, FiChevronDown, FiChevronUp, FiEye, FiEyeOff, FiInbox, FiFilter, FiSearch, FiRefreshCw } from 'react-icons/fi';
+import OnlineAdminsList from './OnlineAdminsList';
+import Inbox from './Inbox';
+import { FiBell, FiX, FiCheck, FiChevronDown, FiChevronUp, FiInbox, FiEye, FiEyeOff } from 'react-icons/fi';
 
 const MapDisplay = dynamic(() => import('./MapDisplay'), { ssr: false });
 const Alerts = dynamic(() => import('./Alerts'), { ssr: false });
@@ -24,35 +25,11 @@ export default function DashboardContent({ user }) {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [error, setError] = useState(null);
   const [viewAllNotifications, setViewAllNotifications] = useState(true);
-  const [inboxFilter, setInboxFilter] = useState('all'); // 'all', 'unread', 'read'
-  const [inboxSearch, setInboxSearch] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const sidebarRef = useRef(null);
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
 
-  // Format date for Manila timezone
-  const formatPHDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      const options = {
-        timeZone: 'Asia/Manila',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      };
-      return date.toLocaleString('en-PH', options);
-    } catch (error) {
-      console.error(`Error formatting date ${dateString}:`, error);
-      return 'N/A';
-    }
-  };
-
-  // Format date for relative time (e.g., "2 hours ago")
+  // Format date for relative time
   const formatRelativeTime = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -70,7 +47,8 @@ export default function DashboardContent({ user }) {
       } else if (diffDays < 7) {
         return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
       } else {
-        return formatPHDate(dateString);
+        const options = { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' };
+        return date.toLocaleString('en-PH', options);
       }
     } catch (error) {
       console.error(`Error formatting relative time ${dateString}:`, error);
@@ -84,7 +62,6 @@ export default function DashboardContent({ user }) {
       try {
         const res = await fetch('/api/admin/profile');
         const data = await res.json();
-
         if (data?.admin) {
           setAdmin(data.admin);
         } else {
@@ -94,28 +71,29 @@ export default function DashboardContent({ user }) {
         console.error('Failed to fetch admin profile:', err);
       }
     };
-
     fetchAdmin();
   }, []);
 
   // Fetch notifications
   const fetchNotifications = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
       const url = viewAllNotifications 
         ? `/api/notifications?showAll=true`
         : `/api/notifications?userId=${user.id}`;
       
       const res = await fetch(url);
-      
       if (!res.ok) {
         throw new Error(`Failed to fetch notifications: ${res.status} ${res.statusText}`);
       }
       
       const data = await res.json();
       if (data?.notifications) {
-        setNotifications(data.notifications);
+        const validNotifications = data.notifications.filter(n => n.id && Number.isInteger(Number(n.id)));
+        if (validNotifications.length < data.notifications.length) {
+          console.warn('Some notifications have invalid IDs:', data.notifications);
+        }
+        console.log('Fetched notifications:', validNotifications);
+        setNotifications(validNotifications);
       } else {
         console.warn('No notifications found.');
         setNotifications([]);
@@ -123,8 +101,6 @@ export default function DashboardContent({ user }) {
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
       setError(err.message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -138,23 +114,28 @@ export default function DashboardContent({ user }) {
   const handleMarkAsRead = async (notificationId) => {
     try {
       setError(null);
+      const id = Number(notificationId);
+      if (isNaN(id) || id <= 0) {
+        throw new Error('Invalid notification ID: Must be a positive number');
+      }
+      console.log('Marking notification as read:', { notificationId: id });
       const res = await fetch('/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationId }),
+        body: JSON.stringify({ notificationId: id }),
       });
       
       if (!res.ok) {
-        throw new Error(`Failed to mark notification as read: ${res.status} ${res.statusText}`);
+        const errorData = await res.json();
+        throw new Error(`Failed to mark notification as read: ${res.status} ${res.statusText} - ${errorData.message || 'No additional details'}`);
       }
       
-      // Update local state
       setNotifications(notifications.map(n => 
-        n.id === notificationId ? {...n, is_read: true} : n
+        n.id === id ? { ...n, is_read: true } : n
       ));
       
-      if (selectedNotification && selectedNotification.id === notificationId) {
-        setSelectedNotification({...selectedNotification, is_read: true});
+      if (selectedNotification && selectedNotification.id === id) {
+        setSelectedNotification({ ...selectedNotification, is_read: true });
       }
     } catch (err) {
       console.error('Failed to mark notification as read:', err);
@@ -180,8 +161,7 @@ export default function DashboardContent({ user }) {
         throw new Error(`Failed to mark all notifications as read: ${res.status} ${res.statusText}`);
       }
       
-      // Update local state
-      setNotifications(notifications.map(n => ({...n, is_read: true})));
+      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
       setSelectedNotification(null);
     } catch (err) {
       console.error('Failed to mark all notifications as read:', err);
@@ -191,11 +171,19 @@ export default function DashboardContent({ user }) {
 
   // Handle notification click to show details
   const handleNotificationClick = (notification) => {
+    if (!notification) {
+      console.error('Notification is undefined or null');
+      setError('Cannot process notification: Invalid data');
+      return;
+    }
     setSelectedNotification(notification);
     setShowNotifications(false);
-    
-    // Mark as read when clicked
     if (!notification.is_read) {
+      if (!notification.id) {
+        console.error('Invalid notification ID:', notification);
+        setError('Cannot mark notification as read: Missing or invalid ID');
+        return;
+      }
       handleMarkAsRead(notification.id);
     }
   };
@@ -208,27 +196,8 @@ export default function DashboardContent({ user }) {
   // Toggle between viewing all notifications and personal notifications
   const toggleViewAll = () => {
     setViewAllNotifications(!viewAllNotifications);
-    setShowNotifications(true); // Keep notification panel open when toggling view
+    setShowNotifications(true);
   };
-
-  // Filter notifications based on current filter and search
-  const filteredNotifications = notifications.filter(notification => {
-    // Apply read/unread filter
-    if (inboxFilter === 'unread' && notification.is_read) return false;
-    if (inboxFilter === 'read' && !notification.is_read) return false;
-    
-    // Apply search filter
-    if (inboxSearch) {
-      const searchTerm = inboxSearch.toLowerCase();
-      return (
-        notification.message.toLowerCase().includes(searchTerm) ||
-        (notification.sender_name && notification.sender_name.toLowerCase().includes(searchTerm)) ||
-        (notification.recipient_name && notification.recipient_name.toLowerCase().includes(searchTerm))
-      );
-    }
-    
-    return true;
-  });
 
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST' });
@@ -248,7 +217,7 @@ export default function DashboardContent({ user }) {
             d="M12 9v2m0 4h.01M5.06 19h13.88c1.54 0 2.5-1.66 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.34.19 3 1.72 3z" />
         </svg>
     )},
-    { id: 'inbox', name: 'Inbox', icon: <FiInbox className="w-5 h-5" /> }, // New Inbox Tab
+    { id: 'inbox', name: 'Inbox', icon: <FiInbox className="w-5 h-5" /> },
     { id: 'users', name: 'Users', icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round"
@@ -257,8 +226,8 @@ export default function DashboardContent({ user }) {
     )},
     { id: 'online-admins', name: 'Online Status', icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354l-7 7A.993.993 0 004 12v8a2 2 0 002 2h12a2 2 0 002-2v-8a.993.993 0 00-.354-.707l-7-7a.993.993 0 00-1.392 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a2 2 0 00-2-2H6a2 2 0 00-2 2v4m10 4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4a2 2 0 012-2h4a2 2 0 012 2v4z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354l-7 7A.993.993 0 004 12v8a2 2 0 002 2h12a2 2 0 002-2v-8a.993.993 0 00-.354-.707l-7-7a.993.993 0 00-1.392 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a2 2 0 00-2-2H6a2 2 0 00-2 2v4m10 4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4a2 2 0 012-2h4a2 2 0 012 2v4z" />
         </svg>
     )},
     { id: 'manage-pcr-form', name: 'Manage PCR form', icon: (
@@ -318,141 +287,6 @@ export default function DashboardContent({ user }) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Inbox Component
-  const Inbox = () => (
-    <div className="h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Notification Inbox</h2>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={fetchNotifications}
-            disabled={isLoading}
-            className="flex items-center text-blue-600 hover:text-blue-800 disabled:opacity-50"
-            title="Refresh inbox"
-          >
-            <FiRefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
-          <div className="flex items-center space-x-2 bg-gray-100 rounded-lg px-3 py-2">
-            <FiSearch className="text-gray-500" />
-            <input
-              type="text"
-              placeholder="Search messages..."
-              value={inboxSearch}
-              onChange={(e) => setInboxSearch(e.target.value)}
-              className="bg-transparent border-none focus:outline-none focus:ring-0"
-            />
-          </div>
-          <select
-            value={inboxFilter}
-            onChange={(e) => setInboxFilter(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Messages</option>
-            <option value="unread">Unread Only</option>
-            <option value="read">Read Only</option>
-          </select>
-          <button
-            onClick={toggleViewAll}
-            className="flex items-center text-blue-600 hover:text-blue-800"
-            title={viewAllNotifications ? 'View only my notifications' : 'View all notifications'}
-          >
-            {viewAllNotifications ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
-            <span className="ml-1 hidden md:inline">
-              {viewAllNotifications ? 'My View' : 'Admin View'}
-            </span>
-          </button>
-          {filteredNotifications.filter(n => !n.is_read).length > 0 && (
-            <button
-              onClick={handleMarkAllAsRead}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-            >
-              Mark All Read
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow overflow-hidden flex-1 flex flex-col">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
-        ) : filteredNotifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-            <FiInbox className="w-16 h-16 mb-4" />
-            <p className="text-lg">No notifications found</p>
-            <p className="text-sm">
-              {inboxSearch || inboxFilter !== 'all' 
-                ? 'Try adjusting your search or filter settings' 
-                : 'All caught up! No new notifications'}
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-y-auto flex-1">
-              {filteredNotifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`border-b border-gray-200 flex items-start p-4 cursor-pointer hover:bg-gray-50 ${notification.is_read ? 'bg-gray-50' : 'bg-white'}`}
-                  onClick={() => handleNotificationClick(notification)}
-                >
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-4">
-                    {notification.sender_type === 'admin' ? (
-                      <span className="text-blue-600 font-bold">A</span>
-                    ) : notification.sender_type === 'responder' ? (
-                      <span className="text-green-600 font-bold">R</span>
-                    ) : (
-                      <span className="text-gray-600 font-bold">S</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-gray-900 truncate">
-                        {notification.sender_name || 'System'}
-                      </h3>
-                      <span className="text-xs text-gray-500">
-                        {formatRelativeTime(notification.created_at)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1 truncate">
-                      {notification.message}
-                    </p>
-                    {viewAllNotifications && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        To: {notification.recipient_name || `${notification.account_type}-${notification.account_id}`}
-                      </p>
-                    )}
-                  </div>
-                  {!notification.is_read && (
-                    <div className="flex-shrink-0 ml-4">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        New
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200">
-              <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">{filteredNotifications.length}</span> of{' '}
-                <span className="font-medium">{notifications.length}</span> notifications
-              </p>
-              <div className="flex space-x-2">
-                <button className="px-3 py-1 text-sm bg-gray-200 rounded-md hover:bg-gray-300">
-                  Previous
-                </button>
-                <button className="px-3 py-1 text-sm bg-gray-200 rounded-md hover:bg-gray-300">
-                  Next
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-red-50 font-sans flex flex-col">
@@ -661,7 +495,7 @@ export default function DashboardContent({ user }) {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Date & Time</p>
-                <p className="text-lg text-gray-800">{formatPHDate(selectedNotification.created_at)}</p>
+                <p className="text-lg text-gray-800">{formatRelativeTime(selectedNotification.created_at)}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">Type</p>
@@ -766,7 +600,16 @@ export default function DashboardContent({ user }) {
           <main className="flex-1 bg-white rounded-xl shadow-md p-6 overflow-y-auto max-h-[calc(100vh-7rem)]">
             {activeContent === 'dashboard' && <MapDisplay />}
             {activeContent === 'alerts' && <Alerts />}
-            {activeContent === 'inbox' && <Inbox />}
+            {activeContent === 'inbox' && (
+              <Inbox 
+                notifications={notifications}
+                viewAllNotifications={viewAllNotifications}
+                onToggleViewAll={toggleViewAll}
+                onMarkAllAsRead={handleMarkAllAsRead}
+                onRefresh={fetchNotifications}
+                onNotificationClick={handleNotificationClick}
+              />
+            )}
             {activeContent === 'users' && <Users />}
             {activeContent === 'online-admins' && <OnlineAdminsList />}
             {activeContent === 'manage-pcr-form' && <ManagePCRForm />}

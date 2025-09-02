@@ -8,11 +8,20 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
+
+    // Basic validation
+    if (!email || !password) {
+      setError("Please enter both email and password");
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch("/api/login", {
@@ -29,6 +38,8 @@ export default function LoginPage() {
       }
     } catch (err) {
       setError("An error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -64,6 +75,8 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-300 outline-none"
+              autoComplete="email"
+              disabled={isLoading}
             />
           </div>
           <div>
@@ -74,13 +87,20 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-300 outline-none"
+              autoComplete="current-password"
+              disabled={isLoading}
             />
           </div>
           <button
             type="submit"
-            className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-semibold transition duration-200"
+            disabled={isLoading}
+            className={`w-full py-2 rounded-lg font-semibold transition duration-200 ${
+              isLoading 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-red-500 hover:bg-red-600'
+            } text-white`}
           >
-            Log In
+            {isLoading ? 'Logging in...' : 'Log In'}
           </button>
         </form>
 

@@ -2,11 +2,7 @@ import pool from '@/lib/db';
 
 export default async function handler(req, res) {
   const { method } = req;
-  const { userId, accountType = 'admin', showAll = 'false' } = method === 'GET' ? req.query : req.body;
-
-  if (!userId && showAll === 'false') {
-    return res.status(400).json({ message: 'userId parameter is required when showAll is false' });
-  }
+  const { userId, accountType = 'admin', showAll = 'false', notificationId } = method === 'GET' ? req.query : req.body;
 
   let client;
   try {
@@ -14,8 +10,10 @@ export default async function handler(req, res) {
     await client.query(`SET TIME ZONE 'Asia/Manila'`);
 
     if (method === 'GET') {
+      if (!userId && showAll === 'false') {
+        return res.status(400).json({ message: 'userId parameter is required when showAll is false' });
+      }
       if (showAll === 'true') {
-        // Fetch all notifications for admin view
         const { rows } = await client.query(
           `SELECT 
             n.id, 
@@ -41,12 +39,10 @@ export default async function handler(req, res) {
            LEFT JOIN responders r ON n.sender_type = 'responder' AND n.sender_id = r.id
            LEFT JOIN admins adm ON n.account_type = 'admin' AND n.account_id = adm.id
            LEFT JOIN responders resp ON n.account_type = 'responder' AND n.account_id = resp.id
-           ORDER BY n.created_at DESC`,
+           ORDER BY n.created_at DESC`
         );
-        
         return res.status(200).json({ notifications: rows });
       } else {
-        // Fetch notifications for specific user
         const { rows } = await client.query(
           `SELECT 
             n.id, 
@@ -67,33 +63,42 @@ export default async function handler(req, res) {
            ORDER BY n.created_at DESC`,
           [accountType, userId]
         );
-        
         return res.status(200).json({ notifications: rows });
       }
     }
 
     if (method === 'POST') {
-      const { notificationId } = req.body;
-      await client.query(
+      console.log('Received POST request body:', req.body);
+      if (!notificationId) {
+        return res.status(400).json({ message: 'notificationId is required' });
+      }
+      const id = Number(notificationId);
+      if (isNaN(id) || id <= 0) {
+        return res.status(400).json({ message: `Invalid notificationId: ${notificationId}` });
+      }
+      const result = await client.query(
         `UPDATE notifications
          SET is_read = TRUE, updated_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
-        [notificationId]
+        [id]
       );
-      
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: `Notification not found for ID: ${id}` });
+      }
       return res.status(200).json({ message: 'Notification marked as read' });
     }
 
     if (method === 'PUT') {
+      if (!userId && showAll === 'false') {
+        return res.status(400).json({ message: 'userId parameter is required when showAll is false' });
+      }
       if (showAll === 'true') {
-        // Mark all notifications as read
         await client.query(
           `UPDATE notifications
            SET is_read = TRUE, updated_at = CURRENT_TIMESTAMP
-           WHERE is_read = FALSE`,
+           WHERE is_read = FALSE`
         );
       } else {
-        // Mark all notifications for a specific user as read
         await client.query(
           `UPDATE notifications
            SET is_read = TRUE, updated_at = CURRENT_TIMESTAMP
@@ -101,7 +106,6 @@ export default async function handler(req, res) {
           [accountType, userId]
         );
       }
-      
       return res.status(200).json({ message: 'All notifications marked as read' });
     }
 
