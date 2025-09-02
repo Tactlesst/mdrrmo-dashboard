@@ -175,10 +175,27 @@ CREATE TABLE IF NOT EXISTS admins (
   password TEXT NOT NULL,
   name TEXT DEFAULT 'Administrator',
   image_url TEXT DEFAULT NULL,
-  dob DATE DEFAULT NULL,          -- Date of Birth
-  contact TEXT DEFAULT NULL,      -- Contact number
-  address TEXT DEFAULT NULL       -- Address
+  dob DATE DEFAULT NULL,
+  contact TEXT DEFAULT NULL,
+  address TEXT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id SERIAL PRIMARY KEY,
+  account_type VARCHAR(20) NOT NULL CHECK (account_type IN ('admin', 'responder')),
+  account_id INTEGER NOT NULL,
+  sender_type VARCHAR(20) CHECK (sender_type IN ('admin', 'responder', 'system')),
+  sender_id INTEGER,
+  message TEXT NOT NULL,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_account_type_account_id_is_read 
+ON notifications(account_type, account_id, is_read);
+
 
 CREATE TABLE responder_pins (
   id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,

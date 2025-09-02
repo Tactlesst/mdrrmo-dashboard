@@ -115,7 +115,6 @@ export default function Logs() {
                     <th className="px-4 py-3 text-left border border-red-200">IP Address</th>
                     <th className="px-4 py-3 text-left border border-red-200">Device Info</th>
                     <th className="px-4 py-3 text-left border border-red-200">Login Time</th>
-                    <th className="px-4 py-3 text-center border border-red-200">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm text-gray-700 divide-y divide-red-100">
@@ -126,18 +125,6 @@ export default function Logs() {
                       <td className="px-4 py-3 truncate max-w-xs">{log.user_agent}</td>
                       <td className="px-4 py-3">{formatPHDateTime(log.login_time)}</td>
                       <td className="px-4 py-3 text-center space-x-2">
-                        <button
-                          className="inline-flex items-center justify-center p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700"
-                          title="View"
-                        >
-                          <FaEye />
-                        </button>
-                        <button
-                          className="inline-flex items-center justify-center p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700"
-                          title="Delete"
-                        >
-                          <FaTrash />
-                        </button>
                       </td>
                     </tr>
                   ))}
@@ -170,7 +157,6 @@ export default function Logs() {
                           <th className="px-4 py-3 text-left border border-red-200">IP Address</th>
                           <th className="px-4 py-3 text-left border border-red-200">Device Info</th>
                           <th className="px-4 py-3 text-left border border-red-200">Login Time</th>
-                          <th className="px-4 py-3 text-center border border-red-200">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="text-sm text-gray-700 divide-y divide-red-100">
@@ -180,18 +166,7 @@ export default function Logs() {
                             <td className="px-4 py-3 truncate max-w-xs">{log.user_agent}</td>
                             <td className="px-4 py-3">{formatPHDateTime(log.login_time)}</td>
                             <td className="px-4 py-3 text-center space-x-2">
-                              <button
-                                className="inline-flex items-center justify-center p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700"
-                                title="View"
-                              >
-                                <FaEye />
-                              </button>
-                              <button
-                                className="inline-flex items-center justify-center p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-700"
-                                title="Delete"
-                              >
-                                <FaTrash />
-                              </button>
+
                             </td>
                           </tr>
                         ))}

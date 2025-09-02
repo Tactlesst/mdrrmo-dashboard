@@ -21,10 +21,13 @@ const Dashboard = () => {
   const barChartInstance = useRef(null);
   const [selectedTab, setSelectedTab] = useState('Monthly');
   const [alerts, setAlerts] = useState([]);
+  const [users, setUsers] = useState([]);
   const [locations, setLocations] = useState([]);
   const [responders, setResponders] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalNewUsers, setTotalNewUsers] = useState(0);
   const [totalResponders, setTotalResponders] = useState(0);
   const [availableResponders, setAvailableResponders] = useState(0);
 
@@ -36,17 +39,28 @@ const Dashboard = () => {
         if (!alertsRes.ok) throw new Error(`Alerts HTTP ${alertsRes.status}`);
         const alertsData = await alertsRes.json();
         const alertsArr = alertsData.alerts || alertsData;
-        setAlerts(alertsArr.map((alert) => ({
-          id: alert.id ?? 'N/A',
-          type: alert.type ?? 'Unknown',
-          status: alert.status ?? 'N/A',
-          occurred_at: alert.occurred_at ? dayjs(alert.occurred_at).format('YYYY-MM-DD HH:mm:ss') : 'Unknown',
-          address: alert.address ?? 'N/A',
-          resident_name: alert.resident_name ?? 'Unknown User',
-          responder_name: alert.responder_name ?? 'Not Assigned',
-          lat: alert.lat ?? null,
-          lng: alert.lng ?? null,
-        })));
+        setAlerts(
+          alertsArr.map((alert) => ({
+            id: alert.id ?? 'N/A',
+            type: alert.type ?? 'Unknown',
+            status: alert.status ?? 'N/A',
+            occurred_at: alert.occurred_at ? dayjs(alert.occurred_at).format('YYYY-MM-DD HH:mm:ss') : 'Unknown',
+            address: alert.address ?? 'N/A',
+            resident_name: alert.resident_name ?? 'Unknown User',
+            responder_name: alert.responder_name ?? 'Not Assigned',
+            lat: alert.lat ?? null,
+            lng: alert.lng ?? null,
+          }))
+        );
+
+        // Fetch users (Residents)
+        const usersRes = await fetch('/api/users?role=Residents');
+        if (!usersRes.ok) throw new Error(`Users HTTP ${usersRes.status}`);
+        const usersData = await usersRes.json();
+        setUsers(usersData);
+        setTotalUsers(usersData.length);
+        const thisMonth = dayjs().format('YYYY-MM');
+        setTotalNewUsers(usersData.filter((user) => dayjs(user.created_at || user.dob).format('YYYY-MM') === thisMonth).length);
 
         // Fetch alert locations for map
         const locationsRes = await fetch('/api/alerts/locations');
@@ -57,7 +71,7 @@ const Dashboard = () => {
 
         // Fetch responders
         const respondersRes = await fetch('/api/responders');
-        if (!respondersRes.ok) throw new Error(`Responders HTTP ${respondersRes.status}`);
+        if (!respondersRes.ok) throw new Error(`Responders HTTP ${responders.status}`);
         const respondersData = await respondersRes.json();
         const respondersArr = respondersData.responders || respondersData;
         setResponders(respondersArr);
@@ -69,7 +83,6 @@ const Dashboard = () => {
         const sessionsData = await sessionsRes.json();
         const sessionsArr = sessionsData.sessions || sessionsData;
         setSessions(sessionsArr);
-        // Count unique responders with status = 'ready to go'
         const readyResponders = new Set(
           sessionsArr
             .filter((session) => session.is_active && session.status === 'ready to go')
@@ -79,9 +92,12 @@ const Dashboard = () => {
       } catch (e) {
         console.error('Failed to fetch dashboard data:', e);
         setAlerts([]);
+        setUsers([]);
         setLocations([]);
         setResponders([]);
         setSessions([]);
+        setTotalUsers(0);
+        setTotalNewUsers(0);
         setTotalResponders(0);
         setAvailableResponders(0);
       } finally {
@@ -92,11 +108,11 @@ const Dashboard = () => {
     fetchData();
   }, []);
 
-  // Aggregate alert data for bar chart
+  // Aggregate alert and user data for bar chart
   const chartData = useMemo(() => {
-    const daily = { labels: [], alerts: [] };
-    const weekly = { labels: [], alerts: [] };
-    const monthly = { labels: [], alerts: [] };
+    const daily = { labels: [], alerts: [], newUsers: [] };
+    const weekly = { labels: [], alerts: [], newUsers: [] };
+    const monthly = { labels: [], alerts: [], newUsers: [] };
 
     // Generate labels
     const today = dayjs();
@@ -105,30 +121,51 @@ const Dashboard = () => {
     monthly.labels = Array.from({ length: 12 }, (_, i) => today.subtract(i, 'month').format('MMM')).reverse();
 
     // Aggregate alerts
-    daily.alerts = daily.labels.map((day) => {
-      const date = today.subtract(daily.labels.length - 1 - daily.labels.indexOf(day), 'day').format('YYYY-MM-DD');
+    daily.alerts = daily.labels.map((day, i) => {
+      const date = today.subtract(daily.labels.length - 1 - i, 'day').format('YYYY-MM-DD');
       return alerts.filter((a) => a.occurred_at.startsWith(date)).length;
     });
     weekly.alerts = weekly.labels.map((_, i) => {
-      const weekStart = today.subtract(4 - i - 1, 'week').startOf('week');
+      const weekStart = today.subtract(weekly.labels.length - i - 1, 'week').startOf('week');
       const weekEnd = weekStart.endOf('week');
       return alerts.filter((a) => {
         const d = dayjs(a.occurred_at);
-        return d.isAfter(weekStart) && d.isBefore(weekEnd);
+        return d >= weekStart && d <= weekEnd;
       }).length;
     });
     monthly.alerts = monthly.labels.map((_, i) => {
-      const month = today.subtract(12 - i - 1, 'month').format('YYYY-MM');
-      return alerts.filter((a) => a.occurred_at.startsWith(month)).length;
+      const monthStart = today.subtract(monthly.labels.length - i - 1, 'month').startOf('month');
+      const monthEnd = monthStart.endOf('month');
+      return alerts.filter((a) => {
+        const d = dayjs(a.occurred_at);
+        return d >= monthStart && d <= monthEnd;
+      }).length;
     });
 
-    // Placeholder for new users (no user data API provided)
-    daily.newUsers = daily.labels.map(() => 0);
-    weekly.newUsers = weekly.labels.map(() => 0);
-    monthly.newUsers = monthly.labels.map(() => 0);
+    // Aggregate new users
+    daily.newUsers = daily.labels.map((day, i) => {
+      const date = today.subtract(daily.labels.length - 1 - i, 'day').format('YYYY-MM-DD');
+      return users.filter((u) => (u.created_at || u.dob)?.startsWith(date)).length;
+    });
+    weekly.newUsers = weekly.labels.map((_, i) => {
+      const weekStart = today.subtract(weekly.labels.length - i - 1, 'week').startOf('week');
+      const weekEnd = weekStart.endOf('week');
+      return users.filter((u) => {
+        const d = dayjs(u.created_at || u.dob);
+        return d >= weekStart && d <= weekEnd;
+      }).length;
+    });
+    monthly.newUsers = monthly.labels.map((_, i) => {
+      const monthStart = today.subtract(monthly.labels.length - i - 1, 'month').startOf('month');
+      const monthEnd = monthStart.endOf('month');
+      return users.filter((u) => {
+        const d = dayjs(u.created_at || u.dob);
+        return d >= monthStart && d <= monthEnd;
+      }).length;
+    });
 
     return { daily, weekly, monthly };
-  }, [alerts]);
+  }, [alerts, users]);
 
   const getChartData = () => {
     if (selectedTab === 'Daily') return chartData.daily;
@@ -142,6 +179,8 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
+    if (loading) return; // Prevent chart creation while loading
+
     const ctx = barChartRef.current?.getContext('2d');
     if (!ctx) return;
 
@@ -196,24 +235,27 @@ const Dashboard = () => {
       },
     });
 
+    // Force immediate resize to ensure chart renders correctly
+    barChartInstance.current.resize();
+
     return () => {
       if (barChartInstance.current) barChartInstance.current.destroy();
     };
-  }, [selectedTab, chartData]);
+  }, [loading, selectedTab, chartData]);
 
-  const defaultPosition = [8.8167, 124.8155];
+  const defaultPosition = [8.743412346817417, 124.77629163417616];
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 font-sans flex flex-col gap-6">
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4">
           <div className="p-3 bg-green-100 rounded-full text-green-600 text-xl">
             <FiUserPlus />
           </div>
           <div>
-            <p className="text-gray-500 text-sm">Total New Users</p>
-            <p className="text-2xl font-semibold text-green-600">+0</p> {/* Placeholder */}
+            <p className="text-gray-500 text-sm">Total New Users (This Month)</p>
+            <p className="text-2xl font-semibold text-green-600">{loading ? '...' : totalNewUsers}</p>
           </div>
         </div>
         <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4">
@@ -234,6 +276,15 @@ const Dashboard = () => {
             <p className="text-2xl font-semibold text-blue-600">
               {loading ? '...' : `${availableResponders} / ${totalResponders}`}
             </p>
+          </div>
+        </div>
+        <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4">
+          <div className="p-3 bg-purple-100 rounded-full text-purple-600 text-xl">
+            <FiUsers />
+          </div>
+          <div>
+            <p className="text-gray-500 text-sm">Total Users</p>
+            <p className="text-2xl font-semibold text-purple-600">{loading ? '...' : totalUsers}</p>
           </div>
         </div>
       </div>

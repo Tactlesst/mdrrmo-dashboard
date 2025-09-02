@@ -18,11 +18,13 @@ const BodyDiagram3D = ({ initialData = [], onChange, readOnly = false }) => {
         )
       : []
   );
+
   useEffect(() => {
     if (readOnly) {
       // Disable interactions when in read-only mode
     }
   }, [readOnly]);
+
   // Predefined list of body parts
   const bodyParts = [
     "left leg",
@@ -84,16 +86,48 @@ const BodyDiagram3D = ({ initialData = [], onChange, readOnly = false }) => {
   };
 
   return (
-    <div className="border p-4 rounded-md">
-      <h3 className="text-sm font-semibold text-gray-800 mb-2">Body Diagram</h3>
+    <div className="border p-4 rounded-md print-border-gray-200">
+      <style jsx>{`
+        @media print {
+          .border,
+          .rounded-md,
+          .shadow-sm {
+            border: 1px solid #e5e7eb !important;
+            border-radius: 4px !important;
+            box-shadow: none !important;
+          }
+          .text-gray-800,
+          .text-gray-700,
+          .text-gray-500,
+          .text-red-600,
+          .bg-blue-600,
+          .bg-blue-400,
+          .hover\\:bg-blue-700,
+          .hover\\:underline {
+            color: #374151 !important;
+            background-color: transparent !important;
+            text-decoration: none !important;
+          }
+          .print-text-gray-700 {
+            color: #374151 !important;
+          }
+          .print-text-gray-500 {
+            color: #6b7280 !important;
+          }
+          .print-border-gray-200 {
+            border-color: #e5e7eb !important;
+          }
+        }
+      `}</style>
+      <h3 className="text-sm font-semibold text-gray-800 mb-2 print-text-gray-700">Body Diagram</h3>
       {readOnly ? (
         // Read-only mode: Only show selected body parts
         bodyPartsList.length > 0 ? (
           <div className="mt-2">
-            <h4 className="text-sm font-medium text-gray-700">Selected Body Parts:</h4>
+            <h4 className="text-sm font-medium text-gray-700 print-text-gray-500">Selected Body Parts:</h4>
             <ul className="mt-2 space-y-2">
               {bodyPartsList.map((entry, index) => (
-                <li key={index} className="text-sm">
+                <li key={index} className="text-sm print-text-gray-700">
                   {entry.bodyPart.charAt(0).toUpperCase() + entry.bodyPart.slice(1)} -{" "}
                   {entry.condition.charAt(0).toUpperCase() + entry.condition.slice(1)}
                 </li>
@@ -101,18 +135,18 @@ const BodyDiagram3D = ({ initialData = [], onChange, readOnly = false }) => {
             </ul>
           </div>
         ) : (
-          <p className="text-sm text-gray-500">No body parts selected.</p>
+          <p className="text-sm text-gray-500 print-text-gray-500">No body parts selected.</p>
         )
       ) : (
         // Editable mode: Show dropdowns and add/remove functionality
         <>
           <div className="flex space-x-4 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Body Part:</label>
+              <label className="block text-sm font-medium text-gray-700 print-text-gray-500">Body Part:</label>
               <select
                 value={selectedBodyPart}
                 onChange={(e) => setSelectedBodyPart(e.target.value)}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm print-border-gray-200 print-text-gray-700"
               >
                 <option value="" disabled>Select Body Part</option>
                 {bodyParts.map((part) => (
@@ -123,11 +157,11 @@ const BodyDiagram3D = ({ initialData = [], onChange, readOnly = false }) => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Condition:</label>
+              <label className="block text-sm font-medium text-gray-700 print-text-gray-500">Condition:</label>
               <select
                 value={condition}
                 onChange={(e) => setCondition(e.target.value)}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm print-border-gray-200 print-text-gray-700"
               >
                 <option value="" disabled>Select Condition</option>
                 {conditions.map((cond) => (
@@ -140,7 +174,7 @@ const BodyDiagram3D = ({ initialData = [], onChange, readOnly = false }) => {
             <button
               type="button"
               onClick={handleAddBodyPart}
-              className="mt-6 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-400"
+              className="mt-6 bg-[#2563eb] text-white px-4 py-2 rounded-md hover:bg-[#1e40af] disabled:bg-[#93c5fd] print-text-gray-700"
               disabled={!selectedBodyPart || !condition}
             >
               Add
@@ -148,10 +182,10 @@ const BodyDiagram3D = ({ initialData = [], onChange, readOnly = false }) => {
           </div>
           {bodyPartsList.length > 0 && (
             <div className="mt-2">
-              <h4 className="text-sm font-medium text-gray-700">Selected Body Parts:</h4>
+              <h4 className="text-sm font-medium text-gray-700 print-text-gray-500">Selected Body Parts:</h4>
               <ul className="mt-2 space-y-2">
                 {bodyPartsList.map((entry, index) => (
-                  <li key={index} className="flex justify-between items-center text-sm">
+                  <li key={index} className="flex justify-between items-center text-sm print-text-gray-700">
                     <span>
                       {entry.bodyPart.charAt(0).toUpperCase() + entry.bodyPart.slice(1)} -{" "}
                       {entry.condition.charAt(0).toUpperCase() + entry.condition.slice(1)}
@@ -159,7 +193,7 @@ const BodyDiagram3D = ({ initialData = [], onChange, readOnly = false }) => {
                     <button
                       type="button"
                       onClick={() => handleRemoveBodyPart(index)}
-                      className="text-red-600 hover:underline"
+                      className="text-[#dc2626] hover:underline print-text-gray-700"
                     >
                       Remove
                     </button>

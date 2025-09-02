@@ -29,9 +29,16 @@ export default function Users() {
       }
       const data = await res.json();
       console.log(`Fetched users for ${tab}:`, data); // Debugging log
-      setAllUsers((prev) => ({ ...prev, [tab]: data }));
+      // Sort users by created_at as a fallback
+      const sortedData = data.sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
+        const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
+        return dateB - dateA; // Descending order
+      });
+      setAllUsers((prev) => ({ ...prev, [tab]: sortedData }));
     } catch (err) {
       console.error(`Failed to fetch users for ${tab}:`, err);
+      setAllUsers((prev) => ({ ...prev, [tab]: [] }));
     } finally {
       setLoading(false);
     }
@@ -58,6 +65,7 @@ export default function Users() {
   const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
   const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
 
+  // In Users.js
   const formatDatePH = (dateString) => {
     if (!dateString) return "—";
     return new Date(dateString).toLocaleDateString("en-PH", {
@@ -89,7 +97,7 @@ export default function Users() {
               console.log("New user added:", newUser); // Debugging log
               setAllUsers((prev) => ({
                 ...prev,
-                [activeTab]: [...(prev[activeTab] || []), newUser],
+                [activeTab]: [newUser, ...(prev[activeTab] || [])], // Add new user at the top
               }));
               fetchTabUsers(activeTab);
               setShowAddModal(false);
@@ -119,7 +127,9 @@ export default function Users() {
 
       <div className="bg-white rounded-2xl shadow-lg p-6">
         <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-          <h2 className="text-lg font-semibold text-gray-700">{activeTab} List</h2>
+          <h2 className="text-lg font-semibold text-gray-700">
+            {activeTab} List
+          </h2>
           <input
             type="text"
             placeholder="Search by name..."
@@ -144,7 +154,10 @@ export default function Users() {
             <tbody className="divide-y divide-gray-200">
               {currentUsers.length > 0 ? (
                 currentUsers.map((user, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50 transition duration-150">
+                  <tr
+                    key={idx}
+                    className="hover:bg-gray-50 transition duration-150"
+                  >
                     <td
                       className="py-3 px-4 font-medium text-red-600 hover:underline cursor-pointer"
                       onClick={() => setViewUser(user)}
@@ -169,8 +182,10 @@ export default function Users() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="text-center text-gray-500 py-6">
-                    {loading ? "Loading..." : `No ${activeTab.toLowerCase()} found.`}
+                  <td colSpan={7} className="text-center text-gray-500 py-6">
+                    {loading
+                      ? "Loading..."
+                      : `No ${activeTab.toLowerCase()} found.`}
                   </td>
                 </tr>
               )}
@@ -195,7 +210,9 @@ export default function Users() {
               Page {currentPage} of {totalPages}
             </span>
             <button
-              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
               disabled={currentPage === totalPages}
               className={`px-4 py-2 rounded-lg shadow ${
                 currentPage === totalPages
@@ -234,6 +251,7 @@ export default function Users() {
       {viewUser && (
         <ViewUserModal
           user={viewUser}
+          formatDatePH={formatDatePH}
           onClose={() => {
             setViewUser(null);
             fetchTabUsers(activeTab);

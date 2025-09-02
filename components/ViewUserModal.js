@@ -1,18 +1,10 @@
-'use client';
+"use client";
 
 import { useEffect, useRef } from 'react';
 import { FiX } from 'react-icons/fi';
 
-export default function ViewUserModal({ user, onClose }) {
+export default function ViewUserModal({ user, formatDatePH, onClose }) {
   const modalRef = useRef(null);
-
-  const formattedDOB = user.dob
-    ? new Date(user.dob).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
-    : '—';
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -53,7 +45,7 @@ export default function ViewUserModal({ user, onClose }) {
         <div className="grid grid-cols-1 gap-4 text-gray-700 text-sm">
           <div>
             <p className="font-medium text-gray-500">Date of Birth</p>
-            <p className="text-gray-800">{formattedDOB}</p>
+            <p className="text-gray-800">{formatDatePH(user.dob)}</p>
           </div>
           <div>
             <p className="font-medium text-gray-500">Contact</p>
@@ -62,6 +54,10 @@ export default function ViewUserModal({ user, onClose }) {
           <div>
             <p className="font-medium text-gray-500">Address</p>
             <p className="text-gray-800">{user.address || '—'}</p>
+          </div>
+          <div>
+            <p className="font-medium text-gray-500">Created At</p>
+            <p className="text-gray-800">{formatDatePH(user.created_at)}</p>
           </div>
         </div>
       </div>

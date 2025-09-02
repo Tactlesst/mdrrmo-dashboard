@@ -14,17 +14,23 @@ export default async function handler(req, res) {
     let rows;
     if (role === 'Residents') {
       const { rows: result } = await client.query(
-        `SELECT id, name, email, dob, contact, address FROM users`
+        `SELECT id, name, email, dob, contact, address, created_at 
+         FROM users 
+         ORDER BY created_at DESC`
       );
       rows = result;
     } else if (role === 'Responders') {
       const { rows: result } = await client.query(
-        `SELECT id, name, email, dob, contact, address FROM responders`
+        `SELECT id, name, email, dob, contact, address, created_at 
+         FROM responders 
+         ORDER BY created_at DESC`
       );
       rows = result;
     } else if (role === 'Co-Admins') {
       const { rows: result } = await client.query(
-        `SELECT id, name, email, dob, contact, address FROM admins`
+        `SELECT id, name, email, dob, contact, address, created_at 
+         FROM admins 
+         ORDER BY created_at DESC`
       );
       rows = result;
     } else {
@@ -41,6 +47,7 @@ export default async function handler(req, res) {
         dob: u.dob || null,
         contact: u.contact || null,
         address: u.address || null,
+        created_at: u.created_at ? u.created_at.toISOString() : null,
       }));
 
     return res.status(200).json(normalize(rows));
