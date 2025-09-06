@@ -15,12 +15,12 @@ export default function AlertList({
     const base = 'px-2 py-0.5 rounded-full text-xs font-semibold';
     switch (status) {
       case 'Accepted by Responder':
-      case 'Resolved':
+      case 'Responded':
         return `${base} bg-green-100 text-green-700`;
       case 'Not Responded':
         return `${base} bg-red-100 text-red-700`;
       case 'Pending':
-      case 'Responders On The Way':
+      case 'In Progress':
         return `${base} bg-yellow-100 text-yellow-700`;
       default:
         return `${base} bg-gray-100 text-gray-600`;
@@ -28,16 +28,16 @@ export default function AlertList({
   };
 
   return (
-    <div className="w-full lg:w-96 bg-white border border-red-300 rounded-xl shadow-md p-4 sm:p-6 flex flex-col overflow-y-auto max-h-[calc(100vh-6rem)]">
-      <h1 className="text-xl font-bold text-red-700 mb-4">Alert Management</h1>
+    <div className="w-full lg:w-96 bg-white border border-white-300 rounded-xl shadow-md p-4 sm:p-6 flex flex-col overflow-y-auto max-h-[calc(100vh-6rem)]">
+      <h1 className="text-xl font-bold text-black-700 mb-4">Alert Management</h1>
 
       <div className="flex-1 overflow-y-auto pr-2 min-h-0">
         {alerts.length > 0 ? (
           alerts.map((alert) => (
-            <div key={alert.id} className="bg-red-50 border border-red-200 p-3 rounded-md mb-3 shadow-sm">
+            <div key={alert.id} className="bg-white-50 border border-black-200 p-3 rounded-md mb-3 shadow-sm">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-semibold text-red-800 text-sm">
+                  <p className="font-semibold text-black-800 text-sm">
                     {alert.resident_name || <span className="italic text-gray-500">Unknown User</span>}
                   </p>
                   <p className="text-xs text-gray-600">{alert.address}</p>
@@ -116,7 +116,7 @@ export default function AlertList({
               key={i}
               onClick={() => setCurrentPage(i + 1)}
               className={`px-2 py-1 border rounded-md ${
-                currentPage === i + 1 ? 'bg-red-600 text-white' : 'bg-white'
+                currentPage === i + 1 ? 'bg-gray-600 text-white' : 'bg-white'
               }`}
             >
               {i + 1}

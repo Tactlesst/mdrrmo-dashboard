@@ -515,7 +515,7 @@ export default function DashboardContent({ user }) {
                     handleMarkAsRead(selectedNotification.id);
                     handleCloseDetails();
                   }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors mr-2"
+                  className="px-4 py-2 bg-white-600 text-white rounded-md hover:bg-black-700 transition-colors mr-2"
                 >
                   Mark as Read & Close
                 </button>
@@ -543,7 +543,7 @@ export default function DashboardContent({ user }) {
         >
           <div className="flex items-center mb-6 px-2">
             <div className="w-8 h-8 flex items-center justify-center mr-2">
-              <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-black-600" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
@@ -562,8 +562,8 @@ export default function DashboardContent({ user }) {
                     className={`w-full flex items-center py-2 rounded-full transition-all duration-200 ease-in-out
                       ${isSidebarCollapsed ? 'justify-center px-0' : 'px-4'}
                       ${activeContent === item.id
-                        ? 'bg-red-600 text-white font-semibold shadow-inner'
-                        : 'text-gray-700 hover:bg-red-50 hover:text-red-700'}`}
+                        ? 'bg-gray-600 text-white font-semibold shadow-inner'
+                        : 'text-gray-700 hover:bg-black-50 hover:text-blue-700'}`}
                   >
                     <div className={`${isSidebarCollapsed ? '' : 'mr-3'}`}>{item.icon}</div>
                     {!isSidebarCollapsed && (
@@ -579,7 +579,7 @@ export default function DashboardContent({ user }) {
           <div className="mt-6 pt-4 border-t border-gray-200">
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="w-full flex items-center justify-center py-2 px-4 rounded-lg text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors duration-200"
+              className="w-full flex items-center justify-center py-2 px-4 rounded-lg text-gray-700 hover:bg-gray-50 hover:text-blue-700 transition-colors duration-200"
             >
               <svg
                 className={`w-5 h-5 ${isSidebarCollapsed ? 'rotate-180' : ''} transition-transform duration-200 ease-in-out`}

@@ -53,7 +53,7 @@ export default function OnlineAdminsList() {
   const renderUserCard = (user, type) => (
     <div
       key={`${type}-${user.id}`}
-      className="border-2 border-red-500 bg-white p-4 rounded-xl shadow hover:shadow-md transition-all duration-200 cursor-pointer"
+      className="border-2 border-gray-500 bg-white p-4 rounded-xl shadow hover:shadow-md transition-all duration-200 cursor-pointer"
       onClick={() => {
         setSelectedUser(user);
         setSelectedType(type);
@@ -63,10 +63,10 @@ export default function OnlineAdminsList() {
         <img
           src={user.profile_image_url || user.image_url || '/default-avatar.png'}
           alt="User"
-          className="w-12 h-12 rounded-full object-cover border border-red-300"
+          className="w-12 h-12 rounded-full object-cover border border-gray-300"
         />
         <div className="flex flex-col">
-          <p className="font-semibold text-red-800">{user.name}</p>
+          <p className="font-semibold text-gray-800">{user.name}</p>
           <p className="text-sm text-gray-500">{user.email}</p>
         </div>
       </div>
@@ -105,12 +105,12 @@ const renderUserModal = () => {
       onClick={() => setSelectedUser(null)} // close on backdrop click
     >
       <div
-        className="bg-white rounded-xl border-2 border-red-500 w-full max-w-md p-6 relative shadow-lg"
+        className="bg-white rounded-xl border-2 border-gray-500 w-full max-w-md p-6 relative shadow-lg"
         onClick={(e) => e.stopPropagation()} // prevent modal click from closing
       >
         <button
           onClick={() => setSelectedUser(null)}
-          className="absolute top-3 right-3 text-gray-600 hover:text-red-600"
+          className="absolute top-3 right-3 text-gray-600 hover:text-gray-600"
         >
           <FiX size={20} />
         </button>
@@ -119,18 +119,18 @@ const renderUserModal = () => {
           <img
             src={profile_image_url || image_url || '/default-avatar.png'}
             alt="User"
-            className="w-24 h-24 rounded-full border border-red-300 object-cover mb-4"
+            className="w-24 h-24 rounded-full border border-gray-300 object-cover mb-4"
           />
-          <h2 className="text-xl font-bold text-red-700">{name}</h2>
+          <h2 className="text-xl font-bold text-blue-700">{name}</h2>
           <p className="text-gray-600">{email}</p>
         </div>
 
         <div className="mt-6 space-y-2 text-sm text-gray-700">
-          <p><span className="font-medium text-red-700">Contact:</span> {contact || 'N/A'}</p>
-          <p><span className="font-medium text-red-700">Date of Birth:</span> {formatPHDate(dob)}</p>
-          <p><span className="font-medium text-red-700">Address:</span> {address || 'N/A'}</p>
+          <p><span className="font-medium text-gray-700">Contact:</span> {contact || 'N/A'}</p>
+          <p><span className="font-medium text-gray-700">Date of Birth:</span> {formatPHDate(dob)}</p>
+          <p><span className="font-medium text-gray-700">Address:</span> {address || 'N/A'}</p>
           {selectedType === 'responder' && selectedUser.responder_status && (
-            <p><span className="font-medium text-red-700">Responder Status:</span> {selectedUser.responder_status}</p>
+            <p><span className="font-medium text-gray-700">Responder Status:</span> {selectedUser.responder_status}</p>
           )}
         </div>
       </div>
@@ -144,12 +144,12 @@ const renderUserModal = () => {
 
   return (
     <div className="p-6 bg-white rounded-xl">
-      <h2 className="text-2xl font-bold text-red-700 mb-4">Admin Status</h2>
+      <h2 className="text-2xl font-bold text-gray-700 mb-4">Admin Status</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {admins.map((admin) => renderUserCard(admin, 'admin'))}
       </div>
 
-      <h2 className="text-2xl font-bold text-red-700 mt-8 mb-4">Responder Status</h2>
+      <h2 className="text-2xl font-bold text-gray-700 mt-8 mb-4">Responder Status</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {responders.map((responder) => renderUserCard(responder, 'responder'))}
       </div>

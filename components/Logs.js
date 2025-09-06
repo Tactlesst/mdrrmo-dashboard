@@ -68,14 +68,14 @@ export default function Logs() {
   return (
     <div className="overflow-x-auto max-h-[300vh] overflow-y-auto w-full">
       <div className="max-w-7xl mx-auto">
-        <h2 className="text-3xl font-bold text-red-700 mb-6">Admin Login Logs</h2>
+        <h2 className="text-3xl font-bold text-gray-700 mb-6">Admin Login Logs</h2>
 
         <div className="mb-6 flex items-center gap-3">
-          <label className="text-sm font-medium text-red-700">Filter by Date:</label>
+          <label className="text-sm font-medium text-gray-700">Filter by Date:</label>
           <select
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-4 py-2 text-sm border border-red-300 rounded-xl shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 text-red-800"
+            className="px-4 py-2 text-sm border border-gray-300 rounded-xl shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-800"
           >
             <option value="">All Dates</option>
             {uniqueDates.map((date) => (
@@ -86,40 +86,40 @@ export default function Logs() {
           </select>
         </div>
 
-        <h3 className="text-xl font-semibold text-red-700 mb-4">Accounts</h3>
+        <h3 className="text-xl font-semibold text-gray-700 mb-4">Accounts</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
           {uniqueEmails.map((email) => (
             <div
               key={email}
-              className="p-4 bg-red-50 border border-red-200 rounded-xl cursor-pointer hover:bg-red-100 transition-all"
+              className="p-4 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-100 transition-all"
               onClick={() => handleEmailClick(email)}
             >
-              <p className="text-sm font-medium text-red-800">{email}</p>
+              <p className="text-sm font-medium text-gray-800">{email}</p>
             </div>
           ))}
         </div>
 
         {loading ? (
-          <div className="text-red-500">Loading logs...</div>
+          <div className="text-gray-500">Loading logs...</div>
         ) : error ? (
-          <div className="text-red-600">{error}</div>
+          <div className="text-gray-600">{error}</div>
         ) : filteredLogs.length === 0 ? (
-          <div className="text-red-400 italic">No logs found for selected date.</div>
+          <div className="text-gray-400 italic">No logs found for selected date.</div>
         ) : (
           <div className="overflow-x-auto">
-            <div className="max-h-[60vh] overflow-y-auto rounded-xl shadow-md border border-red-300 bg-white">
+            <div className="max-h-[60vh] overflow-y-auto rounded-xl shadow-md border border-gray-300 bg-white">
               <table className="min-w-full">
-                <thead className="bg-red-100 text-sm font-semibold text-red-800 uppercase sticky top-0 z-10">
+                <thead className="bg-gray-100 text-sm font-semibold text-gray-800 uppercase sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-3 text-left border border-red-200">Email</th>
-                    <th className="px-4 py-3 text-left border border-red-200">IP Address</th>
-                    <th className="px-4 py-3 text-left border border-red-200">Device Info</th>
-                    <th className="px-4 py-3 text-left border border-red-200">Login Time</th>
+                    <th className="px-4 py-3 text-left border border-gray-200">Email</th>
+                    <th className="px-4 py-3 text-left border border-gray-200">IP Address</th>
+                    <th className="px-4 py-3 text-left border border-gray-200">Device Info</th>
+                    <th className="px-4 py-3 text-left border border-gray-200">Login Time</th>
                   </tr>
                 </thead>
-                <tbody className="text-sm text-gray-700 divide-y divide-red-100">
+                <tbody className="text-sm text-gray-700 divide-y divide-gray-100">
                   {filteredLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-red-50 transition-all">
+                    <tr key={log.id} className="hover:bg-gray-50 transition-all">
                       <td className="px-4 py-3">{log.email}</td>
                       <td className="px-4 py-3">{log.ip_address}</td>
                       <td className="px-4 py-3 truncate max-w-xs">{log.user_agent}</td>
@@ -139,29 +139,29 @@ export default function Logs() {
             <div className="bg-white rounded-xl shadow-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-bold text-red-700">Logs for {selectedEmail}</h3>
+                  <h3 className="text-xl font-bold text-blue-700">Logs for {selectedEmail}</h3>
                   <button
                     onClick={closeModal}
-                    className="text-red-700 hover:text-red-900 font-semibold"
+                    className="text-gray-700 hover:text-gray-900 font-semibold"
                   >
                     Close
                   </button>
                 </div>
                 {modalLogs.length === 0 ? (
-                  <div className="text-red-400 italic">No logs found for this account.</div>
+                  <div className="text-gray-400 italic">No logs found for this account.</div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="min-w-full">
-                      <thead className="bg-red-100 text-sm font-semibold text-red-800 uppercase sticky top-0 z-10">
+                      <thead className="bg-gray-100 text-sm font-semibold text-gray-800 uppercase sticky top-0 z-10">
                         <tr>
-                          <th className="px-4 py-3 text-left border border-red-200">IP Address</th>
-                          <th className="px-4 py-3 text-left border border-red-200">Device Info</th>
-                          <th className="px-4 py-3 text-left border border-red-200">Login Time</th>
+                          <th className="px-4 py-3 text-left border border-gray-200">IP Address</th>
+                          <th className="px-4 py-3 text-left border border-gray-200">Device Info</th>
+                          <th className="px-4 py-3 text-left border border-gray-200">Login Time</th>
                         </tr>
                       </thead>
-                      <tbody className="text-sm text-gray-700 divide-y divide-red-100">
+                      <tbody className="text-sm text-gray-700 divide-y divide-gray-100">
                         {modalLogs.map((log) => (
-                          <tr key={log.id} className="hover:bg-red-50 transition-all">
+                          <tr key={log.id} className="hover:bg-gray-50 transition-all">
                             <td className="px-4 py-3">{log.ip_address}</td>
                             <td className="px-4 py-3 truncate max-w-xs">{log.user_agent}</td>
                             <td className="px-4 py-3">{formatPHDateTime(log.login_time)}</td>

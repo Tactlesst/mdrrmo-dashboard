@@ -83,17 +83,17 @@ export default function AdminProfileModal({ onClose }) {
       <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md relative">
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 text-gray-500 hover:text-red-500"
+          className="absolute top-2 right-2 text-gray-500 hover:text-gray-500"
         >
           ✕
         </button>
 
-        <h2 className="text-xl font-bold mb-4 text-red-700 text-center">Admin Profile</h2>
+        <h2 className="text-xl font-bold mb-4 text-gray-700 text-center">Admin Profile</h2>
 
         {status.message && (
           <div
             className={`mb-4 p-3 rounded text-sm ${
-              status.error ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+              status.error ? 'bg-gray-100 text-gray-700' : 'bg-green-100 text-green-700'
             }`}
           >
             {status.message}
@@ -150,7 +150,7 @@ export default function AdminProfileModal({ onClose }) {
 
           <button
             type="submit"
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded"
+            className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 rounded"
           >
             Update Profile
           </button>

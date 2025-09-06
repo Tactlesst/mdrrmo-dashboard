@@ -81,7 +81,7 @@ export default function Users() {
         <h1 className="text-2xl font-bold text-gray-800">Manage {activeTab}</h1>
         <button
           onClick={() => setShowAddModal(true)}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow-md flex items-center gap-2 transition duration-150"
+          className="bg-gray-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md flex items-center gap-2 transition duration-150"
         >
           <FiPlus className="text-sm" />
           Add New {activeTab.slice(0, -1)}
@@ -116,8 +116,8 @@ export default function Users() {
             }}
             className={`px-5 py-2 rounded-full font-medium text-sm transition ${
               activeTab === tab
-                ? "bg-red-600 text-white shadow-md"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-gray-600 text-white shadow-md"
+                : "bg-blue-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
             {tab}
@@ -133,7 +133,7 @@ export default function Users() {
           <input
             type="text"
             placeholder="Search by name..."
-            className="w-full md:w-64 px-4 py-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-red-300 outline-none transition"
+            className="w-full md:w-64 px-4 py-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-300 outline-none transition"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -159,7 +159,7 @@ export default function Users() {
                     className="hover:bg-gray-50 transition duration-150"
                   >
                     <td
-                      className="py-3 px-4 font-medium text-red-600 hover:underline cursor-pointer"
+                      className="py-3 px-4 font-medium text-blue-600 hover:underline cursor-pointer"
                       onClick={() => setViewUser(user)}
                     >
                       {user.fullName || user.name}
@@ -201,7 +201,7 @@ export default function Users() {
               className={`px-4 py-2 rounded-lg shadow ${
                 currentPage === 1
                   ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                  : "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-blue-600 text-white hover:bg-gray-700"
               }`}
             >
               Previous
@@ -217,7 +217,7 @@ export default function Users() {
               className={`px-4 py-2 rounded-lg shadow ${
                 currentPage === totalPages
                   ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                  : "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-blue-600 text-white hover:bg-gray-700"
               }`}
             >
               Next

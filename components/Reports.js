@@ -172,7 +172,7 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-red-800 mb-4">Reports Dashboard</h1>
+      <h1 className="text-2xl font-bold text-gray-800 mb-4">Reports Dashboard</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Alert Analytics */}
@@ -181,7 +181,7 @@ export default function ReportsPage() {
             <h2 className="font-semibold text-lg text-gray-700">Alert Analytics</h2>
             <button
               onClick={exportAlerts}
-              className="flex items-center gap-1 text-sm text-white bg-red-700 hover:bg-red-800 px-3 py-1 rounded"
+              className="flex items-center gap-1 text-sm text-white bg-gray-700 hover:bg-gray-800 px-3 py-1 rounded"
             >
               <FiDownload /> Export Alerts
             </button>
@@ -281,7 +281,7 @@ export default function ReportsPage() {
             <h2 className="font-semibold text-lg text-gray-700">Responder Logs</h2>
             <button
               onClick={exportResponderLogs}
-              className="flex items-center gap-1 text-sm text-white bg-red-700 hover:bg-red-800 px-3 py-1 rounded"
+              className="flex items-center gap-1 text-sm text-white bg-gray-700 hover:bg-gray-800 px-3 py-1 rounded"
             >
               <FiDownload /> Export CSV
             </button>
@@ -340,7 +340,7 @@ export default function ReportsPage() {
                   <YAxis allowDecimals={false} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="actions" fill="#dc2626" />
+                  <Bar dataKey="actions" fill="#775757ff" />
                 </BarChart>
               </ResponsiveContainer>
             )}
