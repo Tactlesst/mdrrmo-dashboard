@@ -211,3 +211,38 @@ VALUES (
   '1233',            
   NOW() + INTERVAL '1 hour'  
 );
+
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id SERIAL PRIMARY KEY,
+  account_type VARCHAR(20) NOT NULL CHECK (account_type IN ('admin', 'responder')),
+  account_id INTEGER NOT NULL,
+  sender_type VARCHAR(20) CHECK (sender_type IN ('admin', 'responder', 'system')),
+  sender_id INTEGER,
+  sender_name VARCHAR(255) NOT NULL,
+  recipient_name VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_account_admin
+    FOREIGN KEY (account_id)
+    REFERENCES admins (id)
+    ON DELETE CASCADE
+    DEFERRABLE INITIALLY DEFERRED,
+  CONSTRAINT fk_account_responder
+    FOREIGN KEY (account_id)
+    REFERENCES responders (id)
+    ON DELETE CASCADE
+    DEFERRABLE INITIALLY DEFERRED,
+  CONSTRAINT fk_sender_admin
+    FOREIGN KEY (sender_id)
+    REFERENCES admins (id)
+    ON DELETE SET NULL
+    DEFERRABLE INITIALLY DEFERRED,
+  CONSTRAINT fk_sender_responder
+    FOREIGN KEY (sender_id)
+    REFERENCES responders (id)
+    ON DELETE SET NULL
+    DEFERRABLE INITIALLY DEFERRED
+);

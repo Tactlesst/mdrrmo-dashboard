@@ -71,6 +71,7 @@ export default async function handler(req, res) {
     const userAgent = req.headers['user-agent'] || 'Unknown';
     const location = await getGeoLocation(ip);
 
+    // Insert session
     const sessionInsert = await pool.query(
       `INSERT INTO admin_sessions (admin_email, ip_address, user_agent, is_active)
        VALUES ($1, $2, $3, TRUE)
@@ -80,13 +81,35 @@ export default async function handler(req, res) {
 
     const sessionId = sessionInsert.rows[0].id;
 
-await pool.query(
-  `INSERT INTO login_logs (admin_id, email, ip_address, user_agent, login_time)
-   VALUES ($1, $2, $3, $4, NOW() AT TIME ZONE 'Asia/Manila')`,
-  [admin.id, admin.email, ip, userAgent]
-);
+    // Insert login log
+    await pool.query(
+      `INSERT INTO login_logs (admin_id, email, ip_address, user_agent, login_time)
+       VALUES ($1, $2, $3, $4, NOW() AT TIME ZONE 'Asia/Manila')`,
+      [admin.id, admin.email, ip, userAgent]
+    );
 
+    // Insert login notification
+    await pool.query(
+      `INSERT INTO notifications (sender_name, recipient_name, account_type, account_id, message, is_read, created_at)
+       VALUES ($1, $2, $3, $4, $5, FALSE, NOW() AT TIME ZONE 'Asia/Manila')`,
+      [
+        'System',
+        admin.name || admin.email,
+        'admin',
+        admin.id.toString(),
+        `Admin ${admin.name || admin.email} logged in from ${ip} (${location}) on ${new Date().toLocaleString('en-PH', {
+          timeZone: 'Asia/Manila',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: true,
+        })}`,
+      ]
+    );
 
+    // Generate JWT token
     const token = jwt.sign(
       { id: admin.id, email: admin.email, sessionId },
       process.env.JWT_SECRET,

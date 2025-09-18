@@ -354,33 +354,32 @@ export default function DashboardContent({ user }) {
                     )}
                   </div>
                 </div>
-                {notifications.length === 0 ? (
-                  <p className="p-3 text-sm text-gray-500">No notifications found.</p>
+                {notifications.filter(n => !n.is_read).length === 0 ? (
+                  <p className="p-3 text-sm text-gray-500">No unread notifications.</p>
                 ) : (
-                  notifications.slice(0, 10).map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`p-3 border-b border-gray-200 flex justify-between items-start cursor-pointer hover:bg-gray-50 ${notification.is_read ? 'bg-gray-50' : ''}`}
-                      onClick={() => handleNotificationClick(notification)}
-                    >
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <p className="text-sm font-medium text-gray-800">
-                            {notification.sender_name || 'System'}
-                          </p>
-                          {viewAllNotifications && (
-                            <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                              To: {notification.recipient_name || `${notification.account_type}-${notification.account_id}`}
-                            </span>
-                          )}
+                  notifications
+                    .filter(n => !n.is_read)
+                    .slice(0, 10)
+                    .map((notification) => (
+                      <div
+                        key={notification.id}
+                        className="p-3 border-b border-gray-200 flex justify-between items-start cursor-pointer hover:bg-gray-50"
+                        onClick={() => handleNotificationClick(notification)}
+                      >
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <p className="text-sm font-medium text-gray-800">
+                              {notification.sender_name || 'System'}
+                            </p>
+                            {viewAllNotifications && (
+                              <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
+                                To: {notification.recipient_name || `${notification.account_type}-${notification.account_id}`}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-800 mt-1">{notification.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">{formatRelativeTime(notification.created_at)}</p>
                         </div>
-                        <p className="text-sm text-gray-800 mt-1">{notification.message}</p>
-                        <p className="text-xs text-gray-500 mt-1">{formatRelativeTime(notification.created_at)}</p>
-                        {notification.is_read && (
-                          <p className="text-xs text-green-600 mt-1">Read</p>
-                        )}
-                      </div>
-                      {!notification.is_read && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -391,20 +390,20 @@ export default function DashboardContent({ user }) {
                         >
                           <FiCheck className="w-5 h-5" />
                         </button>
-                      )}
-                    </div>
-                  ))
+                      </div>
+                    ))
                 )}
-                {notifications.length > 10 && (
-                  <div className="p-3 text-center border-t border-gray-200">
-                    <button
-                      onClick={() => setActiveContent('inbox')}
-                      className="text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      View all in inbox →
-                    </button>
-                  </div>
-                )}
+                <div className="p-3 text-center border-t border-gray-200">
+                  <button
+                    onClick={() => {
+                      setActiveContent('inbox');
+                      setShowNotifications(false);
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    View all notifications →
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -463,7 +462,7 @@ export default function DashboardContent({ user }) {
 
       {/* Notification Details Modal */}
       {selectedNotification && (
-        <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 blur-2 bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-800">Notification Details</h3>
@@ -515,7 +514,7 @@ export default function DashboardContent({ user }) {
                     handleMarkAsRead(selectedNotification.id);
                     handleCloseDetails();
                   }}
-                  className="px-4 py-2 bg-white-600 text-white rounded-md hover:bg-black-700 transition-colors mr-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors mr-2"
                 >
                   Mark as Read & Close
                 </button>
@@ -563,7 +562,7 @@ export default function DashboardContent({ user }) {
                       ${isSidebarCollapsed ? 'justify-center px-0' : 'px-4'}
                       ${activeContent === item.id
                         ? 'bg-gray-600 text-white font-semibold shadow-inner'
-                        : 'text-gray-700 hover:bg-black-50 hover:text-blue-700'}`}
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-blue-700'}`}
                   >
                     <div className={`${isSidebarCollapsed ? '' : 'mr-3'}`}>{item.icon}</div>
                     {!isSidebarCollapsed && (
