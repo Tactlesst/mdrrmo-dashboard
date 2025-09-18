@@ -1,3 +1,4 @@
+
 import pool from "@/lib/db";
 import jwt from "jsonwebtoken";
 
@@ -83,6 +84,40 @@ export default async function handler(req, res) {
           },
           type,
           user.id
+        ]
+      );
+
+      // Insert notification for PCR form creation
+      await pool.query(
+        `
+        INSERT INTO notifications (
+          account_type,
+          account_id,
+          sender_type,
+          sender_id,
+          sender_name,
+          recipient_name,
+          message,
+          is_read,
+          created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW() AT TIME ZONE 'Asia/Manila')
+        `,
+        [
+          type,
+          user.id,
+          type,
+          user.id,
+          user.name || 'Unknown',
+          user.name || 'Unknown',
+          `${type.charAt(0).toUpperCase() + type.slice(1)} ${user.name || 'Unknown'} added a PCR form for patient ${patientName} on ${new Date().toLocaleString('en-PH', {
+            timeZone: 'Asia/Manila',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true,
+          })}`
         ]
       );
 
