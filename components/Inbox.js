@@ -17,9 +17,16 @@ export default function Inbox({
 
   // Format date for Manila timezone
   const formatPHDate = (dateString) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) {
+      console.warn('No dateString provided for formatPHDate');
+      return 'N/A';
+    }
     try {
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        console.error(`Invalid date string for formatPHDate: ${dateString}`);
+        return 'N/A';
+      }
       const options = {
         timeZone: 'Asia/Manila',
         year: 'numeric',
@@ -29,7 +36,9 @@ export default function Inbox({
         minute: '2-digit',
         hour12: true,
       };
-      return date.toLocaleString('en-PH', options);
+      const formatted = date.toLocaleString('en-PH', options);
+      console.log(`formatPHDate: input=${dateString}, output=${formatted}`);
+      return formatted;
     } catch (error) {
       console.error(`Error formatting date ${dateString}:`, error);
       return 'N/A';
@@ -38,21 +47,45 @@ export default function Inbox({
 
   // Format date for relative time in Asia/Manila timezone
   const formatRelativeTime = (dateString) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) {
+      console.warn('No dateString provided for formatRelativeTime');
+      return 'N/A';
+    }
     try {
-      // Parse the notification date in Asia/Manila
       const date = new Date(dateString);
-      // Get current time in Asia/Manila
-      const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' });
-      const nowDate = new Date(now);
+      if (isNaN(date.getTime())) {
+        console.error(`Invalid date string: ${dateString}`);
+        return 'N/A';
+      }
 
-      const diffMs = nowDate - date;
+      // Convert to Asia/Manila
+      const dateManila = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+      const now = new Date();
+      const nowManila = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+
+      const diffMs = nowManila - dateManila;
       const diffMins = Math.round(diffMs / (1000 * 60));
       const diffHours = Math.round(diffMs / (1000 * 60 * 60));
       const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
+      // Detailed debug logging
+      console.log({
+        input: dateString,
+        parsedDate: date.toISOString(),
+        dateManila: dateManila.toISOString(),
+        now: now.toISOString(),
+        nowManila: nowManila.toISOString(),
+        diffMs,
+        diffMins,
+        diffHours,
+        diffDays,
+      });
+
       if (diffMs < 0) {
-        return 'just now'; // Handle future timestamps
+        console.warn(`Future timestamp detected: ${dateString}, diff: ${diffMins} mins`);
+        return 'just now';
+      } else if (diffMins < 1) {
+        return 'just now';
       } else if (diffMins < 60) {
         return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
       } else if (diffHours < 24) {
@@ -102,15 +135,11 @@ export default function Inbox({
     }
   });
 
-  // Combine categories with Alerts first
+  // Sort notifications within each category by created_at (descending)
   const orderedCategories = [
-    { name: 'Alerts', key: 'alerts', notifications: categorizedNotifications.alerts },
-    {
-      name: 'System Notifications',
-      key: 'system',
-      notifications: categorizedNotifications.system,
-    },
-    { name: 'Other Notifications', key: 'other', notifications: categorizedNotifications.other },
+    { name: 'Alerts', key: 'alerts', notifications: categorizedNotifications.alerts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) },
+    { name: 'System Notifications', key: 'system', notifications: categorizedNotifications.system.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) },
+    { name: 'Other Notifications', key: 'other', notifications: categorizedNotifications.other.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) },
   ];
 
   return (

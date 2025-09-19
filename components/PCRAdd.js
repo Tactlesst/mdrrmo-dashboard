@@ -11,7 +11,10 @@ const PCRAdd = ({ onClose }) => {
       .then((res) => res.json())
       .then((data) => {
         if (data?.name) {
+          console.log("Fetched current user:", data);
           setCurrentUser(data);
+        } else {
+          console.warn("No user data received from /api/auth/me");
         }
       })
       .catch((err) => console.error("Failed to fetch current user:", err));
@@ -19,9 +22,24 @@ const PCRAdd = ({ onClose }) => {
 
   const handleSubmit = async (formData) => {
     try {
+      // Validate bodyDiagram
+      const validatedBodyDiagram = Array.isArray(formData.bodyDiagram)
+        ? formData.bodyDiagram.filter(
+            (entry) =>
+              entry &&
+              typeof entry === "object" &&
+              entry.bodyPart &&
+              typeof entry.bodyPart === "string" &&
+              entry.condition &&
+              typeof entry.condition === "string"
+          )
+        : [];
+      console.log("Validated bodyDiagram in PCRAdd:", validatedBodyDiagram);
+
       const payload = {
         ...formData,
-        recorder: formData.recorder || currentUser?.name || "", // Ensure recorder is set
+        bodyDiagram: validatedBodyDiagram, // Ensure bodyDiagram is included
+        recorder: formData.recorder || currentUser?.name || "",
         created_by_type: currentUser?.type || "",
         created_by_id: currentUser?.id || null,
       };
@@ -41,10 +59,10 @@ const PCRAdd = ({ onClose }) => {
       }
 
       console.log("PCR form submitted successfully");
-      onClose(true); // Close with success
+      onClose(true);
     } catch (error) {
       console.error("Error submitting PCR form:", error);
-      throw error; // Let PCRForm handle error display
+      throw error;
     }
   };
 
@@ -53,8 +71,11 @@ const PCRAdd = ({ onClose }) => {
       onClose={onClose}
       onSubmit={handleSubmit}
       initialData={{
-        date: new Date().toISOString().split("T")[0], // Consistent YYYY-MM-DD format
+        date: new Date()
+          .toLocaleDateString("en-CA", { timeZone: "Asia/Manila" })
+          .split("T")[0],
         recorder: currentUser?.name || "",
+        bodyDiagram: [], // Explicitly initialize bodyDiagram
       }}
       createdByType={currentUser?.type || ""}
       createdById={currentUser?.id || null}

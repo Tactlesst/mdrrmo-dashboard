@@ -29,19 +29,31 @@ export default function DashboardContent({ user }) {
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
 
-  // Format date for relative time
+  // Format date for relative time in Asia/Manila timezone
   const formatRelativeTime = (dateString) => {
     if (!dateString) return 'N/A';
     try {
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        console.error(`Invalid date string: ${dateString}`);
+        return 'N/A';
+      }
+
+      const dateManila = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
       const now = new Date();
-      const diffMs = now - date;
-      const diffMins = Math.round(diffMs / (1000 * 60));
-      const diffHours = Math.round(diffMs / (1000 * 60 * 60));
-      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-      
-      if (diffMins < 60) {
-        return `${diffMins} min ago`;
+      const nowManila = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+
+      const diffMs = nowManila - dateManila;
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      console.log(`Notification date: ${dateString}, Manila: ${dateManila}, Now: ${nowManila}, Diff: ${diffMins} mins`);
+
+      if (diffMs < 0 || diffMins < 1) {
+        return 'just now';
+      } else if (diffMins < 60) {
+        return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
       } else if (diffHours < 24) {
         return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
       } else if (diffDays < 7) {
@@ -77,7 +89,7 @@ export default function DashboardContent({ user }) {
   // Fetch notifications
   const fetchNotifications = async () => {
     try {
-      const url = viewAllNotifications 
+      const url = viewAllNotifications
         ? `/api/notifications?showAll=true`
         : `/api/notifications?userId=${user.id}`;
       
@@ -250,20 +262,17 @@ export default function DashboardContent({ user }) {
     )},
   ];
 
-  // Load saved tab
   useEffect(() => {
     const savedTab = localStorage.getItem('activeTab');
     setActiveContent(savedTab || 'dashboard');
   }, []);
 
-  // Save current tab
   useEffect(() => {
     if (activeContent) {
       localStorage.setItem('activeTab', activeContent);
     }
   }, [activeContent]);
 
-  // Collapse sidebar on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (sidebarRef.current && !sidebarRef.current.contains(e.target) && !isSidebarCollapsed) {
@@ -274,7 +283,6 @@ export default function DashboardContent({ user }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isSidebarCollapsed]);
 
-  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -290,7 +298,6 @@ export default function DashboardContent({ user }) {
 
   return (
     <div className="min-h-screen bg-red-50 font-sans flex flex-col">
-      {/* Error display */}
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative m-4">
           <strong className="font-bold">Error: </strong>
@@ -304,7 +311,6 @@ export default function DashboardContent({ user }) {
         </div>
       )}
       
-      {/* Header */}
       <header className="bg-gradient-to-r from-red-600 to-red-800 text-white shadow-lg px-6 py-4 flex items-center justify-between rounded-b-md">
         <div className="flex items-center space-x-4">
           <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="md:hidden">
@@ -316,7 +322,6 @@ export default function DashboardContent({ user }) {
         </div>
 
         <div className="flex items-center space-x-4">
-          {/* Notification Bell */}
           <div className="relative" ref={notificationRef}>
             <button
               onClick={() => setShowNotifications((prev) => !prev)}
@@ -408,7 +413,6 @@ export default function DashboardContent({ user }) {
             )}
           </div>
 
-          {/* Admin Dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowDropdown((prev) => !prev)}
@@ -460,7 +464,6 @@ export default function DashboardContent({ user }) {
         </div>
       </header>
 
-      {/* Notification Details Modal */}
       {selectedNotification && (
         <div className="fixed inset-0 blur-2 bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
@@ -530,9 +533,7 @@ export default function DashboardContent({ user }) {
         </div>
       )}
 
-      {/* Layout */}
       <div className="flex flex-1 flex-col md:flex-row p-4 gap-4">
-        {/* Sidebar */}
         <aside
           ref={sidebarRef}
           onClick={() => isSidebarCollapsed && setIsSidebarCollapsed(false)}
@@ -551,7 +552,6 @@ export default function DashboardContent({ user }) {
             )}
           </div>
 
-          {/* Navigation */}
           <nav className="flex-1">
             <ul className="space-y-2">
               {navItems.map((item) => (
@@ -574,7 +574,6 @@ export default function DashboardContent({ user }) {
             </ul>
           </nav>
 
-          {/* Collapse Sidebar */}
           <div className="mt-6 pt-4 border-t border-gray-200">
             <button
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -594,7 +593,6 @@ export default function DashboardContent({ user }) {
           </div>
         </aside>
 
-        {/* Main Content */}
         {activeContent && (
           <main className="flex-1 bg-white rounded-xl shadow-md p-6 overflow-y-auto max-h-[calc(100vh-7rem)]">
             {activeContent === 'dashboard' && <MapDisplay />}
@@ -618,7 +616,6 @@ export default function DashboardContent({ user }) {
         )}
       </div>
       
-      {/* Profile Modal */}
       {showProfileModal && (
         <AdminProfileModal onClose={() => setShowProfileModal(false)} />
       )}

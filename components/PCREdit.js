@@ -9,8 +9,8 @@ const PCREdit = ({ form, onClose }) => {
     witnessSignature: { loaded: false, error: null },
     receivingSignature: { loaded: false, error: null },
   });
+  const [caseTypeError, setCaseTypeError] = useState(null);
 
-  // Helpers
   const toNull = (value) => {
     if (value === "" || value === undefined || value === null) return null;
     return value;
@@ -30,7 +30,6 @@ const PCREdit = ({ form, onClose }) => {
     return { time: time.trim(), period: period?.toUpperCase() || "AM" };
   };
 
-  // Preload and verify Cloudinary images
   useEffect(() => {
     console.log("PCREdit form data:", JSON.stringify(form, null, 2));
     const fullForm = form.full_form || {};
@@ -77,7 +76,6 @@ const PCREdit = ({ form, onClose }) => {
     preloadImages();
   }, [form]);
 
-  // Upload signature to Cloudinary
   const uploadSignature = async (signatureData, field) => {
     if (!signatureData || signatureData.startsWith("https://res.cloudinary.com")) {
       console.log(`No new ${field} to upload, retaining existing`);
@@ -127,18 +125,13 @@ const PCREdit = ({ form, onClose }) => {
         throw new Error("Recorder is required.");
       }
 
-      let poiType = null;
-      if (formData.poi?.highway) poiType = "highway";
-      else if (formData.poi?.residence) poiType = "residence";
-      else if (formData.poi?.publicBuilding) poiType = "public_building";
-
       const patientSignature = await uploadSignature(formData.patientSignature, "patientSignature");
       const witnessSignature = await uploadSignature(formData.witnessSignature, "witnessSignature");
       const receivingSignature = await uploadSignature(formData.receivingSignature, "receivingSignature");
 
       const cleanedBodyDiagram = Array.isArray(formData.bodyDiagram)
         ? formData.bodyDiagram.filter(
-            (entry) =>
+            entry =>
               entry &&
               typeof entry === "object" &&
               entry.bodyPart &&
@@ -149,34 +142,30 @@ const PCREdit = ({ form, onClose }) => {
         : [];
 
       const transformedData = {
+        id: form.id,
         patient_name: formData.patientName,
         date: formData.date,
         location: toNull(formData.location),
         recorder: formData.recorder,
         full_form: {
+          case_number: toNull(formData.case_number),
           caseType: toNull(formData.caseType),
+          category: toNull(formData.category),
           age: toIntOrNull(formData.age),
           gender: toNull(formData.gender),
           contactNumber: toNull(formData.contactNumber),
           homeAddress: toNull(formData.homeAddress),
-          poiType: toNull(poiType),
+          bloodPressure: toNull(formData.bloodPressure),
+          pr: toIntOrNull(formData.pr),
+          rr: toIntOrNull(formData.rr),
+          temp: toNull(formData.temp),
+          o2sat: toNull(formData.o2sat),
           poi: {
             brgy: toNull(formData.poi?.brgy),
             highway: !!formData.poi?.highway,
             residence: !!formData.poi?.residence,
             publicBuilding: !!formData.poi?.publicBuilding,
           },
-          bloodPressure: toNull(formData.bloodPressure),
-          pr: toIntOrNull(formData.pr),
-          rr: toIntOrNull(formData.rr),
-          temp: toNull(formData.temp),
-          o2sat: toNull(formData.o2sat),
-          hospitalTransported: toNull(formData.hospitalTransported),
-          timeCall: toNull(combineTimeWithPeriod(formData.timeCall, formData.timeCallPeriod)),
-          timeArrivedScene: toNull(combineTimeWithPeriod(formData.timeArrivedScene, formData.timeArrivedScenePeriod)),
-          timeLeftScene: toNull(combineTimeWithPeriod(formData.timeLeftScene, formData.timeLeftScenePeriod)),
-          timeArrivedHospital: toNull(combineTimeWithPeriod(formData.timeArrivedHospital, formData.timeArrivedHospitalPeriod)),
-          ambulanceNo: toNull(formData.ambulanceNo),
           underInfluence: formData.underInfluence || null,
           evacuationCode: formData.evacuationCode || null,
           responseTeam: formData.responseTeam?.length ? formData.responseTeam : null,
@@ -185,8 +174,6 @@ const PCREdit = ({ form, onClose }) => {
           doi: toNull(formData.doi),
           toi: toNull(formData.toi),
           noi: toNull(formData.noi),
-          lossOfConsciousness: toNull(formData.lossOfConsciousness),
-          lossOfConsciousnessMinutes: toIntOrNull(formData.lossOfConsciousnessMinutes),
           chiefComplaints: toNull(formData.chiefComplaints),
           interventions: toNull(formData.interventions),
           signsSymptoms: toNull(formData.signsSymptoms),
@@ -199,7 +186,12 @@ const PCREdit = ({ form, onClose }) => {
           driver: toNull(formData.driver),
           teamLeader: toNull(formData.teamLeader),
           crew: toNull(formData.crew),
-          receivingHospital: toNull(formData.receivingHospital),
+          hospitalTransported: toNull(formData.hospitalTransported),
+          ambulanceNo: toNull(formData.ambulanceNo),
+          timeCall: toNull(combineTimeWithPeriod(formData.timeCall, formData.timeCallPeriod)),
+          timeArrivedScene: toNull(combineTimeWithPeriod(formData.timeArrivedScene, formData.timeArrivedScenePeriod)),
+          timeLeftScene: toNull(combineTimeWithPeriod(formData.timeLeftScene, formData.timeLeftScenePeriod)),
+          timeArrivedHospital: toNull(combineTimeWithPeriod(formData.timeArrivedHospital, formData.timeArrivedHospitalPeriod)),
           patientSignature: toNull(patientSignature),
           witnessSignature: toNull(witnessSignature),
           receivingSignature: toNull(receivingSignature),
@@ -208,12 +200,14 @@ const PCREdit = ({ form, onClose }) => {
           receivingSignatureDate: toNull(formData.receivingSignatureDate),
           receivingName: toNull(formData.receivingName),
           bodyDiagram: cleanedBodyDiagram,
+          lossOfConsciousness: toNull(formData.lossOfConsciousness),
+          lossOfConsciousnessMinutes: toIntOrNull(formData.lossOfConsciousnessMinutes),
         },
       };
 
       console.log("Submitting transformedData:", JSON.stringify(transformedData, null, 2));
 
-      const response = await fetch(`/api/pcr/${form.id}`, {
+      const response = await fetch(`/api/pcr?id=${form.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(transformedData),
@@ -228,13 +222,12 @@ const PCREdit = ({ form, onClose }) => {
     } catch (error) {
       console.error("Error submitting form:", error);
       alert(error.message);
-      throw error;
     }
   };
 
   const cleanedBodyDiagram = Array.isArray(form.full_form?.bodyDiagram)
     ? form.full_form.bodyDiagram.filter(
-        (entry) =>
+        entry =>
           entry &&
           typeof entry === "object" &&
           entry.bodyPart &&
@@ -245,30 +238,22 @@ const PCREdit = ({ form, onClose }) => {
     : [];
 
   const initialData = {
+    case_number: form.full_form?.case_number || "",
     caseType: form.full_form?.caseType || "",
-    recorder: form.recorder || "",
-    date: form.date ? form.date.split("T")[0] : "",
+    category: form.full_form?.category || "Patient",
     patientName: form.patient_name || "",
     age: form.full_form?.age || "",
     gender: form.full_form?.gender || "",
-    category: form.full_form?.category || "Patient",
+    contactNumber: form.full_form?.contactNumber || "",
+    homeAddress: form.full_form?.homeAddress || "",
+    location: form.location || "",
+    recorder: form.recorder || "",
+    date: form.date ? form.date.split("T")[0] : "",
     bloodPressure: form.full_form?.bloodPressure || "",
     pr: form.full_form?.pr || "",
     rr: form.full_form?.rr || "",
-    o2sat: form.full_form?.o2sat || "",
     temp: form.full_form?.temp || "",
-    hospitalTransported: form.full_form?.hospitalTransported || "",
-    timeCall: splitTime(form.full_form?.timeCall).time,
-    timeCallPeriod: splitTime(form.full_form?.timeCall).period,
-    timeArrivedScene: splitTime(form.full_form?.timeArrivedScene).time,
-    timeArrivedScenePeriod: splitTime(form.full_form?.timeArrivedScene).period,
-    timeLeftScene: splitTime(form.full_form?.timeLeftScene).time,
-    timeLeftScenePeriod: splitTime(form.full_form?.timeLeftScene).period,
-    timeArrivedHospital: splitTime(form.full_form?.timeArrivedHospital).time,
-    timeArrivedHospitalPeriod: splitTime(form.full_form?.timeArrivedHospital).period,
-    ambulanceNo: form.full_form?.ambulanceNo || "",
-    homeAddress: form.full_form?.homeAddress || "",
-    location: form.location || "",
+    o2sat: form.full_form?.o2sat || "",
     underInfluence: form.full_form?.underInfluence || {
       alcohol: false,
       drugs: false,
@@ -284,7 +269,6 @@ const PCREdit = ({ form, onClose }) => {
     responseTeam: form.full_form?.responseTeam || [],
     contactPerson: form.full_form?.contactPerson || "",
     relationship: form.full_form?.relationship || "",
-    contactNumber: form.full_form?.contactNumber || "",
     doi: form.full_form?.doi || "",
     toi: form.full_form?.toi || "",
     noi: form.full_form?.noi || "",
@@ -294,8 +278,6 @@ const PCREdit = ({ form, onClose }) => {
       residence: false,
       publicBuilding: false,
     },
-    lossOfConsciousness: form.full_form?.lossOfConsciousness || "no",
-    lossOfConsciousnessMinutes: form.full_form?.lossOfConsciousnessMinutes || "",
     chiefComplaints: form.full_form?.chiefComplaints || "",
     interventions: form.full_form?.interventions || "",
     signsSymptoms: form.full_form?.signsSymptoms || "",
@@ -308,27 +290,45 @@ const PCREdit = ({ form, onClose }) => {
     driver: form.full_form?.driver || "",
     teamLeader: form.full_form?.teamLeader || "",
     crew: form.full_form?.crew || "",
-    receivingHospital: form.full_form?.receivingHospital || "",
+    hospitalTransported: form.full_form?.hospitalTransported || "",
+    ambulanceNo: form.full_form?.ambulanceNo || "",
+    timeCall: splitTime(form.full_form?.timeCall).time,
+    timeCallPeriod: splitTime(form.full_form?.timeCall).period,
+    timeArrivedScene: splitTime(form.full_form?.timeArrivedScene).time,
+    timeArrivedScenePeriod: splitTime(form.full_form?.timeArrivedScene).period,
+    timeLeftScene: splitTime(form.full_form?.timeLeftScene).time,
+    timeLeftScenePeriod: splitTime(form.full_form?.timeLeftScene).period,
+    timeArrivedHospital: splitTime(form.full_form?.timeArrivedHospital).time,
+    timeArrivedHospitalPeriod: splitTime(form.full_form?.timeArrivedHospital).period,
     patientSignature: form.full_form?.patientSignature || "",
     witnessSignature: form.full_form?.witnessSignature || "",
+    receivingSignature: form.full_form?.receivingSignature || "",
     patientSignatureDate: form.full_form?.patientSignatureDate || "",
     witnessSignatureDate: form.full_form?.witnessSignatureDate || "",
-    receivingName: form.full_form?.receivingName || "",
-    receivingSignature: form.full_form?.receivingSignature || "",
     receivingSignatureDate: form.full_form?.receivingSignatureDate || "",
+    receivingName: form.full_form?.receivingName || "",
     bodyDiagram: cleanedBodyDiagram,
+    lossOfConsciousness: form.full_form?.lossOfConsciousness || "no",
+    lossOfConsciousnessMinutes: form.full_form?.lossOfConsciousnessMinutes || "",
   };
 
   console.log("PCREdit initialData:", JSON.stringify(initialData, null, 2));
 
   return (
-    <PCRForm
-      onClose={onClose}
-      initialData={initialData}
-      onSubmit={handleSubmit}
-      imageStatus={imageStatus}
-      readOnly={true} // Make BodyDiagram3D read-only
-    />
+    <div>
+      {caseTypeError && (
+        <div className="mb-4 p-2 bg-yellow-100 text-yellow-700 rounded">
+          {caseTypeError}
+        </div>
+      )}
+      <PCRForm
+        onClose={onClose}
+        initialData={initialData}
+        onSubmit={handleSubmit}
+        imageStatus={imageStatus}
+        readOnly={false}
+      />
+    </div>
   );
 };
 

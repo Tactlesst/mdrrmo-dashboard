@@ -5,10 +5,10 @@ import { FiX } from "react-icons/fi";
 import BodyDiagram3D from "./BodyDiagram3D";
 import SignatureCanvas from "react-signature-canvas";
 
-
 const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, createdById, imageStatus, readOnly = false }) => {
   const initialFormData = {
     caseType: "",
+    alertId: "", // New field to store selected alert ID
     recorder: "",
     date: "",
     patientName: "",
@@ -22,9 +22,13 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
     temp: "",
     hospitalTransported: "",
     timeCall: "",
+    timeCallPeriod: "AM",
     timeArrivedScene: "",
+    timeArrivedScenePeriod: "AM",
     timeLeftScene: "",
+    timeLeftScenePeriod: "AM",
     timeArrivedHospital: "",
+    timeArrivedHospitalPeriod: "AM",
     ambulanceNo: "",
     homeAddress: "",
     location: "",
@@ -84,16 +88,69 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [caseTypeOptions, setCaseTypeOptions] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [availableAlerts, setAvailableAlerts] = useState([]); // Alerts for selected caseType
+  const [caseTypeLoading, setCaseTypeLoading] = useState(true);
+  const [caseTypeError, setCaseTypeError] = useState(null);
 
   const patientSigRef = useRef(null);
   const witnessSigRef = useRef(null);
   const receivingSigRef = useRef(null);
 
+  // Fetch case type options and alerts from /api/alerts
+  useEffect(() => {
+    const fetchCaseTypes = async () => {
+      setCaseTypeLoading(true);
+      try {
+        const response = await fetch("/api/alerts");
+        if (!response.ok) {
+          throw new Error("Failed to fetch alert types");
+        }
+        const data = await response.json();
+        console.log("Fetched alerts:", data.alerts);
+        setAlerts(data.alerts);
+        const types = [...new Set(data.alerts.map(alert => alert.type).filter(type => type && typeof type === "string"))];
+        console.log("Unique case type options:", types);
+        setCaseTypeOptions(types);
+        // Validate initial caseType
+        if (initialData?.caseType && !types.includes(initialData.caseType)) {
+          console.warn(`Initial caseType "${initialData.caseType}" not in available types: ${types.join(", ")}`);
+          setCaseTypeError(`Warning: Case Type "${initialData.caseType}" is not a valid option.`);
+        }
+        // Set available alerts for initial caseType
+        if (initialData?.caseType) {
+          const matchingAlerts = data.alerts
+            .filter(alert => alert.type === initialData.caseType && alert.address && typeof alert.address === "string")
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          setAvailableAlerts(matchingAlerts);
+          // If editing, find alert matching initial location
+          if (initialData?.location && initialData.alertId) {
+            const matchingAlert = matchingAlerts.find(alert => alert.id === initialData.alertId);
+            if (matchingAlert) {
+              setFormData(prev => ({
+                ...prev,
+                alertId: matchingAlert.id,
+                location: matchingAlert.address,
+              }));
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching case types:", err);
+        setCaseTypeError("Failed to load case types. Please try again.");
+      } finally {
+        setCaseTypeLoading(false);
+      }
+    };
+    fetchCaseTypes();
+  }, [initialData]);
+
   useEffect(() => {
     console.log("PCRForm initialData:", JSON.stringify(initialData, null, 2));
     setFormData(prev => ({
       ...prev,
-      ...(initialData || {}),
+      ...initialData,
     }));
   }, [initialData]);
 
@@ -114,6 +171,30 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
         ...prev,
         [name]: checked,
       }));
+    } else if (name === "caseType") {
+      // Update available alerts for selected caseType
+      const matchingAlerts = alerts
+        .filter(alert => alert.type === value && alert.address && typeof alert.address === "string")
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setAvailableAlerts(matchingAlerts);
+      // Set default alertId and location to the most recent alert
+      const defaultAlert = matchingAlerts[0];
+      console.log("Selected caseType:", value, "Matching alerts:", matchingAlerts);
+      setFormData(prev => ({
+        ...prev,
+        caseType: value,
+        alertId: prev.location && prev.caseType === initialData?.caseType ? prev.alertId : defaultAlert?.id || "",
+        location: prev.location && prev.caseType === initialData?.caseType ? prev.location : defaultAlert?.address || "",
+      }));
+    } else if (name === "alertId") {
+      // Update location based on selected alert
+      const selectedAlert = alerts.find(alert => alert.id === value);
+      console.log("Selected alertId:", value, "Selected alert:", selectedAlert);
+      setFormData(prev => ({
+        ...prev,
+        alertId: value,
+        location: selectedAlert?.address || prev.location,
+      }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -130,6 +211,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
   };
 
   const handleBodyDiagramChange = (diagramData) => {
+    console.log("PCRForm received bodyDiagram:", diagramData);
     setFormData(prev => ({ ...prev, bodyDiagram: diagramData }));
   };
 
@@ -158,13 +240,9 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
     }
   };
 
-  // Helper to format time to "HH:mm AM/PM"
-  const formatTimeToAMPM = (time) => {
+  const formatTimeToAMPM = (time, period) => {
     if (!time || !/^\d{2}:\d{2}$/.test(time)) return "";
-    const [hours, minutes] = time.split(":").map(Number);
-    const period = hours >= 12 ? "PM" : "AM";
-    const adjustedHours = hours % 12 || 12; // Convert 0 to 12 for midnight
-    return `${adjustedHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")} ${period}`;
+    return `${time} ${period.toUpperCase()}`;
   };
 
   const handleSubmit = async (e) => {
@@ -181,23 +259,32 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
     }
 
     try {
-      // Upload signatures
       const patientSignatureUrl = await uploadSignature(patientSigRef, "patientSignature");
       const witnessSignatureUrl = await uploadSignature(witnessSigRef, "witnessSignature");
       const receivingSignatureUrl = await uploadSignature(receivingSigRef, "receivingSignature");
 
-      // Format time fields to ensure "HH:mm AM/PM"
       const updatedFormData = {
         ...formData,
-        timeCall: formatTimeToAMPM(formData.timeCall),
-        timeArrivedScene: formatTimeToAMPM(formData.timeArrivedScene),
-        timeLeftScene: formatTimeToAMPM(formData.timeLeftScene),
-        timeArrivedHospital: formatTimeToAMPM(formData.timeArrivedHospital),
+        timeCall: formatTimeToAMPM(formData.timeCall, formData.timeCallPeriod),
+        timeArrivedScene: formatTimeToAMPM(formData.timeArrivedScene, formData.timeArrivedScenePeriod),
+        timeLeftScene: formatTimeToAMPM(formData.timeLeftScene, formData.timeLeftScenePeriod),
+        timeArrivedHospital: formatTimeToAMPM(formData.timeArrivedHospital, formData.timeArrivedHospitalPeriod),
         patientSignature: patientSignatureUrl,
         witnessSignature: witnessSignatureUrl,
         receivingSignature: receivingSignatureUrl,
         createdByType,
         createdById,
+        bodyDiagram: Array.isArray(formData.bodyDiagram)
+          ? formData.bodyDiagram.filter(
+              entry =>
+                entry &&
+                typeof entry === "object" &&
+                entry.bodyPart &&
+                typeof entry.bodyPart === "string" &&
+                entry.condition &&
+                typeof entry.condition === "string"
+            )
+          : [],
       };
 
       console.log("PCRForm submitting formData:", JSON.stringify(updatedFormData, null, 2));
@@ -238,7 +325,6 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
     }
   };
 
-  // Helper to get current date in YYYY-MM-DD format
   const getCurrentDate = () => {
     return new Date().toISOString().split("T")[0];
   };
@@ -263,21 +349,63 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
             {error}
           </div>
         )}
+        {caseTypeError && (
+          <div className="mb-4 p-2 bg-yellow-100 text-yellow-700 rounded">
+            {caseTypeError}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Case Type - Description:
+                Case Type:
               </label>
-              <input
-                type="text"
-                name="caseType"
-                value={formData.caseType}
-                onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
-              />
+              {caseTypeLoading ? (
+                <div className="mt-1 text-sm text-gray-500">Loading case types...</div>
+              ) : caseTypeOptions.length === 0 ? (
+                <div className="mt-1 text-sm text-yellow-600">No case types available</div>
+              ) : (
+                <select
+                  name="caseType"
+                  value={formData.caseType}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting || readOnly}
+                >
+                  <option value="" disabled>Select Case Type</option>
+                  {caseTypeOptions.map(type => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Alert Location:
+              </label>
+              {formData.caseType && availableAlerts.length > 0 ? (
+                <select
+                  name="alertId"
+                  value={formData.alertId}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting || readOnly}
+                >
+                  <option value="" disabled>Select Alert Location</option>
+                  {availableAlerts.map(alert => (
+                    <option key={alert.id} value={alert.id}>
+                      {alert.address} ({new Date(alert.created_at).toLocaleString()})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="mt-1 text-sm text-gray-500">
+                  {formData.caseType ? "No alerts available for this case type" : "Select a case type first"}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -289,7 +417,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.recorder}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
@@ -302,7 +430,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.date}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div className="md:col-span-3">
@@ -315,7 +443,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.patientName}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div className="md:col-span-3">
@@ -328,7 +456,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.location}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
           </div>
@@ -344,7 +472,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.age}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
@@ -356,7 +484,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.gender}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               >
                 <option value="" disabled>Select Gender</option>
                 <option value="Male">Male</option>
@@ -377,7 +505,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.category === "Driver"}
                     onChange={handleChange}
                     className="form-radio"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Driver</span>
                 </label>
@@ -389,7 +517,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.category === "Passenger"}
                     onChange={handleChange}
                     className="form-radio"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Passenger</span>
                 </label>
@@ -401,7 +529,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.category === "Patient"}
                     onChange={handleChange}
                     className="form-radio"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Patient</span>
                 </label>
@@ -418,7 +546,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 onChange={handleChange}
                 placeholder="e.g., 120/80"
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
@@ -431,7 +559,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.pr}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
@@ -444,7 +572,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.rr}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
@@ -457,7 +585,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.o2sat}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
@@ -470,7 +598,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.temp}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
           </div>
@@ -486,47 +614,83 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.hospitalTransported}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Time of Call:
               </label>
-              <input
-                type="time"
-                name="timeCall"
-                value={formData.timeCall}
-                onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
-              />
+              <div className="flex space-x-2">
+                <input
+                  type="time"
+                  name="timeCall"
+                  value={formData.timeCall}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting || readOnly}
+                />
+                <select
+                  name="timeCallPeriod"
+                  value={formData.timeCallPeriod}
+                  onChange={handleChange}
+                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting || readOnly}
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Time Arrived at Scene:
               </label>
-              <input
-                type="time"
-                name="timeArrivedScene"
-                value={formData.timeArrivedScene}
-                onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
-              />
+              <div className="flex space-x-2">
+                <input
+                  type="time"
+                  name="timeArrivedScene"
+                  value={formData.timeArrivedScene}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting || readOnly}
+                />
+                <select
+                  name="timeArrivedScenePeriod"
+                  value={formData.timeArrivedScenePeriod}
+                  onChange={handleChange}
+                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting || readOnly}
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Time Left Scene:
               </label>
-              <input
-                type="time"
-                name="timeLeftScene"
-                value={formData.timeLeftScene}
-                onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
-              />
+              <div className="flex space-x-2">
+                <input
+                  type="time"
+                  name="timeLeftScene"
+                  value={formData.timeLeftScene}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting || readOnly}
+                />
+                <select
+                  name="timeLeftScenePeriod"
+                  value={formData.timeLeftScenePeriod}
+                  onChange={handleChange}
+                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting || readOnly}
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -538,21 +702,33 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.homeAddress}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Time Arrived at Hospital:
               </label>
-              <input
-                type="time"
-                name="timeArrivedHospital"
-                value={formData.timeArrivedHospital}
-                onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
-              />
+              <div className="flex space-x-2">
+                <input
+                  type="time"
+                  name="timeArrivedHospital"
+                  value={formData.timeArrivedHospital}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting || readOnly}
+                />
+                <select
+                  name="timeArrivedHospitalPeriod"
+                  value={formData.timeArrivedHospitalPeriod}
+                  onChange={handleChange}
+                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
+                  disabled={isSubmitting || readOnly}
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -564,7 +740,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.ambulanceNo}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
@@ -579,7 +755,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.underInfluence.alcohol}
                     onChange={handleChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Alcohol</span>
                 </label>
@@ -590,7 +766,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.underInfluence.drugs}
                     onChange={handleChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Drugs</span>
                 </label>
@@ -601,7 +777,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.underInfluence.unknown}
                     onChange={handleChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Unknown</span>
                 </label>
@@ -612,7 +788,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.underInfluence.none}
                     onChange={handleChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">None</span>
                 </label>
@@ -630,7 +806,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.evacuationCode.black}
                     onChange={handleChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Black</span>
                 </label>
@@ -641,7 +817,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.evacuationCode.red}
                     onChange={handleChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Red</span>
                 </label>
@@ -652,7 +828,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.evacuationCode.yellow}
                     onChange={handleChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Yellow</span>
                 </label>
@@ -663,7 +839,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.evacuationCode.green}
                     onChange={handleChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Green</span>
                 </label>
@@ -682,7 +858,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.responseTeam.includes("Team 1")}
                     onChange={handleCheckboxArrayChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Team 1</span>
                 </label>
@@ -694,7 +870,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.responseTeam.includes("Team 2")}
                     onChange={handleCheckboxArrayChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Team 2</span>
                 </label>
@@ -706,7 +882,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.responseTeam.includes("Team 3")}
                     onChange={handleCheckboxArrayChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Team 3</span>
                 </label>
@@ -725,7 +901,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.contactPerson}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
@@ -738,7 +914,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.relationship}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
@@ -751,7 +927,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.contactNumber}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
           </div>
@@ -767,7 +943,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.doi}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
@@ -780,7 +956,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.toi}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
@@ -793,7 +969,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.noi}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
@@ -808,7 +984,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                   onChange={handleChange}
                   placeholder="Brgy"
                   className="block w-full border-gray-300 rounded-md shadow-sm text-sm mb-1"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || readOnly}
                 />
                 <label className="flex items-center text-sm">
                   <input
@@ -817,7 +993,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.poi.highway}
                     onChange={handleChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Highway/Road</span>
                 </label>
@@ -828,7 +1004,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.poi.residence}
                     onChange={handleChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Residence</span>
                 </label>
@@ -839,7 +1015,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.poi.publicBuilding}
                     onChange={handleChange}
                     className="form-checkbox"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Public Building/Place</span>
                 </label>
@@ -861,7 +1037,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.lossOfConsciousness === "yes"}
                     onChange={handleChange}
                     className="form-radio"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">Yes</span>
                 </label>
@@ -873,7 +1049,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     checked={formData.lossOfConsciousness === "no"}
                     onChange={handleChange}
                     className="form-radio"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                   <span className="ml-2">No</span>
                 </label>
@@ -885,7 +1061,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.lossOfConsciousnessMinutes}
                     onChange={handleChange}
                     className="w-24 border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 )}
               </div>
@@ -900,7 +1076,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.chiefComplaints}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
             <div className="md:col-span-3">
@@ -913,7 +1089,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.interventions}
                 onChange={handleChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               />
             </div>
           </div>
@@ -932,7 +1108,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.signsSymptoms}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div>
@@ -945,7 +1121,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.allergies}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div>
@@ -958,7 +1134,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.medication}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div>
@@ -971,7 +1147,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.pastHistory}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div>
@@ -984,7 +1160,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.lastIntake}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div>
@@ -997,7 +1173,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.events}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 </div>
               </div>
@@ -1012,7 +1188,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 onChange={handleChange}
                 rows="12"
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
               ></textarea>
             </div>
           </div>
@@ -1033,7 +1209,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.driver}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div>
@@ -1046,7 +1222,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.teamLeader}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div>
@@ -1059,7 +1235,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.crew}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div className="pt-4">
@@ -1072,7 +1248,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.receivingHospital}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div className="mt-2">
@@ -1085,7 +1261,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.receivingName}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div className="mt-2">
@@ -1128,7 +1304,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     type="button"
                     onClick={() => clearSignature(receivingSigRef, "receivingSignature", "receivingSignatureDate")}
                     className="mt-1 text-sm text-blue-600 hover:underline"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   >
                     Clear Signature
                   </button>
@@ -1143,7 +1319,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     value={formData.receivingSignatureDate}
                     onChange={handleChange}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || readOnly}
                   />
                 </div>
               </div>
@@ -1204,7 +1380,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                       type="button"
                       onClick={() => clearSignature(patientSigRef, "patientSignature", "patientSignatureDate")}
                       className="mt-1 text-sm text-blue-600 hover:underline"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || readOnly}
                     >
                       Clear Signature
                     </button>
@@ -1249,7 +1425,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                       type="button"
                       onClick={() => clearSignature(witnessSigRef, "witnessSignature", "witnessSignatureDate")}
                       className="mt-1 text-sm text-blue-600 hover:underline"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || readOnly}
                     >
                       Clear Signature
                     </button>
@@ -1264,7 +1440,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                       value={formData.patientSignatureDate}
                       onChange={handleChange}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || readOnly}
                     />
                   </div>
                   <div>
@@ -1277,18 +1453,18 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                       value={formData.witnessSignatureDate}
                       onChange={handleChange}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || readOnly}
                     />
                   </div>
                 </div>
               </div>
               <div className="relative mt-4">
                 <h3 className="text-sm font-semibold text-gray-800">Body Diagram</h3>
-<BodyDiagram3D 
-  onChange={handleBodyDiagramChange} 
-  initialData={formData.bodyDiagram}  // Add this line
-  readOnly={readOnly}                 // And this line
-/>
+                <BodyDiagram3D
+                  onChange={handleBodyDiagramChange}
+                  initialData={formData.bodyDiagram}
+                  readOnly={readOnly}
+                />
               </div>
             </div>
           </div>
@@ -1297,7 +1473,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
             <button
               type="submit"
               className="bg-blue-600 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition disabled:bg-blue-400"
-              disabled={isSubmitting}
+              disabled={isSubmitting || readOnly}
             >
               {isSubmitting ? "Saving..." : "Save PCR Form"}
             </button>

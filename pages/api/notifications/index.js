@@ -7,9 +7,10 @@ export default async function handler(req, res) {
   let client;
   try {
     client = await pool.connect();
-    await client.query(`SET TIME ZONE 'Asia/Manila'`);
+    await client.query(`SET TIME ZONE 'UTC'`); // Use UTC for consistency with Netlify
 
     if (method === 'GET') {
+      res.setHeader('Cache-Control', 'no-store, max-age=0'); // Prevent Netlify caching
       if (!userId && showAll === 'false') {
         return res.status(400).json({ message: 'userId parameter is required when showAll is false' });
       }
