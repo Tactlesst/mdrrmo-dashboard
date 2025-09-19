@@ -18,13 +18,13 @@ export default async function handler(req, res) {
     const { rows } = await client.query(
       `INSERT INTO notifications (account_type, account_id, sender_type, sender_id, message)
        VALUES ($1, $2, $3, $4, $5)
-       RETURNING id`,
+       RETURNING id, created_at, updated_at`,
       [accountType, accountId, senderType, senderId, message]
     );
     
     return res.status(201).json({ 
       message: 'Notification created successfully',
-      notificationId: rows[0].id 
+      notification: rows[0] // returns id + timestamps
     });
   } catch (err) {
     console.error('Error creating notification:', err);
