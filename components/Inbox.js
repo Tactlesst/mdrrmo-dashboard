@@ -3,14 +3,14 @@
 import { useState } from 'react';
 import { FiEye, FiEyeOff, FiSearch, FiRefreshCw, FiInbox } from 'react-icons/fi';
 
-export default function Inbox({ 
-  notifications, 
-  viewAllNotifications, 
-  onToggleViewAll, 
-  onMarkAllAsRead, 
-  onRefresh, 
+export default function Inbox({
+  notifications,
+  viewAllNotifications,
+  onToggleViewAll,
+  onMarkAllAsRead,
+  onRefresh,
   onNotificationClick,
-  isLoading 
+  isLoading,
 }) {
   const [inboxFilter, setInboxFilter] = useState('all');
   const [inboxSearch, setInboxSearch] = useState('');
@@ -36,19 +36,25 @@ export default function Inbox({
     }
   };
 
-  // Format date for relative time
+  // Format date for relative time in Asia/Manila timezone
   const formatRelativeTime = (dateString) => {
     if (!dateString) return 'N/A';
     try {
+      // Parse the notification date in Asia/Manila
       const date = new Date(dateString);
-      const now = new Date();
-      const diffMs = now - date;
+      // Get current time in Asia/Manila
+      const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' });
+      const nowDate = new Date(now);
+
+      const diffMs = nowDate - date;
       const diffMins = Math.round(diffMs / (1000 * 60));
       const diffHours = Math.round(diffMs / (1000 * 60 * 60));
       const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-      
-      if (diffMins < 60) {
-        return `${diffMins} min ago`;
+
+      if (diffMs < 0) {
+        return 'just now'; // Handle future timestamps
+      } else if (diffMins < 60) {
+        return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
       } else if (diffHours < 24) {
         return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
       } else if (diffDays < 7) {
@@ -62,22 +68,50 @@ export default function Inbox({
     }
   };
 
-  // Filter notifications
-  const filteredNotifications = notifications.filter(notification => {
-    if (inboxFilter === 'unread' && notification.is_read) return false;
-    if (inboxFilter === 'read' && !notification.is_read) return false;
-    
-    if (inboxSearch) {
-      const searchTerm = inboxSearch.toLowerCase();
-      return (
-        notification.message.toLowerCase().includes(searchTerm) ||
-        (notification.sender_name && notification.sender_name.toLowerCase().includes(searchTerm)) ||
-        (notification.recipient_name && notification.recipient_name.toLowerCase().includes(searchTerm))
-      );
+  // Categorize and filter notifications
+  const categorizedNotifications = {
+    alerts: [],
+    system: [],
+    other: [],
+  };
+
+  notifications.forEach((notification) => {
+    const searchTerm = inboxSearch.toLowerCase();
+    const matchesSearch =
+      inboxSearch
+        ? notification.message.toLowerCase().includes(searchTerm) ||
+          (notification.sender_name &&
+            notification.sender_name.toLowerCase().includes(searchTerm)) ||
+          (notification.recipient_name &&
+            notification.recipient_name.toLowerCase().includes(searchTerm))
+        : true;
+
+    const matchesFilter =
+      inboxFilter === 'all' ||
+      (inboxFilter === 'unread' && !notification.is_read) ||
+      (inboxFilter === 'read' && notification.is_read);
+
+    if (matchesSearch && matchesFilter) {
+      if (['admin', 'responder'].includes(notification.sender_type)) {
+        categorizedNotifications.alerts.push(notification);
+      } else if (notification.sender_type === 'system') {
+        categorizedNotifications.system.push(notification);
+      } else {
+        categorizedNotifications.other.push(notification);
+      }
     }
-    
-    return true;
   });
+
+  // Combine categories with Alerts first
+  const orderedCategories = [
+    { name: 'Alerts', key: 'alerts', notifications: categorizedNotifications.alerts },
+    {
+      name: 'System Notifications',
+      key: 'system',
+      notifications: categorizedNotifications.system,
+    },
+    { name: 'Other Notifications', key: 'other', notifications: categorizedNotifications.other },
+  ];
 
   return (
     <div className="h-full flex flex-col">
@@ -121,7 +155,7 @@ export default function Inbox({
               {viewAllNotifications ? 'My View' : 'Admin View'}
             </span>
           </button>
-          {filteredNotifications.filter(n => !n.is_read).length > 0 && (
+          {notifications.filter((n) => !n.is_read).length > 0 && (
             <button
               onClick={onMarkAllAsRead}
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
@@ -137,53 +171,66 @@ export default function Inbox({
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
-        ) : filteredNotifications.length === 0 ? (
+        ) : orderedCategories.every((category) => category.notifications.length === 0) ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
             <FiInbox className="w-16 h-16 mb-4" />
             <p className="text-lg">No notifications found</p>
             <p className="text-sm">
-              {inboxSearch || inboxFilter !== 'all' 
-                ? 'Try adjusting your search or filter settings' 
+              {inboxSearch || inboxFilter !== 'all'
+                ? 'Try adjusting your search or filter settings'
                 : 'All caught up! No new notifications'}
             </p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
-            <div className="divide-y divide-gray-200">
-              {filteredNotifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  onClick={() => onNotificationClick(notification)}
-                  className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                    notification.is_read ? 'bg-white' : 'bg-blue-50'
-                  }`}
-                >
-                  <div className="flex items-start space-x-4">
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className={`text-sm font-medium ${
-                          notification.is_read ? 'text-gray-600' : 'text-gray-900 font-semibold'
-                        }`}>
-                          {notification.sender_name || 'System Notification'}
-                        </h3>
-                        <span className="text-xs text-gray-500">
-                          {formatRelativeTime(notification.created_at)}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-gray-600">{notification.message}</p>
-                      {notification.recipient_name && (
-                        <p className="mt-1 text-xs text-gray-500">
-                          To: {notification.recipient_name}
-                        </p>
-                      )}
-                      <p className="mt-1 text-xs text-gray-400">
-                        {formatPHDate(notification.created_at)}
-                      </p>
+            {orderedCategories.map((category) => (
+              <div key={category.key} className="mb-6">
+                {category.notifications.length > 0 && (
+                  <>
+                    <h3 className="px-4 pt-4 pb-2 text-lg font-semibold text-gray-800">
+                      {category.name} ({category.notifications.length})
+                    </h3>
+                    <div className="divide-y divide-gray-200">
+                      {category.notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          onClick={() => onNotificationClick(notification)}
+                          className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                            notification.is_read ? 'bg-white' : 'bg-blue-50'
+                          }`}
+                        >
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <h3
+                                  className={`text-sm font-medium ${
+                                    notification.is_read ? 'text-gray-600' : 'text-gray-900 font-semibold'
+                                  }`}
+                                >
+                                  {notification.sender_name || 'System Notification'}
+                                </h3>
+                                <span className="text-xs text-gray-500">
+                                  {formatRelativeTime(notification.created_at)}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-sm text-gray-600">{notification.message}</p>
+                              {notification.recipient_name && (
+                                <p className="mt-1 text-xs text-gray-500">
+                                  To: {notification.recipient_name}
+                                </p>
+                              )}
+                              <p className="mt-1 text-xs text-gray-400">
+                                {formatPHDate(notification.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  </>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

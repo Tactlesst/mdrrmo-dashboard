@@ -1,38 +1,24 @@
 import pool from '@/lib/db';
-import { DateTime } from 'luxon';
-
-function toManila(utcDate) {
-  return utcDate
-    ? DateTime.fromJSDate(utcDate, { zone: 'utc' })
-        .setZone('Asia/Manila')
-        .toISO()
-    : null;
-}
 
 export default async function handler(req, res) {
   const { method } = req;
-  const { userId, accountType = 'admin', showAll = 'false', notificationId } =
-    method === 'GET' ? req.query : req.body;
+  const { userId, accountType = 'admin', showAll = 'false', notificationId } = method === 'GET' ? req.query : req.body;
 
   let client;
   try {
     client = await pool.connect();
+    await client.query(`SET TIME ZONE 'Asia/Manila'`);
 
     if (method === 'GET') {
       if (!userId && showAll === 'false') {
-        return res
-          .status(400)
-          .json({ message: 'userId parameter is required when showAll is false' });
+        return res.status(400).json({ message: 'userId parameter is required when showAll is false' });
       }
-
-      let rows;
       if (showAll === 'true') {
-        ({ rows } = await client.query(`
-          SELECT 
+        const { rows } = await client.query(
+          `SELECT 
             n.id, 
             n.message, 
             n.created_at,
-            n.updated_at,
             n.sender_type,
             n.sender_id,
             n.account_type,
@@ -48,59 +34,47 @@ export default async function handler(req, res) {
               WHEN n.account_type = 'responder' THEN resp.name
               ELSE 'Unknown'
             END as recipient_name
-          FROM notifications n
-          LEFT JOIN admins a ON n.sender_type = 'admin' AND n.sender_id = a.id
-          LEFT JOIN responders r ON n.sender_type = 'responder' AND n.sender_id = r.id
-          LEFT JOIN admins adm ON n.account_type = 'admin' AND n.account_id = adm.id
-          LEFT JOIN responders resp ON n.account_type = 'responder' AND n.account_id = resp.id
-          ORDER BY n.created_at DESC
-        `));
+           FROM notifications n
+           LEFT JOIN admins a ON n.sender_type = 'admin' AND n.sender_id = a.id
+           LEFT JOIN responders r ON n.sender_type = 'responder' AND n.sender_id = r.id
+           LEFT JOIN admins adm ON n.account_type = 'admin' AND n.account_id = adm.id
+           LEFT JOIN responders resp ON n.account_type = 'responder' AND n.account_id = resp.id
+           ORDER BY n.created_at DESC`
+        );
+        return res.status(200).json({ notifications: rows });
       } else {
-        ({ rows } = await client.query(
-          `
-          SELECT 
+        const { rows } = await client.query(
+          `SELECT 
             n.id, 
             n.message, 
             n.created_at,
-            n.updated_at,
             n.sender_type,
             n.sender_id,
             n.account_type,
-            n.is_read,
             CASE 
               WHEN n.sender_type = 'admin' THEN a.name
               WHEN n.sender_type = 'responder' THEN r.name
               ELSE 'System'
             END as sender_name
-          FROM notifications n
-          LEFT JOIN admins a ON n.sender_type = 'admin' AND n.sender_id = a.id
-          LEFT JOIN responders r ON n.sender_type = 'responder' AND n.sender_id = r.id
-          WHERE n.account_type = $1 AND n.account_id = $2 AND n.is_read = FALSE
-          ORDER BY n.created_at DESC
-          `,
+           FROM notifications n
+           LEFT JOIN admins a ON n.sender_type = 'admin' AND n.sender_id = a.id
+           LEFT JOIN responders r ON n.sender_type = 'responder' AND n.sender_id = r.id
+           WHERE n.account_type = $1 AND n.account_id = $2 AND n.is_read = FALSE
+           ORDER BY n.created_at DESC`,
           [accountType, userId]
-        ));
+        );
+        return res.status(200).json({ notifications: rows });
       }
-
-      // convert to Manila before sending
-      const notifications = rows.map((r) => ({
-        ...r,
-        created_at: toManila(r.created_at),
-        updated_at: toManila(r.updated_at),
-      }));
-
-      return res.status(200).json({ notifications });
     }
 
     if (method === 'POST') {
+      console.log('Received POST request body:', req.body);
       if (!notificationId) {
         return res.status(400).json({ message: 'notificationId is required' });
       }
       const id = Number(notificationId);
       if (isNaN(id) || id <= 0) {
-        return res
-          .status(400)
-          .json({ message: `Invalid notificationId: ${notificationId}` });
+        return res.status(400).json({ message: `Invalid notificationId: ${notificationId}` });
       }
       const result = await client.query(
         `UPDATE notifications
@@ -109,18 +83,14 @@ export default async function handler(req, res) {
         [id]
       );
       if (result.rowCount === 0) {
-        return res
-          .status(404)
-          .json({ message: `Notification not found for ID: ${id}` });
+        return res.status(404).json({ message: `Notification not found for ID: ${id}` });
       }
       return res.status(200).json({ message: 'Notification marked as read' });
     }
 
     if (method === 'PUT') {
       if (!userId && showAll === 'false') {
-        return res
-          .status(400)
-          .json({ message: 'userId parameter is required when showAll is false' });
+        return res.status(400).json({ message: 'userId parameter is required when showAll is false' });
       }
       if (showAll === 'true') {
         await client.query(
