@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Fix for default marker icons
+// Fix for default marker icons (optional if using fully custom icons)
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -12,28 +12,47 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
+// Define custom icons
+const createCustomIcon = (type) => {
+  const normalizedType = type ? type.toLowerCase() : '';
+  const isCarAccident = normalizedType === 'car accident' || normalizedType === 'car crash';
+  
+  const iconUrl = isCarAccident
+    ? 'path/to/transparent_car_crash.png' // Replace with the relative path to your transparent car crash image
+    : 'path/to/default_icon.png'; // Replace with the relative path to your default icon
+
+  return new L.Icon({
+    iconUrl,
+    iconRetinaUrl: iconUrl, // Use same URL for simplicity; replace with 2x version if available
+    iconSize: [38, 38], // Size of the icon
+    iconAnchor: [19, 38], // Anchor point (center bottom)
+    popupAnchor: [0, -38], // Popup position (above marker)
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    shadowSize: [41, 41], // Shadow size
+  });
+};
+
 function MapResizer({ watch }) {
   const map = useMap();
 
   useEffect(() => {
-    // Wait a bit for DOM transition (like collapse animation)
     const timeout = setTimeout(() => {
       map.invalidateSize();
-    }, 200); // adjust to match your sidebar animation duration
+    }, 200);
 
     return () => clearTimeout(timeout);
   }, [watch, map]);
 
   return null;
 }
-// Helper to fly to and open popup
+
 function FlyToAndOpenPopup({ alerts, selectedAlertId, markerRefs }) {
   const map = useMap();
 
   useEffect(() => {
     if (!selectedAlertId) return;
 
-    const alert = alerts.find(a => a.id === selectedAlertId);
+    const alert = alerts.find((a) => a.id === selectedAlertId);
     const markerRef = markerRefs.current[selectedAlertId];
 
     if (alert && markerRef && markerRef.current) {
@@ -53,51 +72,69 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
   const mapCenter = alerts.length ? alerts[0].coords : fallbackCenter;
 
   return (
- <div className="rounded-lg  overflow-hidden h-[40vh] md:h-[65vh]">
- <MapContainer center={mapCenter} zoom={17} className="w-full h-full">
-  <TileLayer
-    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-    attribution="&copy; OpenStreetMap contributors"
-  />
+    <div className="rounded-lg overflow-hidden h-[40vh] md:h-[65vh]">
+      <MapContainer center={mapCenter} zoom={17} className="w-full h-full">
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution="&copy; OpenStreetMap contributors"
+        />
 
-  {alerts.map(alert => {
-    if (!markerRefs.current[alert.id]) {
-      markerRefs.current[alert.id] = L.marker(alert.coords).bindPopup();
-      markerRefs.current[alert.id] = React.createRef();
-    }
+        {alerts.map((alert) => {
+          // Initialize marker ref if not already set
+          if (!markerRefs.current[alert.id]) {
+            markerRefs.current[alert.id] = React.createRef();
+          }
 
-    return (
-      <Marker
-        key={alert.id}
-        position={alert.coords}
-        ref={markerRefs.current[alert.id]}
-      >
-        <Popup>
-          <div className="text-sm space-y-1">
-            <p><strong>Type:</strong> {alert.type || '—'}</p>
-            <p><strong>Status:</strong> {alert.status || '—'}</p>
-            <p><strong>Address:</strong> {alert.address || '—'}</p>
-            <p><strong>Date:</strong> {alert.date || <span className="italic text-gray-500">Unknown</span>}</p>
-            <p><strong>Responder:</strong> {alert.user || <span className="italic text-gray-500">Unassigned</span>}</p>
-            {alert.description
-              ? <p><strong>Description:</strong> {alert.description}</p>
-              : <p className="italic text-gray-500">No description provided</p>}
-          </div>
-        </Popup>
-      </Marker>
-    );
-  })}
+          // Get custom icon based on alert type
+          const customIcon = createCustomIcon(alert.type);
 
-  <FlyToAndOpenPopup
-    alerts={alerts}
-    selectedAlertId={selectedAlertId}
-    markerRefs={markerRefs}
-  />
+          return (
+            <Marker
+              key={alert.id}
+              position={alert.coords}
+              ref={markerRefs.current[alert.id]}
+              icon={customIcon} // Apply custom icon
+            >
+              <Popup>
+                <div className="text-sm space-y-1">
+                  <p>
+                    <strong>Type:</strong> {alert.type || '—'}
+                  </p>
+                  <p>
+                    <strong>Status:</strong> {alert.status || '—'}
+                  </p>
+                  <p>
+                    <strong>Address:</strong> {alert.address || '—'}
+                  </p>
+                  <p>
+                    <strong>Date:</strong>{' '}
+                    {alert.date || <span className="italic text-gray-500">Unknown</span>}
+                  </p>
+                  <p>
+                    <strong>Responder:</strong>{' '}
+                    {alert.user || <span className="italic text-gray-500">Unassigned</span>}
+                  </p>
+                  {alert.description ? (
+                    <p>
+                      <strong>Description:</strong> {alert.description}
+                    </p>
+                  ) : (
+                    <p className="italic text-gray-500">No description provided</p>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
 
-  <MapResizer watch={alerts.length} />
-</MapContainer>
+        <FlyToAndOpenPopup
+          alerts={alerts}
+          selectedAlertId={selectedAlertId}
+          markerRefs={markerRefs}
+        />
 
-</div>
-
+        <MapResizer watch={alerts.length} />
+      </MapContainer>
+    </div>
   );
 }
