@@ -109,11 +109,20 @@ CREATE TABLE users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE pins (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  pin TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 
 CREATE TABLE IF NOT EXISTS alerts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,  -- user (resident) who sent the alert
   address TEXT,
+description TEXT,
   type TEXT,
   status TEXT DEFAULT 'Not Responded',
   occurred_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
