@@ -18,8 +18,8 @@ const createCustomIcon = (type) => {
   const isCarAccident = normalizedType === 'car accident' || normalizedType === 'car crash';
   
   const iconUrl = isCarAccident
-    ? 'path/to/transparent_car_crash.png' // Replace with the relative path to your transparent car crash image
-    : 'path/to/default_icon.png'; // Replace with the relative path to your default icon
+    ? 'https://images.icon-icons.com/3196/PNG/512/car_crash_icon_194614.png' // Replace with the relative path to your transparent car crash image
+    : 'https://images.icon-icons.com/3196/PNG/512/car_crash_icon_194614.png'; // Replace with the relative path to your default icon
 
   return new L.Icon({
     iconUrl,
