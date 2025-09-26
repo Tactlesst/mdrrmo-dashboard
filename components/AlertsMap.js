@@ -12,14 +12,19 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// Define custom icons
 const createCustomIcon = (type) => {
   const normalizedType = type ? type.toLowerCase() : '';
-  const isCarAccident = normalizedType === 'car accident' || normalizedType === 'car crash';
   
-  const iconUrl = isCarAccident
-    ? 'https://images.icon-icons.com/3196/PNG/512/car_crash_icon_194614.png' // Replace with the relative path to your transparent car crash image
-    : 'https://images.icon-icons.com/906/PNG/512/car_icon-icons.com_70268.png'; // Replace with the relative path to your default icon
+  // Define icon URLs for different types of accidents
+  const iconUrls = {
+    'car accident': 'https://images.icon-icons.com/3196/PNG/512/car_crash_icon_194614.png',
+    'rear_end': 'https://images.icon-icons.com/3375/PNG/512/crash_car_icon_211807.png', // Replace with your rear-end icon URL
+    'sideswipe': 'https://images.icon-icons.com/4111/PNG/512/car_auto_vehicle_automobile_teenager_crash_car_accident_icon_260277.png', // Replace with your sideswipe icon URL
+    'car crash': 'https://images.icon-icons.com/3196/PNG/512/car_crash_icon_194614.png', // Default crash icon
+  };
+
+  // If no matching type, fallback to a default icon
+  const iconUrl = iconUrls[normalizedType] || iconUrls['car accident'];
 
   return new L.Icon({
     iconUrl,
@@ -31,6 +36,7 @@ const createCustomIcon = (type) => {
     shadowSize: [41, 41], // Shadow size
   });
 };
+
 
 function MapResizer({ watch }) {
   const map = useMap();
