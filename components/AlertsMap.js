@@ -19,7 +19,7 @@ const createCustomIcon = (type) => {
   const iconUrls = {
     'car accident': 'https://images.icon-icons.com/3196/PNG/512/car_crash_icon_194614.png',
     'rear_end': 'https://images.icon-icons.com/3375/PNG/512/crash_car_icon_211807.png', // Replace with your rear-end icon URL
-    'sideswipe': 'https://images.icon-icons.com/4111/PNG/512/car_auto_vehicle_automobile_teenager_crash_car_accident_icon_260277.png', // Replace with your sideswipe icon URL
+    'sideswipe': 'https://images.icon-icons.com/494/PNG/512/car_icon-icons.com_48342.png', // Replace with your sideswipe icon URL
     'car crash': 'https://images.icon-icons.com/3196/PNG/512/car_crash_icon_194614.png', // Default crash icon
   };
 
