@@ -62,7 +62,7 @@ function FlyToAndOpenPopup({ alerts, selectedAlertId, markerRefs }) {
     const markerRef = markerRefs.current[selectedAlertId];
 
     if (alert && markerRef && markerRef.current) {
-      map.flyTo(alert.coords, 20, { duration: 1.5 });
+      map.flyTo(alert.coords, 16, { duration: 1.5 });
       setTimeout(() => {
         markerRef.current.openPopup();
       }, 1500);
