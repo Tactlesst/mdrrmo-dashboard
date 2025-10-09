@@ -26,6 +26,7 @@ export default async function handler(req, res) {
         responded_at: alert.responded_at,
         resident_name: alert.resident_name || 'Unknown User',
         responder_name: alert.responder_name || 'Not Assigned',
+        description: alert.description || '', // Added description field
       }));
 
       res.status(200).json({ alerts });

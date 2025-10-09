@@ -12,31 +12,59 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-const createCustomIcon = (type) => {
+const createCustomIcon = (type, status) => {
   const normalizedType = type ? type.toLowerCase() : '';
-  
-  // Define icon URLs for different types of accidents
   const iconUrls = {
     'car accident': 'https://images.icon-icons.com/3196/PNG/512/car_crash_icon_194614.png',
-    'rear_end': 'https://images.icon-icons.com/3375/PNG/512/crash_car_icon_211807.png', // Replace with your rear-end icon URL
-    'sideswipe': 'https://images.icon-icons.com/494/PNG/512/car_icon-icons.com_48342.png', // Replace with your sideswipe icon URL
-    'car crash': 'https://images.icon-icons.com/3196/PNG/512/car_crash_icon_194614.png', // Default crash icon
+    'rear_end': 'https://images.icon-icons.com/3375/PNG/512/crash_car_icon_211807.png',
+    'sideswipe': 'https://images.icon-icons.com/494/PNG/512/car_icon-icons.com_48342.png',
+    'car crash': 'https://images.icon-icons.com/3196/PNG/512/car_crash_icon_194614.png',
   };
+  const baseIconUrl = iconUrls[normalizedType] || iconUrls['car accident'];
 
-  // If no matching type, fallback to a default icon
-  const iconUrl = iconUrls[normalizedType] || iconUrls['car accident'];
+  // Adjust icon size and color based on status
+  let iconSize = [38, 38];
+  let iconAnchor = [19, 38];
+  let popupAnchor = [0, -38];
+  let shadowSize = [41, 41];
 
+  if (status === 'Not Responded') {
+    // Red tint for Not Responded
+    return new L.Icon({
+      iconUrl: baseIconUrl,
+      iconRetinaUrl: baseIconUrl,
+      iconSize,
+      iconAnchor,
+      popupAnchor,
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      shadowSize,
+      className: 'tint-red',
+    });
+  } else if (status === 'Ongoing' || status === 'In Progress' || status === 'Pending') {
+    // Orange tint for Ongoing
+    return new L.Icon({
+      iconUrl: baseIconUrl,
+      iconRetinaUrl: baseIconUrl,
+      iconSize,
+      iconAnchor,
+      popupAnchor,
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      shadowSize,
+      className: 'tint-orange',
+    });
+  }
+
+  // Default case (should not reach here due to filter, but included for safety)
   return new L.Icon({
-    iconUrl,
-    iconRetinaUrl: iconUrl, // Use same URL for simplicity; replace with 2x version if available
-    iconSize: [38, 38], // Size of the icon
-    iconAnchor: [19, 38], // Anchor point (center bottom)
-    popupAnchor: [0, -38], // Popup position (above marker)
+    iconUrl: baseIconUrl,
+    iconRetinaUrl: baseIconUrl,
+    iconSize,
+    iconAnchor,
+    popupAnchor,
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-    shadowSize: [41, 41], // Shadow size
+    shadowSize,
   });
 };
-
 
 function MapResizer({ watch }) {
   const map = useMap();
@@ -77,6 +105,17 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
 
   const mapCenter = alerts.length ? alerts[0].coords : fallbackCenter;
 
+  // Add CSS for tinting icons
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .tint-red { filter: hue-rotate(0deg) brightness(0.8) sepia(0.5); }
+      .tint-orange { filter: hue-rotate(40deg) brightness(0.9) sepia(0.5); }
+    `;
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, []);
+
   return (
     <div className="rounded-lg overflow-hidden h-[40vh] md:h-[65vh]">
       <MapContainer center={mapCenter} zoom={17} className="w-full h-full">
@@ -86,20 +125,20 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
         />
 
         {alerts.map((alert) => {
-          // Initialize marker ref if not already set
+          if (!alert.coords || alert.coords.some(isNaN)) return null; // Skip invalid coordinates
+
           if (!markerRefs.current[alert.id]) {
             markerRefs.current[alert.id] = React.createRef();
           }
 
-          // Get custom icon based on alert type
-          const customIcon = createCustomIcon(alert.type);
+          const customIcon = createCustomIcon(alert.type, alert.status);
 
           return (
             <Marker
               key={alert.id}
               position={alert.coords}
               ref={markerRefs.current[alert.id]}
-              icon={customIcon} // Apply custom icon
+              icon={customIcon}
             >
               <Popup>
                 <div className="text-sm space-y-1">

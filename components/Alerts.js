@@ -4,7 +4,7 @@ import AlertMap from './AlertsMap';
 import AlertList from './AlertList';
 
 export default function Alerts() {
-const fallbackCenter = [8.743412346817417, 124.77629163417616];
+  const fallbackCenter = [8.743412346817417, 124.77629163417616];
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -28,31 +28,31 @@ const fallbackCenter = [8.743412346817417, 124.77629163417616];
     return () => clearInterval(interval);
   }, []);
 
-const normalizedAlerts = useMemo(() => {
-  const sorted = [...alerts].sort((a, b) => {
-    const dateA = new Date(a.occurred_at);
-    const dateB = new Date(b.occurred_at);
-    return dateB - dateA; // Descending order (newest first)
-  });
+  const normalizedAlerts = useMemo(() => {
+    const sorted = [...alerts].sort((a, b) => {
+      const dateA = new Date(a.occurred_at);
+      const dateB = new Date(b.occurred_at);
+      return dateB - dateA; // Descending order (newest first)
+    });
 
-  return sorted.map((a) => ({
-    id: a.id,
-    resident_name: a.resident_name || 'Unknown User',
-    responder_name: a.responder_name || 'Not Assigned',
-    address: a.address || '—',
-    type: a.type || '—',
-    status: a.status || 'Not Responded',
-    occurred_at: a.occurred_at,
-    responded_at: a.responded_at,
-    date: a.occurred_at ? a.occurred_at.slice(0, 10) : null,
-    coords: [a.lat, a.lng],
-    user: a.responder_name || 'Unassigned',
-    description: a.description || '',
-  }));
-}, [alerts]);
-
-
-
+    // Filter out "Responded" alerts
+    return sorted
+      .filter((alert) => alert.status !== 'Responded')
+      .map((a) => ({
+        id: a.id,
+        resident_name: a.resident_name || 'Unknown User',
+        responder_name: a.responder_name || 'Not Assigned',
+        address: a.address || '—',
+        type: a.type || '—',
+        status: a.status || 'Not Responded',
+        occurred_at: a.occurred_at,
+        responded_at: a.responded_at,
+        date: a.occurred_at ? a.occurred_at.slice(0, 10) : null,
+        coords: [a.lat, a.lng],
+        user: a.responder_name || 'Unassigned',
+        description: a.description || '', // Added description field
+      }));
+  }, [alerts]);
 
   const indexOfLast = currentPage * entriesPerPage;
   const indexOfFirst = indexOfLast - entriesPerPage;
@@ -67,7 +67,6 @@ const normalizedAlerts = useMemo(() => {
           alerts={normalizedAlerts}
           fallbackCenter={fallbackCenter}
           selectedAlertId={selectedAlertId}
-          
         />
       </div>
 

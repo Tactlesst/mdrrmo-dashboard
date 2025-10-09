@@ -1,5 +1,4 @@
 'use client';
-
 import { FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
 
 export default function AlertList({
@@ -16,11 +15,12 @@ export default function AlertList({
     switch (status) {
       case 'Accepted by Responder':
       case 'Responded':
-        return `${base} bg-green-100 text-green-700`;
+        return `${base} bg-green-100 text-green-700`; // Hidden in filter, but kept for completeness
       case 'Not Responded':
-        return `${base} bg-red-100 text-red-700`;
+        return `${base} bg-red-100 text-red-700`; // Red for Not Responded
       case 'Pending':
       case 'In Progress':
+      case 'Ongoing': // Orange for Ongoing
         return `${base} bg-yellow-100 text-yellow-700`;
       default:
         return `${base} bg-gray-100 text-gray-600`;

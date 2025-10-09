@@ -7,12 +7,13 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
+import RespondedAlertsMap from '../components/RespondedAlertsMap';
 
 export default function ReportsPage() {
   const [responderLogs, setResponderLogs] = useState([]);
-  const [typeStats, setTypeStats] = useState([]);   // normalized: [{ type, total }]
-  const [dailyStats, setDailyStats] = useState([]); // normalized: [{ date, total }]
-  const [alerts, setAlerts] = useState([]);         // raw alerts: [{ id, type, status, occurred_at, address, resident_name, responder_name }]
+  const [typeStats, setTypeStats] = useState([]);
+  const [dailyStats, setDailyStats] = useState([]);
+  const [alerts, setAlerts] = useState([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
   const [loadingLogs, setLoadingLogs] = useState(true);
 
@@ -79,7 +80,7 @@ export default function ReportsPage() {
         const alertsRes = await fetch('/api/alerts');
         if (!alertsRes.ok) throw new Error(`Alerts HTTP ${alertsRes.status}`);
         const alertsData = await alertsRes.json();
-        const alertsArr = alertsData.alerts || alertsData; // Handle { alerts: [...] } or direct array
+        const alertsArr = alertsData.alerts || alertsData;
         setAlerts(alertsArr.map((alert) => ({
           id: alert.id ?? 'N/A',
           type: alert.type ?? 'Unknown',
@@ -88,6 +89,10 @@ export default function ReportsPage() {
           address: alert.address ?? 'N/A',
           resident_name: alert.resident_name ?? 'Unknown User',
           responder_name: alert.responder_name ?? 'Not Assigned',
+          responded_at: alert.responded_at ? dayjs(alert.responded_at).format('YYYY-MM-DD HH:mm:ss') : 'N/A',
+          lat: alert.lat,
+          lng: alert.lng,
+          description: alert.description ?? 'No description provided',
         })));
       } catch (e) {
         console.error('Failed to fetch alerts data:', e);
@@ -103,6 +108,11 @@ export default function ReportsPage() {
     fetchAlerts();
   }, []);
 
+  // Filter responded alerts
+  const respondedAlerts = useMemo(() => {
+    return alerts.filter((alert) => alert.status === 'Responded');
+  }, [alerts]);
+
   // Aggregate responder actions for chart
   const responderStats = useMemo(() => {
     const counts = {};
@@ -117,11 +127,10 @@ export default function ReportsPage() {
   }, [responderLogs]);
 
   const exportAlerts = () => {
-    // Sort alerts by occurred_at DESC
     const sortedAlerts = [...(alerts || [])].sort((a, b) => {
       const dateA = new Date(a.occurred_at).getTime();
       const dateB = new Date(b.occurred_at).getTime();
-      return dateB - dateA; // DESC order
+      return dateB - dateA;
     });
 
     const headers = ['ID', 'Type', 'Status', 'Occurred At', 'Address', 'Resident Name', 'Responder Name'];
@@ -362,6 +371,11 @@ export default function ReportsPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Responded Alerts Map */}
+      <div className="mt-6">
+        <RespondedAlertsMap alerts={respondedAlerts} loading={loadingAlerts} />
       </div>
     </div>
   );
