@@ -7,7 +7,6 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
-import RespondedAlertsMap from '../components/RespondedAlertsMap';
 
 export default function ReportsPage() {
   const [responderLogs, setResponderLogs] = useState([]);
@@ -373,10 +372,6 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Responded Alerts Map */}
-      <div className="mt-6">
-        <RespondedAlertsMap alerts={respondedAlerts} loading={loadingAlerts} />
-      </div>
     </div>
   );
 }
