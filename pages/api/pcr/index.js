@@ -87,39 +87,45 @@ export default async function handler(req, res) {
         ]
       );
 
-      // Insert notification for PCR form creation
-      await pool.query(
-        `
-        INSERT INTO notifications (
-          account_type,
-          account_id,
-          sender_type,
-          sender_id,
-          sender_name,
-          recipient_name,
-          message,
-          is_read,
-          created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW() AT TIME ZONE 'Asia/Manila')
-        `,
-        [
-          type,
-          user.id,
-          type,
-          user.id,
-          user.name || 'Unknown',
-          user.name || 'Unknown',
-          `${type.charAt(0).toUpperCase() + type.slice(1)} ${user.name || 'Unknown'} added a PCR form for patient ${patientName} on ${new Date().toLocaleString('en-PH', {
-            timeZone: 'Asia/Manila',
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-            hour12: true,
-          })}`
-        ]
-      );
+      // Insert notification for PCR form creation (best-effort)
+      try {
+        const acctType = (type || 'admin').toLowerCase(); // 'admin' | 'responder'
+        const senderType = acctType; // alerts category
+        await pool.query(
+          `
+          INSERT INTO notifications (
+            account_type,
+            account_id,
+            sender_type,
+            sender_id,
+            sender_name,
+            recipient_name,
+            message,
+            is_read,
+            created_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW() AT TIME ZONE 'Asia/Manila')
+          `,
+          [
+            acctType,
+            user.id,
+            senderType,
+            user.id,
+            user.name || 'System',
+            user.name || 'System',
+            `${acctType.charAt(0).toUpperCase() + acctType.slice(1)} ${user.name || 'System'} added a PCR form for patient ${patientName} on ${new Date().toLocaleString('en-PH', {
+              timeZone: 'Asia/Manila',
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: 'numeric',
+              hour12: true,
+            })}`
+          ]
+        );
+      } catch (err) {
+        console.error('PCR create notification failed:', err.message);
+      }
 
       console.log("Inserted data:", JSON.stringify(rows[0], null, 2));
       res.status(201).json({ data: rows[0] });
@@ -216,6 +222,46 @@ export default async function handler(req, res) {
 
       if (rows.length === 0) {
         return res.status(404).json({ error: "Form not found" });
+      }
+
+      // Insert notification for PCR form update (best-effort)
+      try {
+        const acctType = (type || 'admin').toLowerCase(); // 'admin' | 'responder'
+        const senderType = acctType; // alerts category
+        await pool.query(
+          `
+          INSERT INTO notifications (
+            account_type,
+            account_id,
+            sender_type,
+            sender_id,
+            sender_name,
+            recipient_name,
+            message,
+            is_read,
+            created_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW() AT TIME ZONE 'Asia/Manila')
+          `,
+          [
+            acctType,
+            user.id,
+            senderType,
+            user.id,
+            user.name || 'System',
+            user.name || 'System',
+            `${acctType.charAt(0).toUpperCase() + acctType.slice(1)} ${user.name || 'System'} updated a PCR form for patient ${patient_name} on ${new Date().toLocaleString('en-PH', {
+              timeZone: 'Asia/Manila',
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: 'numeric',
+              minute: 'numeric',
+              hour12: true,
+            })}`
+          ]
+        );
+      } catch (err) {
+        console.error('PCR update notification failed (/api/pcr PUT):', err.message);
       }
 
       console.log("Updated data:", JSON.stringify(rows[0], null, 2));

@@ -108,39 +108,45 @@ export default async function handler(req, res) {
           return res.status(404).json({ error: "Form not found" });
         }
 
-        // Insert notification
-        await pool.query(
-          `
-          INSERT INTO notifications (
-            account_type,
-            account_id,
-            sender_type,
-            sender_id,
-            sender_name,
-            recipient_name,
-            message,
-            is_read,
-            created_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW() AT TIME ZONE 'Asia/Manila')
-          `,
-          [
-            type,
-            user.id,
-            type,
-            user.id,
-            user.name || "Unknown",
-            user.name || "Unknown",
-            `Admin ${user.name || "Unknown"} updated a PCR form for patient ${patient_name} on ${new Date().toLocaleString("en-PH", {
-              timeZone: "Asia/Manila",
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-              hour: "numeric",
-              minute: "numeric",
-              hour12: true,
-            })}`
-          ]
-        );
+        // Insert notification (best-effort)
+        try {
+          const acctType = (type || 'admin').toLowerCase(); // 'admin' | 'responder'
+          const senderType = acctType; // alerts category
+          await pool.query(
+            `
+            INSERT INTO notifications (
+              account_type,
+              account_id,
+              sender_type,
+              sender_id,
+              sender_name,
+              recipient_name,
+              message,
+              is_read,
+              created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW() AT TIME ZONE 'Asia/Manila')
+            `,
+            [
+              acctType,
+              user.id,
+              senderType,
+              user.id,
+              user.name || 'System',
+              user.name || 'System',
+              `${acctType.charAt(0).toUpperCase() + acctType.slice(1)} ${user.name || 'System'} updated a PCR form for patient ${patient_name} on ${new Date().toLocaleString('en-PH', {
+                timeZone: 'Asia/Manila',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: 'numeric',
+                hour12: true,
+              })}`
+            ]
+          );
+        } catch (err) {
+          console.error('PCR update notification failed:', err.message);
+        }
 
         // Format the response data with proper date handling
         const updatedForm = result.rows[0];

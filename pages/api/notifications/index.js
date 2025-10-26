@@ -69,7 +69,6 @@ export default async function handler(req, res) {
     }
 
     if (method === 'POST') {
-      console.log('Received POST request body:', req.body);
       if (!notificationId) {
         return res.status(400).json({ message: 'notificationId is required' });
       }

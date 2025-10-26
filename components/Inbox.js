@@ -5,15 +5,19 @@ import { FiEye, FiEyeOff, FiSearch, FiRefreshCw, FiInbox } from 'react-icons/fi'
 
 export default function Inbox({
   notifications,
-  viewAllNotifications,
-  onToggleViewAll,
   onMarkAllAsRead,
   onRefresh,
   onNotificationClick,
   isLoading,
 }) {
-  const [inboxFilter, setInboxFilter] = useState('alerts');
+  const [inboxFilter, setInboxFilter] = useState('system');
   const [inboxSearch, setInboxSearch] = useState('');
+  
+  // Note: notifications prop is already filtered in DashboardContent:
+  // - System notifications: shown globally for all users
+  // - Alerts (responder-sent): shown globally for all users
+  // - Admin (admin actions): shown globally for all users
+  // - Others (chat, etc.): filtered to current user only
 
   // Format date for Manila timezone
   const formatPHDate = (dateString) => {
@@ -104,6 +108,7 @@ export default function Inbox({
   // Categorize and filter notifications
   const categorizedNotifications = {
     alerts: [],
+    admin: [],
     system: [],
     other: [],
   };
@@ -119,17 +124,22 @@ export default function Inbox({
             notification.recipient_name.toLowerCase().includes(searchTerm))
         : true;
 
-    const isAlert = ['admin', 'responder'].includes(notification.sender_type);
-    const isSystem = notification.sender_type === 'system';
+    const type = (notification.sender_type || '').toLowerCase();
+    const isAlert = type === 'responder';
+    const isAdminCat = type === 'admin';
+    const isSystem = type === 'system';
     const matchesFilter =
       (inboxFilter === 'alerts' && isAlert) ||
+      (inboxFilter === 'admin' && isAdminCat) ||
       (inboxFilter === 'system' && isSystem) ||
-      (inboxFilter === 'other' && !isAlert && !isSystem);
+      (inboxFilter === 'other' && !isAlert && !isAdminCat && !isSystem);
 
     if (matchesSearch && matchesFilter) {
-      if (['admin', 'responder'].includes(notification.sender_type)) {
+      if (type === 'responder') {
         categorizedNotifications.alerts.push(notification);
-      } else if (notification.sender_type === 'system') {
+      } else if (type === 'admin') {
+        categorizedNotifications.admin.push(notification);
+      } else if (type === 'system') {
         categorizedNotifications.system.push(notification);
       } else {
         categorizedNotifications.other.push(notification);
@@ -140,6 +150,7 @@ export default function Inbox({
   // Sort notifications within each category by created_at (descending)
   const orderedCategories = [
     { name: 'Alerts', key: 'alerts', notifications: categorizedNotifications.alerts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) },
+    { name: 'Admin Notifications', key: 'admin', notifications: categorizedNotifications.admin.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) },
     { name: 'System Notifications', key: 'system', notifications: categorizedNotifications.system.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) },
     { name: 'Other Notifications', key: 'other', notifications: categorizedNotifications.other.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) },
   ];
@@ -175,6 +186,12 @@ export default function Inbox({
               Alerts
             </button>
             <button
+              onClick={() => setInboxFilter('admin')}
+              className={`px-3 py-1.5 text-sm rounded-full ${inboxFilter === 'admin' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              Admin
+            </button>
+            <button
               onClick={() => setInboxFilter('system')}
               className={`px-3 py-1.5 text-sm rounded-full ${inboxFilter === 'system' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
             >
@@ -187,16 +204,6 @@ export default function Inbox({
               Others
             </button>
           </div>
-          <button
-            onClick={onToggleViewAll}
-            className="flex items-center text-blue-600 hover:text-blue-800"
-            title={viewAllNotifications ? 'View only my notifications' : 'View all notifications'}
-          >
-            {viewAllNotifications ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
-            <span className="ml-1 hidden md:inline">
-              {viewAllNotifications ? 'My View' : 'Admin View'}
-            </span>
-          </button>
           {notifications.filter((n) => !n.is_read).length > 0 && (
             <button
               onClick={onMarkAllAsRead}

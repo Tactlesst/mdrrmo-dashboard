@@ -26,8 +26,7 @@ export default function DashboardContent({ user }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [error, setError] = useState(null);
-  const [viewAllNotifications, setViewAllNotifications] = useState(true);
-  const [headerNotifFilter, setHeaderNotifFilter] = useState('alerts');
+  const [headerNotifFilter, setHeaderNotifFilter] = useState('system');
   // Settings state moved into components/Settings.js
   const sidebarRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -93,9 +92,8 @@ export default function DashboardContent({ user }) {
   // Fetch notifications
   const fetchNotifications = async () => {
     try {
-      const url = viewAllNotifications
-        ? `/api/notifications?showAll=true`
-        : `/api/notifications?userId=${user.id}`;
+      // Fetch all notifications globally to filter client-side
+      const url = `/api/notifications?showAll=true`;
       
       const res = await fetch(url);
       if (!res.ok) {
@@ -106,12 +104,21 @@ export default function DashboardContent({ user }) {
       if (data?.notifications) {
         const validNotifications = data.notifications.filter(n => n.id && Number.isInteger(Number(n.id)));
         if (validNotifications.length < data.notifications.length) {
-          console.warn('Some notifications have invalid IDs:', data.notifications);
+          console.warn('Some notifications had invalid IDs and were filtered out');
         }
-        console.log('Fetched notifications:', validNotifications);
-        setNotifications(validNotifications);
+        
+        // Filter: System, Alerts, and Admin = global, Others = current user only
+        const filtered = validNotifications.filter(n => {
+          const type = (n.sender_type || '').toLowerCase();
+          if (type === 'system' || type === 'responder' || type === 'admin') {
+            return true; // Show all system, alerts, and admin notifications globally
+          }
+          // For chat and others: show only if they belong to current user
+          return n.account_id === user.id;
+        });
+        
+        setNotifications(filtered);
       } else {
-        console.warn('No notifications found.');
         setNotifications([]);
       }
     } catch (err) {
@@ -124,7 +131,7 @@ export default function DashboardContent({ user }) {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
-  }, [user.id, viewAllNotifications]);
+  }, [user.id]);
 
   // Settings are handled inside <Settings />
 
@@ -165,14 +172,12 @@ export default function DashboardContent({ user }) {
   const handleMarkAllAsRead = async () => {
     try {
       setError(null);
-      const url = viewAllNotifications 
-        ? '/api/notifications?showAll=true'
-        : '/api/notifications';
+      const url = '/api/notifications';
       
       const res = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, showAll: viewAllNotifications }),
+        body: JSON.stringify({ userId: user.id }),
       });
       
       if (!res.ok) {
@@ -209,12 +214,6 @@ export default function DashboardContent({ user }) {
   // Close notification details
   const handleCloseDetails = () => {
     setSelectedNotification(null);
-  };
-
-  // Toggle between viewing all notifications and personal notifications
-  const toggleViewAll = () => {
-    setViewAllNotifications(!viewAllNotifications);
-    setShowNotifications(true);
   };
 
   const handleLogout = async () => {
@@ -327,7 +326,7 @@ export default function DashboardContent({ user }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-blue-50 font-sans flex flex-col">
+    <div className="h-screen bg-blue-50 font-sans flex flex-col overflow-hidden">
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative m-4">
           <strong className="font-bold">Error: </strong>
@@ -341,15 +340,15 @@ export default function DashboardContent({ user }) {
         </div>
       )}
       
-      <header className="bg-gradient-to-r from-blue-700 to-blue-900 text-white shadow-lg px-6 py-4 flex items-center justify-between rounded-b-md">
+      <header className="bg-gradient-to-r from-blue-700 to-blue-900 text-white shadow-lg px-6 py-4 flex items-center justify-between rounded-b-md flex-none">
         <div className="flex items-center space-x-3">
           <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="md:hidden">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <div className="relative w-15 h-15 hidden sm:block">
-            <Image src="/Logoo.png" alt="MDRRMO" fill sizes="60px" className="object-contain" priority />
+          <div className="relative w-14 h-14 hidden sm:block">
+            <Image src="/Logoo.png" alt="MDRRMO" fill sizes="56px" className="object-contain" priority />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">MDRRMO Accident Dashboard</h1>
         </div>
@@ -371,7 +370,7 @@ export default function DashboardContent({ user }) {
               <div className="absolute right-0 mt-2 w-[22rem] md:w-[28rem] bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
                 <div className="flex items-center justify-between p-3 border-b border-gray-200 gap-2 flex-wrap">
                   <span className="text-sm font-semibold text-gray-800">
-                    {viewAllNotifications ? 'All Notifications' : 'My Notifications'}
+                    My Notifications
                   </span>
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex items-center bg-white border border-gray-200 rounded-full p-0.5">
@@ -380,6 +379,12 @@ export default function DashboardContent({ user }) {
                         className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${headerNotifFilter === 'alerts' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
                       >
                         Alerts
+                      </button>
+                      <button
+                        onClick={() => setHeaderNotifFilter('admin')}
+                        className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${headerNotifFilter === 'admin' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                      >
+                        Admin
                       </button>
                       <button
                         onClick={() => setHeaderNotifFilter('system')}
@@ -394,14 +399,6 @@ export default function DashboardContent({ user }) {
                         Others
                       </button>
                     </div>
-                    <button
-                      onClick={toggleViewAll}
-                      className="text-xs md:text-sm text-blue-600 hover:text-blue-800 inline-flex items-center"
-                      title={viewAllNotifications ? 'View only my notifications' : 'View all notifications'}
-                    >
-                      {viewAllNotifications ? <FiEyeOff className="w-4 h-4 md:mr-1" /> : <FiEye className="w-4 h-4 md:mr-1" />}
-                      <span className="hidden md:inline">{viewAllNotifications ? 'My View' : 'Admin View'}</span>
-                    </button>
                     {notifications.filter(n => !n.is_read).length > 0 && (
                       <button
                         onClick={handleMarkAllAsRead}
@@ -415,15 +412,18 @@ export default function DashboardContent({ user }) {
                   </div>
                 </div>
                 {(() => {
-                  const isAlert = (n) => ['admin','responder'].includes(n.sender_type);
+                  const isAlert = (n) => n.sender_type === 'responder';
+                  const isAdminCat = (n) => n.sender_type === 'admin';
                   const isSystem = (n) => n.sender_type === 'system';
                   const inFilter = (n) => {
                     if (headerNotifFilter === 'alerts') return isAlert(n);
+                    if (headerNotifFilter === 'admin') return isAdminCat(n);
                     if (headerNotifFilter === 'system') return isSystem(n);
-                    if (headerNotifFilter === 'other') return !isAlert(n) && !isSystem(n);
+                    if (headerNotifFilter === 'other') return !isAlert(n) && !isAdminCat(n) && !isSystem(n);
                     return true;
                   };
-                  const list = notifications.filter(inFilter).slice(0, 10);
+                  // Show only unread notifications in dropdown
+                  const list = notifications.filter(n => !n.is_read && inFilter(n)).slice(0, 10);
                   if (list.length === 0) {
                     return <p className="p-3 text-sm text-gray-500">No notifications.</p>;
                   }
@@ -438,11 +438,6 @@ export default function DashboardContent({ user }) {
                           <p className="text-sm font-medium text-gray-800">
                             {notification.sender_name || 'System'}
                           </p>
-                          {viewAllNotifications && (
-                            <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                              To: {notification.recipient_name || `${notification.account_type}-${notification.account_id}`}
-                            </span>
-                          )}
                         </div>
                         <p className="text-sm text-gray-800 mt-1">{notification.message}</p>
                         <p className="text-xs text-gray-500 mt-1">{formatRelativeTime(notification.created_at)}</p>
@@ -529,66 +524,77 @@ export default function DashboardContent({ user }) {
       </header>
 
       {selectedNotification && (
-        <div className="fixed inset-0 blur-2 bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">Notification Details</h3>
-              <button
-                onClick={handleCloseDetails}
-                className="text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                <FiX className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">From</p>
-                <p className="text-lg font-semibold text-gray-800">
-                  {selectedNotification.sender_name || 'System'}
-                </p>
-              </div>
-              {viewAllNotifications && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-3">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
+                  <span className="text-sm font-bold">i</span>
+                </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">To</p>
-                  <p className="text-lg text-gray-800">
-                    {selectedNotification.recipient_name || `${selectedNotification.account_type}-${selectedNotification.account_id}`}
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900">Notification Details</h3>
+                  <p className="text-[11px] text-gray-500">{formatRelativeTime(selectedNotification.created_at)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${selectedNotification.sender_type === 'responder' ? 'bg-red-100 text-red-700' : selectedNotification.sender_type === 'admin' ? 'bg-blue-100 text-blue-700' : selectedNotification.sender_type === 'system' ? 'bg-gray-100 text-gray-700' : 'bg-slate-100 text-slate-700'}`}>
+                  {selectedNotification.sender_type === 'responder' ? 'Alerts' : selectedNotification.sender_type === 'admin' ? 'Admin' : selectedNotification.sender_type === 'system' ? 'System' : 'Others'}
+                </span>
+                <button
+                  onClick={handleCloseDetails}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                  aria-label="Close"
+                >
+                  <FiX className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-4 py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg border border-gray-100 bg-gray-50">
+                  <p className="text-xs font-medium text-gray-500">From</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{selectedNotification.sender_name || 'System'}</p>
+                </div>
+
+                <div className="sm:col-span-2 p-4 rounded-lg border border-gray-100">
+                  <p className="text-xs font-medium text-gray-500">Message</p>
+                  <p className="mt-2 text-sm text-gray-800 leading-relaxed">{selectedNotification.message}</p>
+                </div>
+
+                <div className="p-4 rounded-lg border border-gray-100 bg-gray-50">
+                  <p className="text-xs font-medium text-gray-500">Date & Time</p>
+                  <p className="mt-1 text-sm text-gray-900">{formatRelativeTime(selectedNotification.created_at)}</p>
+                </div>
+                <div className="p-4 rounded-lg border border-gray-100 bg-gray-50">
+                  <p className="text-xs font-medium text-gray-500">Type</p>
+                  <p className="mt-1 text-sm text-gray-900 capitalize">{selectedNotification.account_type}</p>
+                </div>
+                <div className="p-4 rounded-lg border border-gray-100 bg-gray-50">
+                  <p className="text-xs font-medium text-gray-500">Status</p>
+                  <p className={`mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${selectedNotification.is_read ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                    {selectedNotification.is_read ? 'Read' : 'Unread'}
                   </p>
                 </div>
-              )}
-              <div>
-                <p className="text-sm font-medium text-gray-500">Message</p>
-                <p className="text-lg text-gray-800">{selectedNotification.message}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Date & Time</p>
-                <p className="text-lg text-gray-800">{formatRelativeTime(selectedNotification.created_at)}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Type</p>
-                <p className="text-lg text-gray-800 capitalize">{selectedNotification.account_type}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Status</p>
-                <p className="text-lg text-gray-800 capitalize">
-                  {selectedNotification.is_read ? 'Read' : 'Unread'}
-                </p>
               </div>
             </div>
-            <div className="flex justify-end p-4 border-t border-gray-200">
+
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50">
               {!selectedNotification.is_read && (
                 <button
                   onClick={() => {
                     handleMarkAsRead(selectedNotification.id);
                     handleCloseDetails();
                   }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors mr-2"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
-                  Mark as Read & Close
+                  <FiCheck className="w-4 h-4" />
+                  <span>Mark as Read & Close</span>
                 </button>
               )}
               <button
                 onClick={handleCloseDetails}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-md hover:bg-gray-100 transition-colors"
               >
                 Close
               </button>
@@ -597,13 +603,13 @@ export default function DashboardContent({ user }) {
         </div>
       )}
 
-      <div className="flex flex-1 flex-col md:flex-row p-4 gap-4">
+      <div className="flex flex-1 min-h-0 flex-col md:flex-row p-4 gap-4 overflow-hidden overflow-x-hidden">
         <aside
           ref={sidebarRef}
           onClick={() => isSidebarCollapsed && setIsSidebarCollapsed(false)}
           className={`bg-white text-gray-800 rounded-xl shadow-lg p-4 flex flex-col justify-between transition-all duration-300 ease-in-out
             ${isSidebarCollapsed ? 'w-20 items-center' : 'w-full md:w-64'}
-            ${isSidebarCollapsed && 'fixed top-[90px] left-4 z-50 md:static'} md:relative`}
+            ${isSidebarCollapsed && 'fixed top-[90px] left-4 z-30 md:static'} md:relative`}
         >
           <div className="flex items-center mb-6 px-2">
             <div className="w-8 h-8 flex items-center justify-center mr-2">
@@ -658,21 +664,25 @@ export default function DashboardContent({ user }) {
         </aside>
 
         {activeContent && (
-          <main className="flex-1 bg-white rounded-xl shadow-md p-6 overflow-y-auto max-h-[calc(100vh-7rem)]">
+          <main className="flex-1 min-h-0 bg-white rounded-xl shadow-md p-6 overflow-auto">
             {activeContent === 'dashboard' && <MapDisplay />}
             {activeContent === 'alerts' && <Alerts />}
             {activeContent === 'inbox' && (
               <Inbox 
                 notifications={notifications}
-                viewAllNotifications={viewAllNotifications}
-                onToggleViewAll={toggleViewAll}
                 onMarkAllAsRead={handleMarkAllAsRead}
                 onRefresh={fetchNotifications}
                 onNotificationClick={handleNotificationClick}
               />
             )}
             {activeContent === 'users' && <Users />}
-            {activeContent === 'online-admins' && <OnlineAdminsList />}
+            {activeContent === 'online-admins' && (
+              <OnlineAdminsList 
+                currentUserId={user?.id}
+                currentUserName={admin?.name || user?.email}
+                currentUserType="admin"
+              />
+            )}
             {activeContent === 'manage-pcr-form' && <ManagePCRForm />}
             {activeContent === 'reports' && <Reports />}
             {activeContent === 'logs' && <Logs />}

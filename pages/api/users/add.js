@@ -83,6 +83,16 @@ export default async function handler(req, res) {
     const result = await pool.query(insertQuery, values);
 
     // Insert notification
+    const inserted = result.rows[0];
+    const isAdminTarget = role === "Co-Admins";
+    const notifAccountType = isAdminTarget ? "admin" : type;
+    const notifAccountId = isAdminTarget ? inserted.id : user.id;
+    const notifSenderType = isAdminTarget ? "system" : type;
+    const notifSenderId = isAdminTarget ? null : user.id;
+    const notifSenderName = isAdminTarget ? "System" : (user.name || "Unknown");
+    const notifRecipientName = isAdminTarget ? (inserted.name || fullName) : (user.name || "Unknown");
+    const actionText = isAdminTarget ? `System: Admin ${user.name || "Unknown"} added Co-Admin ${fullName}` : `Admin ${user.name || "Unknown"} added a ${targetRole} account for ${fullName}`;
+
     await pool.query(
       `
       INSERT INTO notifications (
@@ -98,13 +108,13 @@ export default async function handler(req, res) {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW() AT TIME ZONE 'Asia/Manila')
       `,
       [
-        type,
-        user.id,
-        type,
-        user.id,
-        user.name || "Unknown",
-        user.name || "Unknown",
-        `Admin ${user.name || "Unknown"} added a ${targetRole} account for ${fullName} on ${new Date().toLocaleString("en-PH", {
+        notifAccountType,
+        notifAccountId,
+        notifSenderType,
+        notifSenderId,
+        notifSenderName,
+        notifRecipientName,
+        `${actionText} on ${new Date().toLocaleString("en-PH", {
           timeZone: "Asia/Manila",
           month: "short",
           day: "numeric",

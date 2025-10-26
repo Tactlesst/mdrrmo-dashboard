@@ -73,6 +73,17 @@ export default async function handler(req, res) {
     }
 
     // Insert notification
+    const isAdminTarget = role === 'Co-Admins';
+    const notifAccountType = isAdminTarget ? 'admin' : type;
+    const notifAccountId = isAdminTarget ? id : user.id;
+    const notifSenderType = isAdminTarget ? 'system' : type;
+    const notifSenderId = isAdminTarget ? null : user.id;
+    const notifSenderName = isAdminTarget ? 'System' : (user.name || 'Unknown');
+    const notifRecipientName = isAdminTarget ? name : (user.name || 'Unknown');
+    const actionText = isAdminTarget
+      ? `System: Admin ${user.name || 'Unknown'} edited Co-Admin ${name}`
+      : `${type.charAt(0).toUpperCase() + type.slice(1)} ${user.name || 'Unknown'} updated ${targetRole} ${name}`;
+
     await pool.query(
       `
       INSERT INTO notifications (
@@ -88,13 +99,13 @@ export default async function handler(req, res) {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW() AT TIME ZONE 'Asia/Manila')
       `,
       [
-        type,
-        user.id,
-        type,
-        user.id,
-        user.name || 'Unknown',
-        user.name || 'Unknown',
-        `${type.charAt(0).toUpperCase() + type.slice(1)} ${user.name || 'Unknown'} updated ${targetRole} ${name} on ${new Date().toLocaleString('en-PH', {
+        notifAccountType,
+        notifAccountId,
+        notifSenderType,
+        notifSenderId,
+        notifSenderName,
+        notifRecipientName,
+        `${actionText} on ${new Date().toLocaleString('en-PH', {
           timeZone: 'Asia/Manila',
           month: 'short',
           day: 'numeric',

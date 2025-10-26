@@ -88,15 +88,14 @@ export default async function handler(req, res) {
       [admin.id, admin.email, ip, userAgent]
     );
 
-    // Insert login notification
+    // Insert login notification as System
     await pool.query(
-      `INSERT INTO notifications (sender_name, recipient_name, account_type, account_id, message, is_read, created_at)
-       VALUES ($1, $2, $3, $4, $5, FALSE, NOW() AT TIME ZONE 'Asia/Manila')`,
+      `INSERT INTO notifications (account_type, account_id, sender_type, sender_id, sender_name, recipient_name, message, is_read, created_at)
+       VALUES ($1, $2, 'system', NULL, 'System', $3, $4, FALSE, NOW() AT TIME ZONE 'Asia/Manila')`,
       [
-        'System',
-        admin.name || admin.email,
         'admin',
-        admin.id.toString(),
+        admin.id,
+        admin.name || admin.email,
         `Admin ${admin.name || admin.email} logged in from ${ip} (${location}) on ${new Date().toLocaleString('en-PH', {
           timeZone: 'Asia/Manila',
           month: 'short',
