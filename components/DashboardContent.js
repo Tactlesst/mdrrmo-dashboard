@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import Reports from './Reports';
 import Users from './Users';
@@ -9,7 +10,8 @@ import Logs from './Logs';
 import AdminProfileModal from './AdminProfileModal';
 import OnlineAdminsList from './OnlineAdminsList';
 import Inbox from './Inbox';
-import { FiBell, FiX, FiCheck, FiChevronDown, FiChevronUp, FiInbox, FiEye, FiEyeOff } from 'react-icons/fi';
+import Settings from './Settings';
+import { FiBell, FiX, FiCheck, FiChevronDown, FiChevronUp, FiInbox, FiEye, FiEyeOff, FiSettings } from 'react-icons/fi';
 
 const MapDisplay = dynamic(() => import('./MapDisplay'), { ssr: false });
 const Alerts = dynamic(() => import('./Alerts'), { ssr: false });
@@ -25,6 +27,8 @@ export default function DashboardContent({ user }) {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [error, setError] = useState(null);
   const [viewAllNotifications, setViewAllNotifications] = useState(true);
+  const [headerNotifFilter, setHeaderNotifFilter] = useState('alerts');
+  // Settings state moved into components/Settings.js
   const sidebarRef = useRef(null);
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
@@ -122,6 +126,8 @@ export default function DashboardContent({ user }) {
     return () => clearInterval(interval);
   }, [user.id, viewAllNotifications]);
 
+  // Settings are handled inside <Settings />
+
   // Mark a notification as read
   const handleMarkAsRead = async (notificationId) => {
     try {
@@ -212,8 +218,31 @@ export default function DashboardContent({ user }) {
   };
 
   const handleLogout = async () => {
-    await fetch('/api/logout', { method: 'POST' });
-    window.location.href = '/login';
+    try {
+      // Prefer sendBeacon to avoid aborted fetch errors on navigation/unload
+      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        const payload = new Blob([JSON.stringify({})], { type: 'application/json' });
+        navigator.sendBeacon('/api/logout', payload);
+      } else {
+        // Fallback: keepalive fetch with a short timeout
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        try {
+          await fetch('/api/logout', {
+            method: 'POST',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
+    } catch (e) {
+      // Swallow network abort errors caused by navigation
+    } finally {
+      window.location.assign('/login');
+    }
   };
 
   const navItems = [
@@ -260,6 +289,7 @@ export default function DashboardContent({ user }) {
             d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
         </svg>
     )},
+    { id: 'settings', name: 'Settings', icon: <FiSettings className="w-5 h-5" /> },
   ];
 
   useEffect(() => {
@@ -297,7 +327,7 @@ export default function DashboardContent({ user }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-red-50 font-sans flex flex-col">
+    <div className="min-h-screen bg-blue-50 font-sans flex flex-col">
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative m-4">
           <strong className="font-bold">Error: </strong>
@@ -311,13 +341,16 @@ export default function DashboardContent({ user }) {
         </div>
       )}
       
-      <header className="bg-gradient-to-r from-red-600 to-red-800 text-white shadow-lg px-6 py-4 flex items-center justify-between rounded-b-md">
-        <div className="flex items-center space-x-4">
+      <header className="bg-gradient-to-r from-blue-700 to-blue-900 text-white shadow-lg px-6 py-4 flex items-center justify-between rounded-b-md">
+        <div className="flex items-center space-x-3">
           <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="md:hidden">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
+          <div className="relative w-15 h-15 hidden sm:block">
+            <Image src="/Logoo.png" alt="MDRRMO" fill sizes="60px" className="object-contain" priority />
+          </div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">MDRRMO Accident Dashboard</h1>
         </div>
 
@@ -335,56 +368,86 @@ export default function DashboardContent({ user }) {
               )}
             </button>
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
-                <div className="flex justify-between items-center p-3 border-b border-gray-200">
+              <div className="absolute right-0 mt-2 w-[22rem] md:w-[28rem] bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                <div className="flex items-center justify-between p-3 border-b border-gray-200 gap-2 flex-wrap">
                   <span className="text-sm font-semibold text-gray-800">
                     {viewAllNotifications ? 'All Notifications' : 'My Notifications'}
                   </span>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center bg-white border border-gray-200 rounded-full p-0.5">
+                      <button
+                        onClick={() => setHeaderNotifFilter('alerts')}
+                        className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${headerNotifFilter === 'alerts' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                      >
+                        Alerts
+                      </button>
+                      <button
+                        onClick={() => setHeaderNotifFilter('system')}
+                        className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${headerNotifFilter === 'system' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                      >
+                        System
+                      </button>
+                      <button
+                        onClick={() => setHeaderNotifFilter('other')}
+                        className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${headerNotifFilter === 'other' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                      >
+                        Others
+                      </button>
+                    </div>
                     <button
                       onClick={toggleViewAll}
-                      className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
+                      className="text-xs md:text-sm text-blue-600 hover:text-blue-800 inline-flex items-center"
                       title={viewAllNotifications ? 'View only my notifications' : 'View all notifications'}
                     >
-                      {viewAllNotifications ? <FiEyeOff className="w-4 h-4 mr-1" /> : <FiEye className="w-4 h-4 mr-1" />}
-                      {viewAllNotifications ? 'My View' : 'Admin View'}
+                      {viewAllNotifications ? <FiEyeOff className="w-4 h-4 md:mr-1" /> : <FiEye className="w-4 h-4 md:mr-1" />}
+                      <span className="hidden md:inline">{viewAllNotifications ? 'My View' : 'Admin View'}</span>
                     </button>
                     {notifications.filter(n => !n.is_read).length > 0 && (
                       <button
                         onClick={handleMarkAllAsRead}
-                        className="text-sm text-blue-600 hover:text-blue-800"
+                        className="text-xs md:text-sm text-blue-600 hover:text-blue-800 inline-flex items-center"
+                        title="Mark all read"
                       >
-                        Mark all read
+                        <FiCheck className="w-4 h-4 md:mr-1" />
+                        <span className="hidden md:inline">Mark all read</span>
                       </button>
                     )}
                   </div>
                 </div>
-                {notifications.filter(n => !n.is_read).length === 0 ? (
-                  <p className="p-3 text-sm text-gray-500">No unread notifications.</p>
-                ) : (
-                  notifications
-                    .filter(n => !n.is_read)
-                    .slice(0, 10)
-                    .map((notification) => (
-                      <div
-                        key={notification.id}
-                        className="p-3 border-b border-gray-200 flex justify-between items-start cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleNotificationClick(notification)}
-                      >
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start">
-                            <p className="text-sm font-medium text-gray-800">
-                              {notification.sender_name || 'System'}
-                            </p>
-                            {viewAllNotifications && (
-                              <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                                To: {notification.recipient_name || `${notification.account_type}-${notification.account_id}`}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-800 mt-1">{notification.message}</p>
-                          <p className="text-xs text-gray-500 mt-1">{formatRelativeTime(notification.created_at)}</p>
+                {(() => {
+                  const isAlert = (n) => ['admin','responder'].includes(n.sender_type);
+                  const isSystem = (n) => n.sender_type === 'system';
+                  const inFilter = (n) => {
+                    if (headerNotifFilter === 'alerts') return isAlert(n);
+                    if (headerNotifFilter === 'system') return isSystem(n);
+                    if (headerNotifFilter === 'other') return !isAlert(n) && !isSystem(n);
+                    return true;
+                  };
+                  const list = notifications.filter(inFilter).slice(0, 10);
+                  if (list.length === 0) {
+                    return <p className="p-3 text-sm text-gray-500">No notifications.</p>;
+                  }
+                  return list.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className="p-3 border-b border-gray-200 flex justify-between items-start cursor-pointer hover:bg-gray-50"
+                      onClick={() => handleNotificationClick(notification)}
+                    >
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <p className="text-sm font-medium text-gray-800">
+                            {notification.sender_name || 'System'}
+                          </p>
+                          {viewAllNotifications && (
+                            <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
+                              To: {notification.recipient_name || `${notification.account_type}-${notification.account_id}`}
+                            </span>
+                          )}
                         </div>
+                        <p className="text-sm text-gray-800 mt-1">{notification.message}</p>
+                        <p className="text-xs text-gray-500 mt-1">{formatRelativeTime(notification.created_at)}</p>
+                      </div>
+                      {!notification.is_read && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -395,18 +458,19 @@ export default function DashboardContent({ user }) {
                         >
                           <FiCheck className="w-5 h-5" />
                         </button>
-                      </div>
-                    ))
-                )}
-                <div className="p-3 text-center border-t border-gray-200">
+                      )}
+                    </div>
+                  ));
+                })()}
+                <div className="p-3 border-t border-gray-200">
                   <button
                     onClick={() => {
                       setActiveContent('inbox');
                       setShowNotifications(false);
                     }}
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    className="w-full text-xs md:text-sm text-white bg-blue-600 hover:bg-blue-700 py-2 rounded-md"
                   >
-                    View all notifications →
+                    View all notifications
                   </button>
                 </div>
               </div>
@@ -612,6 +676,7 @@ export default function DashboardContent({ user }) {
             {activeContent === 'manage-pcr-form' && <ManagePCRForm />}
             {activeContent === 'reports' && <Reports />}
             {activeContent === 'logs' && <Logs />}
+            {activeContent === 'settings' && <Settings />}
           </main>
         )}
       </div>

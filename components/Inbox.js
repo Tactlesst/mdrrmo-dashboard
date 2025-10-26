@@ -12,7 +12,7 @@ export default function Inbox({
   onNotificationClick,
   isLoading,
 }) {
-  const [inboxFilter, setInboxFilter] = useState('all');
+  const [inboxFilter, setInboxFilter] = useState('alerts');
   const [inboxSearch, setInboxSearch] = useState('');
 
   // Format date for Manila timezone
@@ -119,10 +119,12 @@ export default function Inbox({
             notification.recipient_name.toLowerCase().includes(searchTerm))
         : true;
 
+    const isAlert = ['admin', 'responder'].includes(notification.sender_type);
+    const isSystem = notification.sender_type === 'system';
     const matchesFilter =
-      inboxFilter === 'all' ||
-      (inboxFilter === 'unread' && !notification.is_read) ||
-      (inboxFilter === 'read' && notification.is_read);
+      (inboxFilter === 'alerts' && isAlert) ||
+      (inboxFilter === 'system' && isSystem) ||
+      (inboxFilter === 'other' && !isAlert && !isSystem);
 
     if (matchesSearch && matchesFilter) {
       if (['admin', 'responder'].includes(notification.sender_type)) {
@@ -165,15 +167,26 @@ export default function Inbox({
               className="bg-transparent border-none focus:outline-none focus:ring-0"
             />
           </div>
-          <select
-            value={inboxFilter}
-            onChange={(e) => setInboxFilter(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Messages</option>
-            <option value="unread">Unread Only</option>
-            <option value="read">Read Only</option>
-          </select>
+          <div className="flex items-center bg-white border border-gray-200 rounded-full p-1">
+            <button
+              onClick={() => setInboxFilter('alerts')}
+              className={`px-3 py-1.5 text-sm rounded-full ${inboxFilter === 'alerts' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              Alerts
+            </button>
+            <button
+              onClick={() => setInboxFilter('system')}
+              className={`px-3 py-1.5 text-sm rounded-full ${inboxFilter === 'system' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              System
+            </button>
+            <button
+              onClick={() => setInboxFilter('other')}
+              className={`px-3 py-1.5 text-sm rounded-full ${inboxFilter === 'other' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              Others
+            </button>
+          </div>
           <button
             onClick={onToggleViewAll}
             className="flex items-center text-blue-600 hover:text-blue-800"
@@ -204,11 +217,7 @@ export default function Inbox({
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
             <FiInbox className="w-16 h-16 mb-4" />
             <p className="text-lg">No notifications found</p>
-            <p className="text-sm">
-              {inboxSearch || inboxFilter !== 'all'
-                ? 'Try adjusting your search or filter settings'
-                : 'All caught up! No new notifications'}
-            </p>
+            <p className="text-sm">Try adjusting your search or filter settings</p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">

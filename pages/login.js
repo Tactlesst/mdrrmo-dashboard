@@ -9,12 +9,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [success, setSuccess] = useState("");
   const router = useRouter();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
+    setSuccess("");
 
     // Basic validation
     if (!email || !password) {
@@ -32,7 +34,8 @@ export default function LoginPage() {
 
       const data = await response.json();
       if (response.ok) {
-        router.push(data.redirect);
+        setSuccess("Logged in! Redirecting...");
+        setTimeout(() => router.push(data.redirect), 400);
       } else {
         setError(data.message);
       }
@@ -65,6 +68,7 @@ export default function LoginPage() {
         </p>
 
         {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+        {success && <p className="text-green-600 text-sm mb-4">{success}</p>}
 
         <form onSubmit={handleLogin} className="space-y-4 text-left">
           <div>
@@ -74,9 +78,9 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-300 outline-none"
+              className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
               autoComplete="email"
-              disabled={isLoading}
+              disabled={isLoading || Boolean(success)}
             />
           </div>
           <div>
@@ -86,21 +90,23 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-300 outline-none"
+              className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
               autoComplete="current-password"
               disabled={isLoading}
             />
           </div>
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || Boolean(success)}
             className={`w-full py-2 rounded-lg font-semibold transition duration-200 ${
-              isLoading 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-red-500 hover:bg-red-600'
+              success
+                ? 'bg-green-600'
+                : isLoading 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700'
             } text-white`}
           >
-            {isLoading ? 'Logging in...' : 'Log In'}
+            {success ? 'Logged in! Redirecting...' : isLoading ? 'Logging in...' : 'Log In'}
           </button>
         </form>
 

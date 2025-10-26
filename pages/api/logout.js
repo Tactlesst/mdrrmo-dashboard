@@ -1,31 +1,28 @@
 // pages/api/logout.js
 import { serialize } from 'cookie';
-import { Client } from '@neondatabase/serverless';
+import { neon } from '@neondatabase/serverless';
 import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {
-  const token = req.cookies.auth;
-
-  if (!token) {
-    return res.status(400).json({ message: 'No auth token found' });
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
+  const token = req.cookies.auth;
+
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const sessionId = decoded.sessionId;
+    if (token && process.env.JWT_SECRET) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const sessionId = decoded.sessionId;
 
-    const client = new Client({ connectionString: process.env.NETLIFY_DATABASE_URL });
-    await client.connect();
-
-    // ✅ Mark session inactive
-    await client.query(
-      `UPDATE admin_sessions SET is_active = FALSE, last_active_at = CURRENT_TIMESTAMP WHERE id = $1`,
-      [sessionId]
-    );
-
-    await client.end();
+      if (process.env.NETLIFY_DATABASE_URL && sessionId) {
+        const sql = neon(process.env.NETLIFY_DATABASE_URL);
+        // ✅ Mark session inactive
+        await sql`UPDATE admin_sessions SET is_active = FALSE, last_active_at = CURRENT_TIMESTAMP WHERE id = ${sessionId}`;
+      }
+    }
   } catch (err) {
-    console.error('Logout error:', err);
     // still continue to clear the cookie
   }
 
