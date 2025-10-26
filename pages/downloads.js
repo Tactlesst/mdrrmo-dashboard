@@ -66,6 +66,8 @@ export default function DownloadsPage() {
               </div>
               <a
                 href={responderApkUrl || fallbackApkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 download
                 className="mt-6 inline-flex items-center gap-2 px-5 py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-600/30 transition-colors"
               >
@@ -86,6 +88,8 @@ export default function DownloadsPage() {
               </div>
               <a
                 href={residentApkUrl || fallbackApkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 download
                 className="mt-6 inline-flex items-center gap-2 px-5 py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-600/30 transition-colors"
               >

@@ -75,23 +75,49 @@ export default function Settings() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Responder APK URL</label>
-          <input
-            type="text"
-            value={responderApkUrl}
-            onChange={(e) => setResponderApkUrl(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
-            placeholder="/apk/responder-app.apk"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={responderApkUrl}
+              onChange={(e) => setResponderApkUrl(e.target.value)}
+              className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
+              placeholder="/apk/responder-app.apk"
+            />
+            {responderApkUrl && (
+              <a
+                href={responderApkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+              >
+                <span>📱</span>
+                Download
+              </a>
+            )}
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Resident APK URL</label>
-          <input
-            type="text"
-            value={residentApkUrl}
-            onChange={(e) => setResidentApkUrl(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
-            placeholder="/apk/resident-app.apk"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={residentApkUrl}
+              onChange={(e) => setResidentApkUrl(e.target.value)}
+              className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
+              placeholder="/apk/resident-app.apk"
+            />
+            {residentApkUrl && (
+              <a
+                href={residentApkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <span>📱</span>
+                Download
+              </a>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <button

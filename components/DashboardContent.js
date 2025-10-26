@@ -27,10 +27,19 @@ export default function DashboardContent({ user }) {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [error, setError] = useState(null);
   const [headerNotifFilter, setHeaderNotifFilter] = useState('system');
+  const [alertModal, setAlertModal] = useState(null); // { alert, notification }
+  const [lastNotificationCount, setLastNotificationCount] = useState(0);
+  const audioRef = useRef(null);
   // Settings state moved into components/Settings.js
   const sidebarRef = useRef(null);
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
+
+  // Initialize alert sound
+  useEffect(() => {
+    audioRef.current = new Audio('/alert-sound.mp3');
+    audioRef.current.volume = 0.7;
+  }, []);
 
   // Format date for relative time in Asia/Manila timezone
   const formatRelativeTime = (dateString) => {
@@ -118,6 +127,18 @@ export default function DashboardContent({ user }) {
         });
         
         setNotifications(filtered);
+        
+        // Check for new alert notifications
+        const unreadAlerts = filtered.filter(n => !n.is_read && n.sender_type === 'responder');
+        if (unreadAlerts.length > lastNotificationCount && lastNotificationCount > 0) {
+          // New alert received - play sound and show modal
+          const latestAlert = unreadAlerts[0];
+          if (audioRef.current) {
+            audioRef.current.play().catch(err => console.error('Audio play failed:', err));
+          }
+          setAlertModal({ notification: latestAlert });
+        }
+        setLastNotificationCount(unreadAlerts.length);
       } else {
         setNotifications([]);
       }
@@ -693,6 +714,45 @@ export default function DashboardContent({ user }) {
       
       {showProfileModal && (
         <AdminProfileModal onClose={() => setShowProfileModal(false)} />
+      )}
+
+      {alertModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+            <div className="bg-red-600 text-white px-6 py-4 rounded-t-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <span className="text-2xl">🚨</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Emergency Alert Received!</h2>
+                  <p className="text-sm text-red-100">Immediate attention required</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="bg-red-50 border-l-4 border-red-600 p-4 mb-6">
+                <p className="text-sm font-medium text-red-900">{alertModal.notification.message}</p>
+                <p className="text-xs text-red-700 mt-2">From: {alertModal.notification.sender_name || 'Unknown'}</p>
+                <p className="text-xs text-red-600 mt-1">{formatRelativeTime(alertModal.notification.created_at)}</p>
+              </div>
+              <div className="space-y-3">
+                <button onClick={() => { setActiveContent('dashboard'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium">
+                  <span>📍</span> View Alert on Map
+                </button>
+                <button onClick={() => { setActiveContent('alerts'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2 font-medium">
+                  <span>⚠️</span> Go to Alerts Page
+                </button>
+                <button onClick={() => { setActiveContent('online-admins'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 font-medium">
+                  <span>💬</span> Notify/Chat with Responders
+                </button>
+                <button onClick={() => { setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium">
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
