@@ -2,11 +2,23 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: [
-      'res.cloudinary.com',
-      'images.icon-icons.com',
-      'via.placeholder.com',
-      'unpkg.com',
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.icon-icons.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'via.placeholder.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'unpkg.com',
+      },
     ],
     formats: ['image/avif', 'image/webp'],
   },
@@ -27,7 +39,7 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://*.tile.openstreetmap.org https://unpkg.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://*.tile.openstreetmap.org https://unpkg.com",
               "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com https://fonts.googleapis.com",
               "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.openstreetmap.org https://res.cloudinary.com https://unpkg.com https://cdnjs.cloudflare.com https://images.icon-icons.com",
               "font-src 'self' data: https://fonts.gstatic.com",
