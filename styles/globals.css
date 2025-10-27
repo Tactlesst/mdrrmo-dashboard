@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Apply Poppins font globally */
+* {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+body {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
 /* styles/globals.css or your main CSS file */
 .leaflet-container {
   z-index: 0 !important;

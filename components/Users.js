@@ -139,16 +139,16 @@ export default function Users() {
           />
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left border-t border-gray-200">
+        <div>
+          <table className="w-full text-sm text-left border-t border-gray-200 table-fixed">
             <thead className="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
               <tr>
-                <th className="py-3 px-4">Full Name</th>
-                <th>Email</th>
-                <th>Date of Birth</th>
-                <th>Contact</th>
-                <th>Address</th>
-                <th className="text-center">Action</th>
+                <th className="py-3 px-4 w-[15%]">Full Name</th>
+                <th className="py-3 px-4 w-[20%]">Email</th>
+                <th className="py-3 px-4 w-[15%]">Date of Birth</th>
+                <th className="py-3 px-4 w-[12%]">Contact</th>
+                <th className="py-3 px-4 w-[28%]">Address</th>
+                <th className="py-3 px-4 w-[10%] text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -159,30 +159,35 @@ export default function Users() {
                     className="hover:bg-gray-50 transition duration-150"
                   >
                     <td
-                      className="py-3 px-4 font-medium text-blue-600 hover:underline cursor-pointer"
+                      className="py-3 px-4 font-medium text-blue-600 hover:underline cursor-pointer truncate"
                       onClick={() => setViewUser(user)}
+                      title={user.fullName || user.name}
                     >
                       {user.fullName || user.name}
                     </td>
-                    <td>{user.email}</td>
-                    <td>{formatDatePH(user.dob)}</td>
-                    <td>{user.contact || "—"}</td>
-                    <td>{user.address || "—"}</td>
-                    <td className="flex justify-center gap-3 py-2 text-gray-600">
-                      <FaEye
-                        className="cursor-pointer hover:text-blue-500"
-                        onClick={() => setViewUser(user)}
-                      />
-                      <FaEdit
-                        className="cursor-pointer hover:text-green-500"
-                        onClick={() => setEditUser(user)}
-                      />
+                    <td className="py-3 px-4 truncate" title={user.email}>{user.email}</td>
+                    <td className="py-3 px-4 truncate">{formatDatePH(user.dob)}</td>
+                    <td className="py-3 px-4 truncate">{user.contact || "—"}</td>
+                    <td className="py-3 px-4 truncate" title={user.address || "—"}>
+                      {user.address || "—"}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex justify-center gap-3 text-gray-600">
+                        <FaEye
+                          className="cursor-pointer hover:text-blue-500 transition"
+                          onClick={() => setViewUser(user)}
+                        />
+                        <FaEdit
+                          className="cursor-pointer hover:text-green-500 transition"
+                          onClick={() => setEditUser(user)}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="text-center text-gray-500 py-6">
+                  <td colSpan={6} className="text-center text-gray-500 py-6">
                     {loading
                       ? "Loading..."
                       : `No ${activeTab.toLowerCase()} found.`}

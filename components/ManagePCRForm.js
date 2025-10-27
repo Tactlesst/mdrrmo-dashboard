@@ -89,16 +89,17 @@ export default function ManagePCRForm() {
           </div>
 
           <div className="bg-white shadow-md rounded-2xl overflow-hidden border border-gray-200">
-            <table className="min-w-full text-sm text-gray-700">
-              <thead className="bg-blue-100 text-blue-900 text-left">
-                <tr>
-                  <th className="px-6 py-4 font-semibold">Patient Name</th>
-                  <th className="px-6 py-4 font-semibold">Date & Time</th>
-                  <th className="px-6 py-4 font-semibold">Location</th>
-                  <th className="px-6 py-4 font-semibold">Recorded By</th>
-                  <th className="px-6 py-4 font-semibold">Actions</th>
-                </tr>
-              </thead>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-gray-700">
+                <thead className="bg-blue-100 text-blue-900 text-left">
+                  <tr>
+                    <th className="px-3 py-3 font-semibold">Patient Name</th>
+                    <th className="px-3 py-3 font-semibold">Date & Time</th>
+                    <th className="px-3 py-3 font-semibold max-w-[200px]">Location</th>
+                    <th className="px-3 py-3 font-semibold">Recorded By</th>
+                    <th className="px-3 py-3 font-semibold text-center">Actions</th>
+                  </tr>
+                </thead>
               <tbody>
                 {loading ? (
                   <tr>
@@ -127,7 +128,7 @@ export default function ManagePCRForm() {
                 ) : (
                   [...pcrForms]
                     .sort(
-                      (a, b) => new Date(b.date) - new Date(a.date) // Newest first
+                      (a, b) => new Date(b.created_at) - new Date(a.created_at) // Sort by creation date, newest first
                     )
                     .map((form, index) => (
                       <tr
@@ -136,35 +137,50 @@ export default function ManagePCRForm() {
                           index % 2 === 0 ? "bg-white" : "bg-gray-50"
                         } border-t border-gray-200 hover:bg-gray-100 transition`}
                       >
-                        <td className="px-6 py-4">{form.patient_name || "N/A"}</td>
-                        <td className="px-6 py-4">{formatDateTime(form.created_at)}</td>
-                        <td className="px-6 py-4">{form.location || "N/A"}</td>
-                        <td className="px-6 py-4">{form.recorder || "N/A"}</td>
-                        <td className="px-6 py-4 space-x-2">
-                          <button
-                            onClick={() => setSelectedForm(form)}
-                            className="inline-block text-sm text-blue-600 hover:underline font-medium"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => setEditForm(form)}
-                            className="inline-block text-sm text-blue-600 hover:underline font-medium"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => setPrintForm(form)}
-                            className="inline-block text-sm text-green-600 hover:underline font-medium"
-                          >
-                            Print
-                          </button>
+                        <td className="px-3 py-3">
+                          <div className="truncate max-w-[150px]" title={form.patient_name || "N/A"}>
+                            {form.patient_name || "N/A"}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap text-xs">{formatDateTime(form.created_at)}</td>
+                        <td className="px-3 py-3">
+                          <div className="truncate max-w-[200px]" title={form.location || "N/A"}>
+                            {form.location || "N/A"}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="truncate max-w-[120px]" title={form.recorder || "N/A"}>
+                            {form.recorder || "N/A"}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex gap-2 justify-center">
+                            <button
+                              onClick={() => setSelectedForm(form)}
+                              className="text-sm text-blue-600 hover:underline font-medium"
+                            >
+                              View
+                            </button>
+                            <button
+                              onClick={() => setEditForm(form)}
+                              className="text-sm text-blue-600 hover:underline font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => setPrintForm(form)}
+                              className="text-sm text-green-600 hover:underline font-medium"
+                            >
+                              Print
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       ) : (

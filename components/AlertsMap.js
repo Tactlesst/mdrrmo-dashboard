@@ -71,7 +71,14 @@ function MapResizer({ watch }) {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      map.invalidateSize();
+      try {
+        if (map && map.invalidateSize) {
+          map.invalidateSize();
+        }
+      } catch (error) {
+        // Silently catch errors when navigating away quickly
+        console.debug('Map resize skipped - component unmounting');
+      }
     }, 200);
 
     return () => clearTimeout(timeout);
@@ -84,18 +91,55 @@ function FlyToAndOpenPopup({ alerts, selectedAlertId, markerRefs }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!selectedAlertId) return;
+    console.log('FlyToAndOpenPopup triggered:', { selectedAlertId, alertsCount: alerts.length });
+    
+    if (!selectedAlertId) {
+      console.log('No selectedAlertId, skipping');
+      return;
+    }
 
     const alert = alerts.find((a) => a.id === selectedAlertId);
-    const markerRef = markerRefs.current[selectedAlertId];
-
-    if (alert && markerRef && markerRef.current) {
-      map.flyTo(alert.coords, 16, { duration: 1.5 });
-      setTimeout(() => {
-        markerRef.current.openPopup();
-      }, 1500);
+    console.log('Found alert:', alert);
+    
+    if (!alert || !alert.coords || alert.coords.some(isNaN)) {
+      console.warn('Invalid alert or coordinates');
+      return;
     }
-  }, [selectedAlertId, alerts, markerRefs, map]);
+
+    try {
+      if (map && map.flyTo) {
+        console.log('Flying to:', alert.coords);
+        map.flyTo(alert.coords, 16, { duration: 1.5 });
+        console.log('FlyTo executed successfully');
+        
+        // Wait for flyTo animation to complete, then open popup
+        const popupTimeout = setTimeout(() => {
+          try {
+            // Find the marker using Leaflet's layer system
+            map.eachLayer((layer) => {
+              if (layer.getLatLng && layer.openPopup) {
+                const pos = layer.getLatLng();
+                // Check if this layer is at the alert's coordinates
+                if (Math.abs(pos.lat - alert.coords[0]) < 0.0001 && 
+                    Math.abs(pos.lng - alert.coords[1]) < 0.0001) {
+                  layer.openPopup();
+                  console.log('Popup opened successfully via layer search');
+                }
+              }
+            });
+          } catch (error) {
+            console.error('Popup open error:', error);
+          }
+        }, 1600); // Slightly longer than flyTo duration
+        
+        return () => clearTimeout(popupTimeout);
+      } else {
+        console.warn('Map or flyTo method not available');
+      }
+    } catch (error) {
+      console.error('Map flyTo error:', error);
+    }
+  }, [selectedAlertId, alerts, map]);
 
   return null;
 }
@@ -104,31 +148,78 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
   const markerRefs = useRef({});
   const [leafletReady, setLeafletReady] = useState(false);
   const [L, setL] = useState(null);
+  const isMountedRef = useRef(true);
 
   const mapCenter = alerts.length ? alerts[0].coords : fallbackCenter;
+
+  // Track component mount status
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Lazy load Leaflet CSS and configure icons
   useEffect(() => {
     import('leaflet/dist/leaflet.css');
     import('leaflet').then((LeafletModule) => {
-      const LeafletLib = LeafletModule.default;
-      delete LeafletLib.Icon.Default.prototype._getIconUrl;
-      LeafletLib.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      });
-      setL(LeafletLib);
-      setLeafletReady(true);
+      if (!isMountedRef.current) return; // Don't update if unmounted
+      
+      try {
+        const LeafletLib = LeafletModule.default;
+        delete LeafletLib.Icon.Default.prototype._getIconUrl;
+        LeafletLib.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        });
+        setL(LeafletLib);
+        setLeafletReady(true);
+      } catch (error) {
+        console.error('Error loading Leaflet:', error);
+      }
+    }).catch((error) => {
+      console.error('Failed to load Leaflet module:', error);
     });
   }, []);
 
-  // Add CSS for tinting icons
+  // Add CSS for tinting icons and custom popup styles
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
       .tint-red { filter: hue-rotate(0deg) brightness(0.8) sepia(0.5); }
       .tint-orange { filter: hue-rotate(40deg) brightness(0.9) sepia(0.5); }
+      
+      /* Modern Popup Styles */
+      .leaflet-popup-content-wrapper {
+        border-radius: 12px !important;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+        padding: 0 !important;
+        overflow: hidden;
+      }
+      
+      .leaflet-popup-content {
+        margin: 12px !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      
+      .leaflet-popup-tip {
+        box-shadow: 0 3px 14px rgba(0, 0, 0, 0.1) !important;
+      }
+      
+      .custom-popup .leaflet-popup-close-button {
+        color: #6B7280 !important;
+        font-size: 24px !important;
+        padding: 8px 12px !important;
+        transition: all 0.2s ease;
+      }
+      
+      .custom-popup .leaflet-popup-close-button:hover {
+        color: #EF4444 !important;
+        background-color: #FEE2E2 !important;
+        border-radius: 6px;
+      }
     `;
     document.head.appendChild(style);
     return () => style.remove();
@@ -136,7 +227,7 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
 
   if (!leafletReady || !L) {
     return (
-      <div className="rounded-lg overflow-hidden h-[40vh] md:h-[65vh] bg-gray-100 flex items-center justify-center">
+      <div className="rounded-lg overflow-hidden h-[calc(70vh-8rem)] bg-gray-100 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <p className="text-sm text-gray-500">Loading map...</p>
@@ -146,7 +237,7 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
   }
 
   return (
-    <div className="rounded-lg overflow-hidden h-[40vh] md:h-[65vh]">
+    <div className="rounded-lg overflow-hidden h-[calc(70vh-8rem)]">
       <Suspense fallback={
         <div className="w-full h-full bg-gray-100 flex items-center justify-center">
           <p className="text-sm text-gray-500">Loading map...</p>
@@ -174,32 +265,53 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
                 ref={markerRefs.current[alert.id]}
                 icon={customIcon}
               >
-                <Popup>
-                  <div className="text-sm space-y-1">
-                    <p>
-                      <strong>Type:</strong> {alert.type || '—'}
-                    </p>
-                    <p>
-                      <strong>Status:</strong> {alert.status || '—'}
-                    </p>
-                    <p>
-                      <strong>Address:</strong> {alert.address || '—'}
-                    </p>
-                    <p>
-                      <strong>Date:</strong>{' '}
-                      {alert.date || <span className="italic text-gray-500">Unknown</span>}
-                    </p>
-                    <p>
-                      <strong>Responder:</strong>{' '}
-                      {alert.user || <span className="italic text-gray-500">Unassigned</span>}
-                    </p>
-                    {alert.description ? (
-                      <p>
-                        <strong>Description:</strong> {alert.description}
-                      </p>
-                    ) : (
-                      <p className="italic text-gray-500">No description provided</p>
-                    )}
+                <Popup maxWidth={240} className="custom-popup">
+                  <div className="p-0">
+                    {/* Header with icon and type */}
+                    <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-gray-200">
+                      <div className={`w-2 h-2 rounded-full ${
+                        alert.status === 'Not Responded' ? 'bg-red-500' : 
+                        alert.status === 'Ongoing' || alert.status === 'In Progress' ? 'bg-yellow-500' : 
+                        'bg-green-500'
+                      }`}></div>
+                      <h3 className="font-bold text-gray-800 text-sm">{alert.type || 'Alert'}</h3>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="mb-2">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        alert.status === 'Not Responded' ? 'bg-red-100 text-red-700' : 
+                        alert.status === 'Ongoing' || alert.status === 'In Progress' ? 'bg-yellow-100 text-yellow-700' : 
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {alert.status || 'Unknown Status'}
+                      </span>
+                    </div>
+
+                    {/* Details */}
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-start gap-1.5">
+                        <span className="text-gray-500">📍</span>
+                        <span className="text-gray-800 font-medium flex-1">{alert.address || '—'}</span>
+                      </div>
+                      
+                      <div className="flex items-start gap-1.5">
+                        <span className="text-gray-500">📅</span>
+                        <span className="text-gray-800">
+                          {alert.date ? new Date(alert.date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric'
+                          }) : <span className="italic text-gray-400">Unknown</span>}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-start gap-1.5">
+                        <span className="text-gray-500">👤</span>
+                        <span className="text-gray-800">
+                          {alert.user || <span className="italic text-gray-400">Unassigned</span>}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </Popup>
               </Marker>

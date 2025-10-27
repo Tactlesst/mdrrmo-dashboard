@@ -45,8 +45,11 @@ export default function AlertList({
                 <div className="flex gap-2 text-sm text-gray-500 mt-1">
                   <FiEye
                     className="hover:text-red-600 cursor-pointer"
-                    onClick={() => onView(alert.id)}
-                    title="View Alert"
+                    onClick={() => {
+                      console.log('Eye icon clicked for alert:', alert.id);
+                      onView(alert.id);
+                    }}
+                    title="View on Map"
                   />
                   <FiEdit2 className="hover:text-green-600 cursor-pointer" title="Edit Alert" />
                   <FiTrash2 className="hover:text-red-600 cursor-pointer" title="Delete Alert" />

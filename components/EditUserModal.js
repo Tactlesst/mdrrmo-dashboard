@@ -16,7 +16,7 @@ export default function EditUserModal({ user, role, onClose, onSave }) {
   });
 
   const [formErrors, setFormErrors] = useState({});
-  const [manualAddress, setManualAddress] = useState(false);
+  const [manualAddress, setManualAddress] = useState(true); // Default to manual input
 
   // Dropdown data
   const [provinces, setProvinces] = useState([]);
@@ -219,9 +219,9 @@ export default function EditUserModal({ user, role, onClose, onSave }) {
               <button
                 type="button"
                 onClick={() => setManualAddress(!manualAddress)}
-                className="text-blue-600 text-xs underline"
+                className="text-blue-600 text-xs underline hover:text-blue-800 transition"
               >
-                {manualAddress ? 'Use Dropdown' : 'Enter Manually'}
+                {manualAddress ? 'Select from Dropdown' : 'Enter Manually'}
               </button>
             </label>
 

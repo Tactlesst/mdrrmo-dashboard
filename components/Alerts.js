@@ -61,8 +61,8 @@ export default function Alerts() {
 
   return (
     <div className="flex flex-col lg:flex-row bg-gray-100 font-serif h-[40vh] md:h-[70vh]">
-      <div className="flex-1 bg-white rounded-xl shadow-lg p-4 sm:p-6">
-        <h2 className="text-xl font-bold mb-4">Incident Map</h2>
+      <div className="flex-1 bg-white rounded-xl shadow-lg p-3">
+        <h2 className="text-xl font-bold mb-2">Incident Map</h2>
         <AlertMap
           alerts={normalizedAlerts}
           fallbackCenter={fallbackCenter}
@@ -77,7 +77,10 @@ export default function Alerts() {
         entriesPerPage={entriesPerPage}
         setEntriesPerPage={setEntriesPerPage}
         totalPages={totalPages}
-        onView={(id) => setSelectedAlertId(id)}
+        onView={(id) => {
+          console.log('Alerts.js: Setting selectedAlertId to:', id);
+          setSelectedAlertId(id);
+        }}
       />
     </div>
   );

@@ -148,11 +148,20 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
   }, [initialData]);
 
   useEffect(() => {
-    console.log("PCRForm initialData:", JSON.stringify(initialData, null, 2));
-    setFormData(prev => ({
-      ...prev,
-      ...initialData,
-    }));
+    if (initialData) {
+      console.log("PCRForm initialData:", JSON.stringify(initialData, null, 2));
+      // Only update fields that exist in initialData (not undefined)
+      const filteredData = Object.entries(initialData).reduce((acc, [key, value]) => {
+        if (value !== undefined && value !== null) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {});
+      setFormData(prev => ({
+        ...prev,
+        ...filteredData,
+      }));
+    }
   }, [initialData]);
 
   const handleChange = (e) => {
@@ -171,6 +180,16 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
       setFormData(prev => ({
         ...prev,
         [name]: checked,
+      }));
+    } else if (name.includes(".")) {
+      // Handle nested text/select inputs (e.g., poi.brgy)
+      const [parentName, childName] = name.split(".");
+      setFormData(prev => ({
+        ...prev,
+        [parentName]: {
+          ...prev[parentName],
+          [childName]: value,
+        },
       }));
     } else if (name === "caseType") {
       // Update available alerts for selected caseType
@@ -244,6 +263,47 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
   const formatTimeToAMPM = (time, period) => {
     if (!time || !/^\d{2}:\d{2}$/.test(time)) return "";
     return `${time} ${period.toUpperCase()}`;
+  };
+
+  const handleGenerateSummary = async () => {
+    try {
+      setIsSubmitting(true);
+      
+      // Prepare data for summary generation
+      const summaryData = {
+        ...formData,
+        timeCall: formatTimeToAMPM(formData.timeCall, formData.timeCallPeriod),
+        timeArrivedScene: formatTimeToAMPM(formData.timeArrivedScene, formData.timeArrivedScenePeriod),
+        timeLeftScene: formatTimeToAMPM(formData.timeLeftScene, formData.timeLeftScenePeriod),
+        timeArrivedHospital: formatTimeToAMPM(formData.timeArrivedHospital, formData.timeArrivedHospitalPeriod),
+      };
+
+      const response = await fetch('/api/generate-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(summaryData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate summary');
+      }
+
+      const { summary } = await response.json();
+      
+      // Update narrative field with generated summary
+      setFormData(prev => ({
+        ...prev,
+        narrative: summary,
+      }));
+
+      // Show success message
+      alert('AI Summary generated successfully!');
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      alert('Failed to generate summary. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -348,7 +408,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
             </div>
             <div className="flex-1 text-center">
               <p className="text-xs font-medium text-gray-700">Republic of the Philippines</p>
-              <p className="text-xs font-medium text-gray-700">Province of Masbate Oriental</p>
+              <p className="text-xs font-medium text-gray-700">Province of Misamis Oriental</p>
               <p className="text-xs font-semibold text-gray-800">MUNICIPALITY OF BALINGSAG</p>
             </div>
           </div>
@@ -568,39 +628,42 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                PR:
+                PR (Pulse Rate):
               </label>
               <input
                 type="text"
                 name="pr"
                 value={formData.pr}
                 onChange={handleChange}
+                placeholder="e.g., 72 bpm"
                 className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                RR:
+                RR (Respiratory Rate):
               </label>
               <input
                 type="text"
                 name="rr"
                 value={formData.rr}
                 onChange={handleChange}
+                placeholder="e.g., 16 breaths/min"
                 className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                O2SAT:
+                O2SAT (Oxygen Saturation):
               </label>
               <input
                 type="text"
                 name="o2sat"
                 value={formData.o2sat}
                 onChange={handleChange}
+                placeholder="e.g., 98%"
                 className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
@@ -614,6 +677,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="temp"
                 value={formData.temp}
                 onChange={handleChange}
+                placeholder="e.g., 37°C or 98.6°F"
                 className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
@@ -1196,14 +1260,30 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               </div>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-800 mb-2">
-                Narrative of the Incident
-              </h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-gray-800">
+                  Narrative of the Incident
+                </h3>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={handleGenerateSummary}
+                    disabled={isSubmitting}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Generate AI Summary
+                  </button>
+                )}
+              </div>
               <textarea
                 name="narrative"
                 value={formData.narrative}
                 onChange={handleChange}
                 rows="12"
+                placeholder="Click 'Generate AI Summary' to automatically create a narrative based on the form data, or type your own..."
                 className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               ></textarea>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { FiX } from 'react-icons/fi';
 import { formatPHDate } from '@/lib/dateUtils';
 
@@ -15,7 +15,9 @@ export default function OnlineAdminsList({ currentUserId, currentUserName, curre
   const [showChat, setShowChat] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]); // optimistic local-only for now
+  const [chatMessages, setChatMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const chatEndRef = useRef(null); // Reference for auto-scroll
 
   useEffect(() => {
     let intervalId;
@@ -105,7 +107,7 @@ export default function OnlineAdminsList({ currentUserId, currentUserName, curre
   );
 
 const renderUserModal = () => {
-  if (!selectedUser) return null;
+  if (!selectedUser || showChat) return null; // Don't show profile modal if chat is open
 
   const {
     name,
@@ -166,6 +168,38 @@ const renderUserModal = () => {
   );
 };
 
+  // Fetch chat messages when chat opens
+  useEffect(() => {
+    if (showChat && selectedUser && currentUserId) {
+      fetchChatMessages();
+      // Poll for new messages every 3 seconds
+      const interval = setInterval(fetchChatMessages, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [showChat, selectedUser, currentUserId]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages]);
+
+  const fetchChatMessages = async () => {
+    if (!selectedUser || !currentUserId) return;
+    setLoadingMessages(true);
+    try {
+      const res = await fetch(`/api/chat/messages?userId=${currentUserId}&otherUserId=${selectedUser.id}&userType=${currentUserType}&otherUserType=${selectedType}`);
+      if (!res.ok) throw new Error('Failed to fetch messages');
+      const data = await res.json();
+      setChatMessages(data.messages || []);
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
   const renderChatModal = () => {
     if (!showChat || !selectedUser) return null;
     const recipientName = selectedUser.name;
@@ -191,8 +225,9 @@ const renderUserModal = () => {
           }),
         });
         if (!res.ok) throw new Error('Failed to send message');
-        setChatMessages((m) => [...m, { me: true, text: chatInput.trim(), ts: Date.now() }]);
         setChatInput('');
+        // Refresh messages to show the sent message
+        await fetchChatMessages();
       } catch (err) {
         alert(err.message || 'Failed to send');
       } finally {
@@ -200,27 +235,51 @@ const renderUserModal = () => {
       }
     };
 
+    const handleCloseChat = () => {
+      setShowChat(false);
+      setSelectedUser(null); // Clear selected user to prevent profile modal from opening
+      setSelectedType(null);
+      setChatMessages([]);
+      setChatInput('');
+    };
+
     return (
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={() => setShowChat(false)}>
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={handleCloseChat}>
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <div>
               <h3 className="text-base font-semibold text-gray-900">Chat with {recipientName}</h3>
               <p className="text-xs text-gray-500 capitalize">{accountType}</p>
             </div>
-            <button onClick={() => setShowChat(false)} className="text-gray-500 hover:text-gray-700" aria-label="Close">
+            <button onClick={handleCloseChat} className="text-gray-500 hover:text-gray-700" aria-label="Close">
               <FiX className="w-5 h-5" />
             </button>
           </div>
           <div className="px-4 py-3 h-64 overflow-y-auto space-y-2">
-            {chatMessages.length === 0 && (
-              <p className="text-xs text-gray-500">Start a conversation. Messages are delivered via Notifications.</p>
+            {loadingMessages && chatMessages.length === 0 && (
+              <p className="text-xs text-gray-500 text-center">Loading messages...</p>
             )}
-            {chatMessages.map((m, idx) => (
-              <div key={idx} className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${m.me ? 'ml-auto bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
-                {m.text}
-              </div>
-            ))}
+            {!loadingMessages && chatMessages.length === 0 && (
+              <p className="text-xs text-gray-500 text-center">No messages yet. Start a conversation!</p>
+            )}
+            {chatMessages.map((msg, idx) => {
+              const isMe = msg.sender_id === currentUserId;
+              return (
+                <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${isMe ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
+                    {!isMe && (
+                      <p className="text-xs font-semibold mb-1 opacity-75">{msg.sender_name}</p>
+                    )}
+                    <p>{msg.message}</p>
+                    <p className={`text-xs mt-1 ${isMe ? 'text-blue-100' : 'text-gray-500'}`}>
+                      {new Date(msg.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+            {/* Invisible div for auto-scroll */}
+            <div ref={chatEndRef} />
           </div>
           <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-2">
             <input
@@ -245,16 +304,28 @@ const renderUserModal = () => {
   if (loading) return <p className="text-gray-600">Loading status...</p>;
   if (error) return <p className="text-red-500">Error: {error}</p>;
 
+  // Filter out current user from the lists
+  const filteredAdmins = admins.filter(admin => admin.id !== currentUserId);
+  const filteredResponders = responders.filter(responder => responder.id !== currentUserId);
+
   return (
     <div className="p-6 bg-white rounded-xl">
       <h2 className="text-2xl font-bold text-gray-700 mb-4">Admin Status</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {admins.map((admin) => renderUserCard(admin, 'admin'))}
+        {filteredAdmins.length > 0 ? (
+          filteredAdmins.map((admin) => renderUserCard(admin, 'admin'))
+        ) : (
+          <p className="text-gray-500 text-sm col-span-full">No other admins online</p>
+        )}
       </div>
 
       <h2 className="text-2xl font-bold text-gray-700 mt-8 mb-4">Responder Status</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {responders.map((responder) => renderUserCard(responder, 'responder'))}
+        {filteredResponders.length > 0 ? (
+          filteredResponders.map((responder) => renderUserCard(responder, 'responder'))
+        ) : (
+          <p className="text-gray-500 text-sm col-span-full">No responders online</p>
+        )}
       </div>
 
       {renderUserModal()}

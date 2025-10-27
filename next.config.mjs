@@ -11,6 +11,15 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
   compress: true,
+  // Optimize JavaScript execution
+  swcMinify: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  // Modern JavaScript target
+  experimental: {
+    optimizePackageImports: ['react-icons', 'leaflet', 'chart.js'],
+  },
   async headers() {
     return [
       {

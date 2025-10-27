@@ -22,7 +22,7 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
   const [municipalities, setMunicipalities] = useState([]);
   const [barangays, setBarangays] = useState([]);
   const [streets, setStreets] = useState([]);
-  const [manualAddress, setManualAddress] = useState(false);
+  const [manualAddress, setManualAddress] = useState(true); // Default to manual input
   const [selectedProvince, setSelectedProvince] = useState(null);
   const [selectedMunicipality, setSelectedMunicipality] = useState(null);
   const [selectedBarangay, setSelectedBarangay] = useState(null);
@@ -344,9 +344,9 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
               <button
                 type="button"
                 onClick={() => setManualAddress(!manualAddress)}
-                className="text-blue-600 text-xs underline"
+                className="text-blue-600 text-xs underline hover:text-blue-800 transition"
               >
-                {manualAddress ? "Use Dropdown" : "Enter Manually"}
+                {manualAddress ? "Select from Dropdown" : "Enter Manually"}
               </button>
             </label>
             {manualAddress ? (
@@ -444,7 +444,7 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
           <button
             onClick={handleSave}
             disabled={loading}
-            className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-50"
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-red-700 transition disabled:opacity-50"
           >
             {loading ? "Saving..." : "Save User"}
           </button>

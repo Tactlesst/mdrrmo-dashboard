@@ -156,8 +156,8 @@ const PCREdit = ({ form, onClose }) => {
           contactNumber: toNull(formData.contactNumber),
           homeAddress: toNull(formData.homeAddress),
           bloodPressure: toNull(formData.bloodPressure),
-          pr: toIntOrNull(formData.pr),
-          rr: toIntOrNull(formData.rr),
+          pr: toNull(formData.pr), // Keep as string (can include units like "72 bpm")
+          rr: toNull(formData.rr), // Keep as string (can include units like "16 breaths/min")
           temp: toNull(formData.temp),
           o2sat: toNull(formData.o2sat),
           poi: {
