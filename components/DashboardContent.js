@@ -37,7 +37,7 @@ export default function DashboardContent({ user }) {
 
   // Initialize alert sound
   useEffect(() => {
-    audioRef.current = new Audio('/alert-sound.mp3');
+    audioRef.current = new Audio('/alarm.mp3.mp3');
     audioRef.current.volume = 0.7;
   }, []);
 
