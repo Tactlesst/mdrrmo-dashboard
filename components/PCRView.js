@@ -60,25 +60,33 @@ const PCRView = ({ form, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-center items-center p-4">
-      <div className="fixed inset-0 bg-opacity-50 z-40" onClick={onClose}></div>
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" onClick={onClose}></div>
 
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-5xl relative flex flex-col max-h-[95vh] z-50">
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-2xl w-full max-w-5xl relative flex flex-col max-h-[95vh] z-50 border border-gray-200">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition"
+          className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-red-100 hover:text-red-600 transition-all duration-200 shadow-sm hover:shadow-md z-10"
         >
-          <FiX size={22} />
+          <FiX size={20} />
         </button>
 
         <div className="overflow-y-auto p-8 space-y-4">
-          <div className="flex flex-col items-center border-b pb-4 mb-4">
-            <h1 className="text-xl font-bold text-center">
-              PATIENT CARE REPORT (View)
-            </h1>
+          <div className="border-b-2 border-blue-600 pb-6 mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 -mx-8 px-8 -mt-8 pt-8 rounded-t-2xl">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex-shrink-0 w-16 h-16">
+                <img src="/Logoo.png" alt="Municipality Logo" className="w-full h-full object-contain" />
+              </div>
+              <div className="flex-1 text-center">
+                <p className="text-xs font-medium text-gray-700">Republic of the Philippines</p>
+                <p className="text-xs font-medium text-gray-700">Province of Masbate Oriental</p>
+                <p className="text-xs font-semibold text-gray-800">MUNICIPALITY OF BALINGSAG</p>
+              </div>
+            </div>
+            <h1 className="text-xl font-bold text-center">PATIENT CARE REPORT</h1>
           </div>
 
           {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border p-4 rounded">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Patient Name:
@@ -106,7 +114,7 @@ const PCRView = ({ form, onClose }) => {
           </div>
 
           {/* Patient Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Case Type:
@@ -146,7 +154,7 @@ const PCRView = ({ form, onClose }) => {
           </div>
 
           {/* Vitals and Incident Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Vitals:
@@ -183,7 +191,7 @@ const PCRView = ({ form, onClose }) => {
           </div>
 
           {/* Medical and Evacuation Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Under Influence:
@@ -217,7 +225,7 @@ const PCRView = ({ form, onClose }) => {
           </div>
 
           {/* Medical History */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Medical History:
@@ -242,7 +250,7 @@ const PCRView = ({ form, onClose }) => {
           </div>
 
           {/* Transport and Contact Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Transport Details:
@@ -278,7 +286,7 @@ const PCRView = ({ form, onClose }) => {
           </div>
 
           {/* Crew and Receiving Hospital */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Crew Details:
@@ -318,7 +326,7 @@ const PCRView = ({ form, onClose }) => {
           </div>
 
           {/* Waiver and Body Diagram */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Waiver:

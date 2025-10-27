@@ -382,7 +382,7 @@ export default function DashboardContent({ user }) {
             >
               <FiBell className="w-6 h-6 text-white" />
               {notifications.filter(n => !n.is_read).length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-green-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {notifications.filter(n => !n.is_read).length}
                 </span>
               )}

@@ -291,15 +291,15 @@ const PCRPrint = ({ form, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-opacity-50 flex justify-center items-center p-4 print:bg-transparent print:z-0">
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-5xl relative overflow-y-auto max-h-[95vh] p-8 print:shadow-none print:p-0">
-        <div className="flex justify-between items-center mb-4 no-print">
-          <h2 className="text-lg font-semibold">Print Patient Care Report</h2>
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-center items-center p-4 print:bg-transparent print:z-0">
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-2xl w-full max-w-5xl relative overflow-y-auto max-h-[95vh] p-8 border border-gray-200 print:shadow-none print:p-0 print:border-0 print:bg-white">
+        <div className="flex justify-between items-center mb-6 no-print">
+          <h2 className="text-xl font-bold text-gray-800">Print Patient Care Report</h2>
           <div className="flex space-x-2">
             <button
               onClick={handlePrint}
               disabled={!isReady || Object.values(imageErrors).some((error) => error)}
-              className={`flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition no-print ${
+              className={`flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg no-print ${
                 !isReady || Object.values(imageErrors).some((error) => error) ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
@@ -309,7 +309,7 @@ const PCRPrint = ({ form, onClose }) => {
             <button
               onClick={handleDownload}
               disabled={!isReady || Object.values(imageErrors).some((error) => error)}
-              className={`flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition no-print ${
+              className={`flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg no-print ${
                 !isReady || Object.values(imageErrors).some((error) => error) ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
@@ -318,14 +318,14 @@ const PCRPrint = ({ form, onClose }) => {
             </button>
             <button
               onClick={handleDownloadText}
-              className="flex items-center px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition no-print"
+              className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all shadow-md hover:shadow-lg no-print"
             >
               <FiDownload className="mr-2" size={18} />
               Download Text
             </button>
             <button
               onClick={onClose}
-              className="flex items-center px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition no-print"
+              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all shadow-md hover:shadow-lg no-print"
             >
               <FiX className="mr-2" size={18} />
               Close
@@ -345,22 +345,25 @@ const PCRPrint = ({ form, onClose }) => {
               .print-font {
                 font-size: 10pt;
                 font-family: Arial, sans-serif;
-                color: #000;
+                color: #000 !important;
               }
               .print-border {
-                border: 1px solid #000;
+                border: 1px solid #000 !important;
                 padding: 8px;
                 margin-bottom: 8px;
+                border-radius: 0 !important;
               }
               .print-label {
                 font-weight: bold;
                 margin-bottom: 4px;
+                color: #000 !important;
               }
               .print-text {
                 margin-bottom: 4px;
                 line-height: 1.4;
                 word-wrap: break-word;
                 max-width: 100%;
+                color: #000 !important;
               }
               .print-image {
                 max-width: 150px;
@@ -373,19 +376,97 @@ const PCRPrint = ({ form, onClose }) => {
                 position: static !important;
                 z-index: 0 !important;
               }
+              /* Remove all gradients and shadows for print */
+              * {
+                background-image: none !important;
+                box-shadow: none !important;
+                text-shadow: none !important;
+              }
+              /* Ensure white background for print */
+              body, div, section {
+                background-color: white !important;
+              }
+              /* Remove rounded corners for print */
+              .rounded-xl, .rounded-2xl, .rounded-t-2xl, .rounded-lg {
+                border-radius: 0 !important;
+              }
+              /* Simplify borders for print */
+              .border-2, .border {
+                border: 1px solid #000 !important;
+              }
+              /* Remove hover effects */
+              .hover\\:shadow-md, .hover\\:shadow-lg {
+                box-shadow: none !important;
+              }
+              /* Ensure proper spacing */
+              .gap-4 {
+                gap: 4px !important;
+              }
+              .p-6 {
+                padding: 4px !important;
+              }
+              .space-y-4 > * + * {
+                margin-top: 4px !important;
+              }
+              /* Header styling for print */
+              h1 {
+                font-size: 12pt !important;
+                font-weight: bold !important;
+                color: #000 !important;
+                margin: 4px 0 !important;
+              }
+              p {
+                color: #000 !important;
+                font-size: 8pt !important;
+                line-height: 1.2 !important;
+                margin: 0 !important;
+              }
+              label {
+                font-size: 8pt !important;
+                font-weight: bold !important;
+                margin-bottom: 2px !important;
+              }
+              /* Compact grid layouts */
+              .grid {
+                gap: 4px !important;
+              }
+              /* Reduce image sizes */
+              img {
+                max-height: 40px !important;
+              }
+              /* Compact sections */
+              .print\\:mb-2 {
+                margin-bottom: 2px !important;
+              }
+              .print\\:pb-2 {
+                padding-bottom: 2px !important;
+              }
               @page {
                 size: A4;
-                margin: 1cm;
+                margin: 0.5cm;
               }
             }
           `}</style>
 
-          <div className="flex flex-col items-center border-b pb-4 mb-4 print:print-border print-font">
-            <h1 className="text-xl font-bold text-center print:print-font">PATIENT CARE REPORT</h1>
+          <div className="border-b-2 border-blue-600 pb-6 mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 -mx-8 px-8 -mt-8 pt-8 rounded-t-2xl print:print-border print-font print:bg-white print:mx-0 print:px-0 print:mt-0 print:pt-0 print:rounded-none print:pb-2 print:mb-2">
+            <div className="flex items-start justify-between gap-4 mb-4 print:mb-1">
+              <div className="flex-shrink-0 w-16 h-16 print:w-12 print:h-12">
+                <img src="/Logoo.png" alt="Municipality Logo" className="w-full h-full object-contain" />
+              </div>
+              <div className="flex-1 text-center">
+                <p className="text-xs font-medium text-gray-700 print:text-[8pt]">Republic of the Philippines</p>
+                <p className="text-xs font-medium text-gray-700 print:text-[8pt]">Province of Masbate Oriental</p>
+                <p className="text-xs font-semibold text-gray-800 print:text-[9pt] print:font-bold">MUNICIPALITY OF BALINGSAG</p>
+              </div>
+              <div className="flex-shrink-0 w-16 h-16 print:w-12 print:h-12">
+                <img src="/img20250713_10500646_page-0001 (4).jpg" alt="MDRRMO Logo" className="w-full h-full object-contain" />
+              </div>
+            </div>
+            <h1 className="text-xl font-bold text-center print:print-font print:text-[12pt] print:mb-1">PATIENT CARE REPORT</h1>
           </div>
 
           {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded print:print-border print-font">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Patient Name:</label>
               <p className="mt-1 text-sm print:print-text">{form.patient_name || "N/A"}</p>
@@ -405,7 +486,7 @@ const PCRPrint = ({ form, onClose }) => {
           </div>
 
           {/* Patient Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded print:print-border print-font">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Case Type:</label>
               <p className="mt-1 text-sm print:print-text">{fullForm.caseType || "N/A"}</p>
@@ -433,7 +514,7 @@ const PCRPrint = ({ form, onClose }) => {
           </div>
 
           {/* Vitals and Incident Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded print:print-border print-font">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Vitals:</label>
               <p className="mt-1 text-sm print:print-text">
@@ -464,7 +545,7 @@ const PCRPrint = ({ form, onClose }) => {
           </div>
 
           {/* Medical and Evacuation Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded print:print-border print-font">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Under Influence:</label>
               <p className="mt-1 text-sm print:print-text">
@@ -490,7 +571,7 @@ const PCRPrint = ({ form, onClose }) => {
           </div>
 
           {/* Medical History */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded print:print-border print-font">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Medical History:</label>
               <p className="mt-1 text-sm print:print-text">
@@ -511,7 +592,7 @@ const PCRPrint = ({ form, onClose }) => {
           </div>
 
           {/* Transport and Contact Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded print:print-border print-font">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Transport Details:</label>
               <p className="mt-1 text-sm print:print-text">
@@ -541,7 +622,7 @@ const PCRPrint = ({ form, onClose }) => {
           </div>
 
           {/* Crew and Receiving Hospital */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded print:print-border print-font">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
             <div>
               <label className="block text-sm font-medium text-gray-700 print:print-label">Crew Details:</label>
               <p className="mt-1 text-sm print:print-text">
@@ -579,7 +660,7 @@ const PCRPrint = ({ form, onClose }) => {
           </div>
 
 {/* Waiver and Body Diagram */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded print:print-border print-font print-break">
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print-break print:bg-white print:border print:shadow-none">
   <div>
     <label className="block text-sm font-medium text-gray-700 print:print-label">Waiver:</label>
     <p className="mt-1 text-sm print:print-text">

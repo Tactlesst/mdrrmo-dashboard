@@ -3,10 +3,17 @@
 import { useEffect, useState, useMemo } from 'react';
 import { FiDownload } from 'react-icons/fi';
 import dayjs from 'dayjs';
+import dynamic from 'next/dynamic';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
+
+// Dynamically import Leaflet map to avoid SSR issues
+const RespondedAlertsMap = dynamic(() => import('./RespondedAlertsMap'), {
+  ssr: false,
+  loading: () => <div className="h-full flex items-center justify-center text-sm text-gray-500">Loading map...</div>
+});
 
 export default function ReportsPage() {
   const [responderLogs, setResponderLogs] = useState([]);
@@ -176,6 +183,41 @@ export default function ReportsPage() {
     window.URL.revokeObjectURL(url);
   };
 
+  const exportRespondedAlerts = () => {
+    const sortedAlerts = [...respondedAlerts].sort((a, b) => {
+      const dateA = new Date(a.responded_at).getTime();
+      const dateB = new Date(b.responded_at).getTime();
+      return dateB - dateA;
+    });
+
+    const headers = ['ID', 'Type', 'Address', 'Resident Name', 'Responder Name', 'Responded At', 'Occurred At', 'Coordinates', 'Description'];
+    const csvRows = [
+      headers.join(','),
+      ...sortedAlerts.map((alert) =>
+        [
+          `"${alert.id || 'N/A'}"`,
+          `"${alert.type || 'Unknown'}"`,
+          `"${alert.address || 'N/A'}"`,
+          `"${alert.resident_name || 'Unknown User'}"`,
+          `"${alert.responder_name || 'Not Assigned'}"`,
+          `"${alert.responded_at || 'N/A'}"`,
+          `"${alert.occurred_at || 'Unknown'}"`,
+          `"${alert.lat && alert.lng ? `${alert.lat}, ${alert.lng}` : 'N/A'}"`,
+          `"${alert.description || 'No description'}"`,
+        ].join(',')
+      ),
+    ];
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `responded_alerts_${dayjs().format('YYYY-MM-DD')}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const COLORS = ['#dc2626', '#f97316', '#2563eb', '#16a34a', '#9333ea'];
 
   return (
@@ -223,7 +265,7 @@ export default function ReportsPage() {
           </div>
 
           {/* Alerts Over Time (Line Chart) */}
-          <div className="h-56 mb-6">
+          <div className="h-56">
             {loadingAlerts ? (
               <div className="h-full flex items-center justify-center text-sm text-gray-500">Loading…</div>
             ) : (dailyStats?.length ?? 0) === 0 ? (
@@ -238,47 +280,6 @@ export default function ReportsPage() {
                   <Line type="monotone" dataKey="total" stroke="#dc2626" />
                 </LineChart>
               </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Detailed Alerts Table */}
-          <div className="h-64 overflow-y-auto text-sm text-gray-600">
-            <h3 className="font-semibold text-md text-gray-700 mb-2">Detailed Alerts</h3>
-            {loadingAlerts ? (
-              <div className="py-6 text-center text-sm text-gray-500">Loading…</div>
-            ) : (alerts?.length ?? 0) === 0 ? (
-              <div className="py-6 text-center text-sm text-gray-500">No alerts found</div>
-            ) : (
-              <div className="border rounded">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2">ID</th>
-                      <th className="p-2">Type</th>
-                      <th className="p-2">Status</th>
-                      <th className="p-2">Occurred At</th>
-                      <th className="p-2">Address</th>
-                      <th className="p-2">Resident Name</th>
-                      <th className="p-2">Responder Name</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {alerts
-                      .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
-                      .map((alert, i) => (
-                        <tr key={i} className="border-t">
-                          <td className="p-2">{alert.id}</td>
-                          <td className="p-2">{alert.type}</td>
-                          <td className="p-2">{alert.status}</td>
-                          <td className="p-2">{alert.occurred_at}</td>
-                          <td className="p-2">{alert.address}</td>
-                          <td className="p-2">{alert.resident_name}</td>
-                          <td className="p-2">{alert.responder_name}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
             )}
           </div>
         </div>
@@ -371,6 +372,70 @@ export default function ReportsPage() {
           </div>
         </div>
       </div>
+
+      {/* Map of Responded Alerts */}
+      <div className="bg-white shadow rounded-lg p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-semibold text-lg text-gray-700">Map of Responded Alerts</h2>
+          <button
+            onClick={exportRespondedAlerts}
+            className="flex items-center gap-1 text-sm text-white bg-green-600 hover:bg-green-700 px-3 py-1 rounded transition-all shadow-md hover:shadow-lg"
+            disabled={respondedAlerts.length === 0}
+          >
+            <FiDownload /> Export Responded Alerts
+          </button>
+        </div>
+        <div className="h-96 bg-gray-100 rounded-lg overflow-hidden">
+          {loadingAlerts ? (
+            <div className="h-full flex items-center justify-center text-sm text-gray-500">Loading map...</div>
+          ) : respondedAlerts.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-sm text-gray-500">No responded alerts to display</div>
+          ) : (
+            <RespondedAlertsMap alerts={respondedAlerts} />
+          )}
+        </div>
+      
+      {/* Responded Alerts List */}
+      <div className="mt-4">
+        <h3 className="font-semibold text-md text-gray-700 mb-2">
+          Responded Alerts ({respondedAlerts.length})
+        </h3>
+        <div className="max-h-64 overflow-y-auto text-sm">
+          {respondedAlerts.length === 0 ? (
+            <div className="py-6 text-center text-sm text-gray-500">No responded alerts</div>
+          ) : (
+            <div className="border rounded">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="p-2">Type</th>
+                    <th className="p-2">Address</th>
+                    <th className="p-2">Responder</th>
+                    <th className="p-2">Responded At</th>
+                    <th className="p-2">Coordinates</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {respondedAlerts
+                    .sort((a, b) => new Date(b.responded_at).getTime() - new Date(a.responded_at).getTime())
+                    .map((alert, i) => (
+                      <tr key={i} className="border-t hover:bg-gray-50">
+                        <td className="p-2">{alert.type}</td>
+                        <td className="p-2">{alert.address}</td>
+                        <td className="p-2">{alert.responder_name}</td>
+                        <td className="p-2">{alert.responded_at}</td>
+                        <td className="p-2 text-xs text-gray-500">
+                          {alert.lat && alert.lng ? `${alert.lat}, ${alert.lng}` : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
 
     </div>
   );

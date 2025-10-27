@@ -330,35 +330,51 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-opacity-50 flex justify-center items-center p-4">
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-5xl relative overflow-y-auto max-h-[95vh] p-8">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-center items-center p-4">
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-2xl w-full max-w-5xl relative overflow-y-auto max-h-[95vh] p-8 border border-gray-200">
         <button
           onClick={() => onClose(false)}
-          className="absolute top-4 right-4 text-gray-400 hover:text-red-600 transition"
+          className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-red-100 hover:text-red-600 transition-all duration-200 shadow-sm hover:shadow-md"
           disabled={isSubmitting}
         >
-          <FiX size={22} />
+          <FiX size={20} />
         </button>
 
-        <div className="flex flex-col items-center border-b pb-4 mb-4">
-          <h1 className="text-xl font-bold text-center">PATIENT CARE REPORT</h1>
+        <div className="border-b-2 border-blue-600 pb-6 mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 -mx-8 px-8 -mt-8 pt-8 rounded-t-2xl">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div className="flex-shrink-0 w-20 h-20">
+              <img src="/Logoo.png" alt="Municipality Logo" className="w-full h-full object-contain" />
+            </div>
+            <div className="flex-1 text-center">
+              <p className="text-xs font-medium text-gray-700">Republic of the Philippines</p>
+              <p className="text-xs font-medium text-gray-700">Province of Masbate Oriental</p>
+              <p className="text-xs font-semibold text-gray-800">MUNICIPALITY OF BALINGSAG</p>
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-center text-gray-800 tracking-tight">PATIENT CARE REPORT</h1>
         </div>
 
         {error && (
-          <div className="mb-4 p-2 bg-red-100 text-red-700 rounded">
-            {error}
+          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-lg shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">⚠️</span>
+              <span className="font-medium">{error}</span>
+            </div>
           </div>
         )}
         {caseTypeError && (
-          <div className="mb-4 p-2 bg-yellow-100 text-yellow-700 rounded">
-            {caseTypeError}
+          <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700 rounded-r-lg shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">⚠️</span>
+              <span className="font-medium">{caseTypeError}</span>
+            </div>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Case Type:
               </label>
               {caseTypeLoading ? (
@@ -370,7 +386,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                   name="caseType"
                   value={formData.caseType}
                   onChange={handleChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                   disabled={isSubmitting || readOnly}
                 >
                   <option value="" disabled>Select Case Type</option>
@@ -383,7 +399,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Alert Location:
               </label>
               {formData.caseType && availableAlerts.length > 0 ? (
@@ -391,7 +407,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                   name="alertId"
                   value={formData.alertId}
                   onChange={handleChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                   disabled={isSubmitting || readOnly}
                 >
                   <option value="" disabled>Select Alert Location</option>
@@ -408,7 +424,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Name of Recorder:
               </label>
               <input
@@ -416,12 +432,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="recorder"
                 value={formData.recorder}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Date:
               </label>
               <input
@@ -429,12 +445,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="date"
                 value={formData.date}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div className="md:col-span-3">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Name of Patient:
               </label>
               <input
@@ -442,12 +458,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="patientName"
                 value={formData.patientName}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div className="md:col-span-3">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Location:
               </label>
               <input
@@ -455,15 +471,15 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 border p-4 rounded">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Age:
               </label>
               <input
@@ -471,19 +487,19 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="age"
                 value={formData.age}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Gender:
               </label>
               <select
                 name="gender"
                 value={formData.gender}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               >
                 <option value="" disabled>Select Gender</option>
@@ -493,7 +509,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               </select>
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Category:
               </label>
               <div className="flex items-center space-x-4 mt-2">
@@ -536,7 +552,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 BP:
               </label>
               <input
@@ -545,12 +561,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.bloodPressure}
                 onChange={handleChange}
                 placeholder="e.g., 120/80"
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 PR:
               </label>
               <input
@@ -558,12 +574,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="pr"
                 value={formData.pr}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 RR:
               </label>
               <input
@@ -571,12 +587,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="rr"
                 value={formData.rr}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 O2SAT:
               </label>
               <input
@@ -584,12 +600,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="o2sat"
                 value={formData.o2sat}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Temperature:
               </label>
               <input
@@ -597,7 +613,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="temp"
                 value={formData.temp}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
@@ -605,7 +621,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border p-4 rounded">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Hospital Transported To:
               </label>
               <input
@@ -613,12 +629,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="hospitalTransported"
                 value={formData.hospitalTransported}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Time of Call:
               </label>
               <div className="flex space-x-2">
@@ -627,7 +643,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                   name="timeCall"
                   value={formData.timeCall}
                   onChange={handleChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                   disabled={isSubmitting || readOnly}
                 />
                 <select
@@ -643,7 +659,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Time Arrived at Scene:
               </label>
               <div className="flex space-x-2">
@@ -652,7 +668,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                   name="timeArrivedScene"
                   value={formData.timeArrivedScene}
                   onChange={handleChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                   disabled={isSubmitting || readOnly}
                 />
                 <select
@@ -668,7 +684,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Time Left Scene:
               </label>
               <div className="flex space-x-2">
@@ -677,7 +693,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                   name="timeLeftScene"
                   value={formData.timeLeftScene}
                   onChange={handleChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                   disabled={isSubmitting || readOnly}
                 />
                 <select
@@ -693,7 +709,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Home Address:
               </label>
               <input
@@ -701,12 +717,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="homeAddress"
                 value={formData.homeAddress}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Time Arrived at Hospital:
               </label>
               <div className="flex space-x-2">
@@ -715,7 +731,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                   name="timeArrivedHospital"
                   value={formData.timeArrivedHospital}
                   onChange={handleChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                   disabled={isSubmitting || readOnly}
                 />
                 <select
@@ -731,7 +747,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Ambulance No:
               </label>
               <input
@@ -739,12 +755,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="ambulanceNo"
                 value={formData.ambulanceNo}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Under Influence:
               </label>
               <div className="grid grid-cols-2 mt-1">
@@ -795,7 +811,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Evaluation Code:
               </label>
               <div className="grid grid-cols-2 mt-1">
@@ -846,7 +862,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Response Team:
               </label>
               <div className="grid grid-cols-2 mt-1">
@@ -892,7 +908,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Contact Person:
               </label>
               <input
@@ -900,12 +916,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="contactPerson"
                 value={formData.contactPerson}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Relationship:
               </label>
               <input
@@ -913,12 +929,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="relationship"
                 value={formData.relationship}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Contact Number:
               </label>
               <input
@@ -926,7 +942,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="contactNumber"
                 value={formData.contactNumber}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
@@ -934,7 +950,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border p-4 rounded">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 DOI:
               </label>
               <input
@@ -942,12 +958,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="doi"
                 value={formData.doi}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 TOI:
               </label>
               <input
@@ -955,12 +971,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="toi"
                 value={formData.toi}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 NOI:
               </label>
               <input
@@ -968,12 +984,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="noi"
                 value={formData.noi}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 POI:
               </label>
               <div className="mt-1">
@@ -1025,7 +1041,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Loss of Consciousness:
               </label>
               <div className="flex items-center space-x-4 mt-2">
@@ -1067,7 +1083,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               </div>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Chief Complaint/s:
               </label>
               <input
@@ -1075,12 +1091,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="chiefComplaints"
                 value={formData.chiefComplaints}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
             <div className="md:col-span-3">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Interventions:
               </label>
               <input
@@ -1088,7 +1104,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="interventions"
                 value={formData.interventions}
                 onChange={handleChange}
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
             </div>
@@ -1107,7 +1123,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     name="signsSymptoms"
                     value={formData.signsSymptoms}
                     onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                     disabled={isSubmitting || readOnly}
                   />
                 </div>
@@ -1120,7 +1136,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     name="allergies"
                     value={formData.allergies}
                     onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                     disabled={isSubmitting || readOnly}
                   />
                 </div>
@@ -1133,7 +1149,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     name="medication"
                     value={formData.medication}
                     onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                     disabled={isSubmitting || readOnly}
                   />
                 </div>
@@ -1146,7 +1162,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     name="pastHistory"
                     value={formData.pastHistory}
                     onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                     disabled={isSubmitting || readOnly}
                   />
                 </div>
@@ -1159,7 +1175,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     name="lastIntake"
                     value={formData.lastIntake}
                     onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                     disabled={isSubmitting || readOnly}
                   />
                 </div>
@@ -1172,7 +1188,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     name="events"
                     value={formData.events}
                     onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                     disabled={isSubmitting || readOnly}
                   />
                 </div>
@@ -1187,7 +1203,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.narrative}
                 onChange={handleChange}
                 rows="12"
-                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               ></textarea>
             </div>
@@ -1200,7 +1216,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               </h3>
               <div className="space-y-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
                     DRIVER:
                   </label>
                   <input
@@ -1208,12 +1224,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     name="driver"
                     value={formData.driver}
                     onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                     disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
                     TEAM LEADER:
                   </label>
                   <input
@@ -1221,12 +1237,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     name="teamLeader"
                     value={formData.teamLeader}
                     onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                     disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
                     CREW:
                   </label>
                   <input
@@ -1234,7 +1250,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     name="crew"
                     value={formData.crew}
                     onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                     disabled={isSubmitting || readOnly}
                   />
                 </div>
@@ -1247,12 +1263,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     name="receivingHospital"
                     value={formData.receivingHospital}
                     onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                     disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div className="mt-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
                     NAME:
                   </label>
                   <input
@@ -1260,12 +1276,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     name="receivingName"
                     value={formData.receivingName}
                     onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                     disabled={isSubmitting || readOnly}
                   />
                 </div>
                 <div className="mt-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
                     SIGNATURE:
                   </label>
                   {formData.receivingSignature && (
@@ -1310,7 +1326,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                   </button>
                 </div>
                 <div className="mt-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Date:
                   </label>
                   <input
@@ -1318,7 +1334,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     name="receivingSignatureDate"
                     value={formData.receivingSignatureDate}
                     onChange={handleChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm"
+                    className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                     disabled={isSubmitting || readOnly}
                   />
                 </div>
