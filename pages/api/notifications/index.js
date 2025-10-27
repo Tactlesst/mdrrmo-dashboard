@@ -6,7 +6,19 @@ export default async function handler(req, res) {
 
   let client;
   try {
+    // Test pool health before getting a client
     client = await pool.connect();
+    
+    // Test the connection with a simple query
+    try {
+      await client.query('SELECT 1');
+    } catch (testErr) {
+      // If connection test fails, release and try to get a fresh connection
+      console.warn('Connection test failed, getting fresh connection:', testErr.message);
+      client.release();
+      client = await pool.connect();
+    }
+    
     await client.query(`SET TIME ZONE 'UTC'`); // Use UTC for consistency with Netlify
 
     if (method === 'GET') {
@@ -111,9 +123,31 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ message: 'Method not allowed' });
   } catch (err) {
-    console.error('Error handling notifications:', err);
-    return res.status(500).json({ message: 'Server error' });
+    console.error('Error handling notifications:', {
+      message: err.message,
+      code: err.code,
+      stack: err.stack,
+      method: method,
+      userId: userId,
+      showAll: showAll
+    });
+    
+    // Provide more specific error messages
+    if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+      return res.status(503).json({ message: 'Database connection unavailable. Please try again.' });
+    }
+    
+    return res.status(500).json({ 
+      message: 'Server error', 
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined 
+    });
   } finally {
-    if (client) client.release();
+    if (client) {
+      try {
+        client.release();
+      } catch (releaseErr) {
+        console.error('Error releasing client:', releaseErr.message);
+      }
+    }
   }
 }

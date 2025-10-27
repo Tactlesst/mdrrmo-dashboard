@@ -49,16 +49,26 @@ export default function Notifications({ user }) {
     }
   };
 
-  // Fetch notifications
-  const fetchNotifications = async () => {
+  // Fetch notifications with retry logic
+  const fetchNotifications = async (retryCount = 0) => {
     try {
       const url = viewAllNotifications
         ? `/api/notifications?showAll=true`
         : `/api/notifications?userId=${user.id}`;
       
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(15000) // 15 second timeout
+      });
+      
       if (!res.ok) {
-        throw new Error(`Failed to fetch notifications: ${res.status} ${res.statusText}`);
+        // If it's a 500 or 503 error and we haven't retried too many times, retry
+        if ((res.status === 500 || res.status === 503) && retryCount < 2) {
+          console.warn(`Fetch failed with ${res.status}, retrying in 2 seconds... (attempt ${retryCount + 1}/2)`);
+          setTimeout(() => fetchNotifications(retryCount + 1), 2000);
+          return;
+        }
+        throw new Error(`Failed to fetch notifications: ${res.status}`);
       }
       
       const data = await res.json();
@@ -68,13 +78,18 @@ export default function Notifications({ user }) {
           console.warn('Some notifications have invalid IDs:', data.notifications);
         }
         setNotifications(validNotifications);
+        // Clear error on successful fetch
+        setError(null);
       } else {
         console.warn('No notifications found.');
         setNotifications([]);
       }
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
-      setError(err.message);
+      // Only show error if it's not a timeout during retry
+      if (err.name !== 'TimeoutError' || retryCount >= 2) {
+        setError(`Error: ${err.message}`);
+      }
     }
   };
 
