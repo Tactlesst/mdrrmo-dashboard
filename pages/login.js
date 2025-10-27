@@ -68,7 +68,7 @@ export default function LoginPage() {
         </p>
 
         {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-        {success && <p className="text-green-600 text-sm mb-4">{success}</p>}
+        {success && <p className="text-blue-600 text-sm mb-4">{success}</p>}
 
         <form onSubmit={handleLogin} className="space-y-4 text-left">
           <div>
@@ -100,7 +100,7 @@ export default function LoginPage() {
             disabled={isLoading || Boolean(success)}
             className={`w-full py-2 rounded-lg font-semibold transition duration-200 ${
               success
-                ? 'bg-green-600'
+                ? 'bg-blue-600'
                 : isLoading 
                   ? 'bg-gray-400 cursor-not-allowed' 
                   : 'bg-blue-600 hover:bg-blue-700'
