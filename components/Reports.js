@@ -41,10 +41,19 @@ export default function ReportsPage() {
 
     const fetchAlerts = async () => {
       try {
-        // Fetch analytics
-        const analyticsRes = await fetch('/api/alerts/analytics');
+        // Fetch analytics and alerts in parallel
+        const [analyticsRes, alertsRes] = await Promise.all([
+          fetch('/api/alerts/analytics'),
+          fetch('/api/alerts'),
+        ]);
+
         if (!analyticsRes.ok) throw new Error(`Analytics HTTP ${analyticsRes.status}`);
-        const analyticsData = await analyticsRes.json();
+        if (!alertsRes.ok) throw new Error(`Alerts HTTP ${alertsRes.status}`);
+
+        const [analyticsData, alertsData] = await Promise.all([
+          analyticsRes.json(),
+          alertsRes.json(),
+        ]);
 
         // Normalize possible shapes
         const rawType =
@@ -82,10 +91,7 @@ export default function ReportsPage() {
         setTypeStats(normType);
         setDailyStats(normDaily);
 
-        // Fetch raw alerts
-        const alertsRes = await fetch('/api/alerts');
-        if (!alertsRes.ok) throw new Error(`Alerts HTTP ${alertsRes.status}`);
-        const alertsData = await alertsRes.json();
+        // Process alerts
         const alertsArr = alertsData.alerts || alertsData;
         setAlerts(alertsArr.map((alert) => ({
           id: alert.id ?? 'N/A',
@@ -110,8 +116,8 @@ export default function ReportsPage() {
       }
     };
 
-    fetchLogs();
-    fetchAlerts();
+    // Run both fetches in parallel
+    Promise.all([fetchLogs(), fetchAlerts()]);
   }, []);
 
   // Filter responded alerts

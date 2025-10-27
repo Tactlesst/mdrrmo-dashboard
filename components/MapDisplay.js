@@ -1,20 +1,17 @@
 'use client';
 
-import React, { useRef, useEffect, useState, useMemo } from 'react';
-import Chart from 'chart.js/auto';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import React, { useRef, useEffect, useState, useMemo, lazy, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { FiUserPlus, FiAlertCircle, FiUsers } from 'react-icons/fi';
 import dayjs from 'dayjs';
 
-// Fix Leaflet icon paths
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: '/leaflet/marker-icon-2x.png',
-  iconUrl: '/leaflet/marker-icon.png',
-  shadowUrl: '/leaflet/marker-shadow.png',
-});
+// Lazy load heavy dependencies to improve LCP
+const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
+const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
+
+// Leaflet icon configuration will be loaded dynamically
 
 const Dashboard = () => {
   const barChartRef = useRef(null);
@@ -30,14 +27,62 @@ const Dashboard = () => {
   const [totalNewUsers, setTotalNewUsers] = useState(0);
   const [totalResponders, setTotalResponders] = useState(0);
   const [availableResponders, setAvailableResponders] = useState(0);
+  const [leafletReady, setLeafletReady] = useState(false);
+  const tabClickTimeoutRef = useRef(null);
+
+  // Lazy load Leaflet CSS and configure icons
+  useEffect(() => {
+    import('leaflet/dist/leaflet.css');
+    import('leaflet').then((L) => {
+      delete L.Icon.Default.prototype._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: '/leaflet/marker-icon-2x.png',
+        iconUrl: '/leaflet/marker-icon.png',
+        shadowUrl: '/leaflet/marker-shadow.png',
+      });
+      setLeafletReady(true);
+    });
+  }, []);
+
+  // Debounced tab change to improve INP
+  const handleTabChange = (tab) => {
+    if (tabClickTimeoutRef.current) {
+      clearTimeout(tabClickTimeoutRef.current);
+    }
+    tabClickTimeoutRef.current = setTimeout(() => {
+      setSelectedTab(tab);
+    }, 50);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch alerts
-        const alertsRes = await fetch('/api/alerts');
+        // Fetch all data in parallel for faster loading
+        const [alertsRes, usersRes, locationsRes, respondersRes, sessionsRes] = await Promise.all([
+          fetch('/api/alerts'),
+          fetch('/api/users?role=Residents'),
+          fetch('/api/alerts/locations'),
+          fetch('/api/responders'),
+          fetch('/api/responders/sessions'),
+        ]);
+
+        // Check responses
         if (!alertsRes.ok) throw new Error(`Alerts HTTP ${alertsRes.status}`);
-        const alertsData = await alertsRes.json();
+        if (!usersRes.ok) throw new Error(`Users HTTP ${usersRes.status}`);
+        if (!locationsRes.ok) throw new Error(`Locations HTTP ${locationsRes.status}`);
+        if (!respondersRes.ok) throw new Error(`Responders HTTP ${respondersRes.status}`);
+        if (!sessionsRes.ok) throw new Error(`Sessions HTTP ${sessionsRes.status}`);
+
+        // Parse all responses in parallel
+        const [alertsData, usersData, locationsData, respondersData, sessionsData] = await Promise.all([
+          alertsRes.json(),
+          usersRes.json(),
+          locationsRes.json(),
+          respondersRes.json(),
+          sessionsRes.json(),
+        ]);
+
+        // Process alerts
         const alertsArr = alertsData.alerts || alertsData;
         setAlerts(
           alertsArr.map((alert) => ({
@@ -53,34 +98,22 @@ const Dashboard = () => {
           }))
         );
 
-        // Fetch users (Residents)
-        const usersRes = await fetch('/api/users?role=Residents');
-        if (!usersRes.ok) throw new Error(`Users HTTP ${usersRes.status}`);
-        const usersData = await usersRes.json();
+        // Process users
         setUsers(usersData);
         setTotalUsers(usersData.length);
         const thisMonth = dayjs().format('YYYY-MM');
         setTotalNewUsers(usersData.filter((user) => dayjs(user.created_at || user.dob).format('YYYY-MM') === thisMonth).length);
 
-        // Fetch alert locations for map
-        const locationsRes = await fetch('/api/alerts/locations');
-        if (!locationsRes.ok) throw new Error(`Locations HTTP ${locationsRes.status}`);
-        const locationsData = await locationsRes.json();
+        // Process locations
         const locationsArr = locationsData.locations || locationsData;
         setLocations(locationsArr);
 
-        // Fetch responders
-        const respondersRes = await fetch('/api/responders');
-        if (!respondersRes.ok) throw new Error(`Responders HTTP ${responders.status}`);
-        const respondersData = await respondersRes.json();
+        // Process responders
         const respondersArr = respondersData.responders || respondersData;
         setResponders(respondersArr);
         setTotalResponders(respondersArr.length);
 
-        // Fetch responder sessions for availability
-        const sessionsRes = await fetch('/api/responders/sessions');
-        if (!sessionsRes.ok) throw new Error(`Sessions HTTP ${sessionsRes.status}`);
-        const sessionsData = await sessionsRes.json();
+        // Process sessions
         const sessionsArr = sessionsData.sessions || sessionsData;
         setSessions(sessionsArr);
         const readyResponders = new Set(
@@ -184,59 +217,64 @@ const Dashboard = () => {
     const ctx = barChartRef.current?.getContext('2d');
     if (!ctx) return;
 
-    if (barChartInstance.current) {
-      barChartInstance.current.destroy();
-    }
+    // Lazy load Chart.js to improve LCP
+    import('chart.js/auto').then((ChartModule) => {
+      const Chart = ChartModule.default;
+      
+      if (barChartInstance.current) {
+        barChartInstance.current.destroy();
+      }
 
-    const data = getChartData();
+      const data = getChartData();
 
-    barChartInstance.current = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: data.labels,
-        datasets: [
-          {
-            label: 'New Users',
-            data: data.newUsers,
-            backgroundColor: chartColors.users,
-            borderRadius: 6,
+      barChartInstance.current = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: [
+            {
+              label: 'New Users',
+              data: data.newUsers,
+              backgroundColor: chartColors.users,
+              borderRadius: 6,
+            },
+            {
+              label: 'Alerts',
+              data: data.alerts,
+              backgroundColor: chartColors.alerts,
+              borderRadius: 6,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                color: '#374151',
+                font: { size: 13 },
+              },
+            },
           },
-          {
-            label: 'Alerts',
-            data: data.alerts,
-            backgroundColor: chartColors.alerts,
-            borderRadius: 6,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'top',
-            labels: {
-              color: '#374151',
-              font: { size: 13 },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: '#6B7280' },
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: '#E5E7EB' },
+              ticks: { color: '#6B7280' },
             },
           },
         },
-        scales: {
-          x: {
-            grid: { display: false },
-            ticks: { color: '#6B7280' },
-          },
-          y: {
-            beginAtZero: true,
-            grid: { color: '#E5E7EB' },
-            ticks: { color: '#6B7280' },
-          },
-        },
-      },
-    });
+      });
 
-    // Force immediate resize to ensure chart renders correctly
-    barChartInstance.current.resize();
+      // Force immediate resize to ensure chart renders correctly
+      barChartInstance.current.resize();
+    });
 
     return () => {
       if (barChartInstance.current) barChartInstance.current.destroy();
@@ -255,7 +293,9 @@ const Dashboard = () => {
           </div>
           <div>
             <p className="text-gray-500 text-sm">Total New Users (This Month)</p>
-            <p className="text-2xl font-semibold text-green-600">{loading ? '...' : totalNewUsers}</p>
+            <p className="text-2xl font-semibold text-green-600">
+              {loading ? <span className="animate-pulse">...</span> : totalNewUsers}
+            </p>
           </div>
         </div>
         <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4">
@@ -264,7 +304,9 @@ const Dashboard = () => {
           </div>
           <div>
             <p className="text-gray-500 text-sm">Number of Alerts</p>
-            <p className="text-2xl font-semibold text-red-600">{loading ? '...' : alerts.length}</p>
+            <p className="text-2xl font-semibold text-red-600">
+              {loading ? <span className="animate-pulse">...</span> : alerts.length}
+            </p>
           </div>
         </div>
         <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4">
@@ -274,7 +316,7 @@ const Dashboard = () => {
           <div>
             <p className="text-gray-500 text-sm">Responders Available</p>
             <p className="text-2xl font-semibold text-blue-600">
-              {loading ? '...' : `${availableResponders} / ${totalResponders}`}
+              {loading ? <span className="animate-pulse">...</span> : `${availableResponders} / ${totalResponders}`}
             </p>
           </div>
         </div>
@@ -284,7 +326,9 @@ const Dashboard = () => {
           </div>
           <div>
             <p className="text-gray-500 text-sm">Total Users</p>
-            <p className="text-2xl font-semibold text-purple-600">{loading ? '...' : totalUsers}</p>
+            <p className="text-2xl font-semibold text-purple-600">
+              {loading ? <span className="animate-pulse">...</span> : totalUsers}
+            </p>
           </div>
         </div>
       </div>
@@ -297,7 +341,7 @@ const Dashboard = () => {
             {['Daily', 'Weekly', 'Monthly'].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setSelectedTab(tab)}
+                onClick={() => handleTabChange(tab)}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium border transition ${
                   selectedTab === tab
                     ? 'bg-blue-600 text-white border-blue-600'
@@ -311,34 +355,54 @@ const Dashboard = () => {
         </div>
         <div className="h-[320px]">
           {loading ? (
-            <div className="h-full flex items-center justify-center text-sm text-gray-500">Loading…</div>
+            <div className="h-full flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="text-sm text-gray-500">Loading chart data...</p>
+              </div>
+            </div>
           ) : (
             <canvas ref={barChartRef}></canvas>
           )}
         </div>
       </div>
 
-      {/* Leaflet Map */}
+      {/* Leaflet Map - Lazy loaded */}
       <div className="bg-white p-6 rounded-xl shadow">
         <h2 className="text-lg font-bold text-gray-800 mb-4 text-center">🗺️ Location Overview</h2>
         <div className="h-[400px] w-full overflow-hidden rounded-lg">
-          <MapContainer center={defaultPosition} zoom={13} style={{ height: '100%', width: '100%' }}>
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            {locations.map((loc, i) => (
-              loc.lat && loc.lng && (
-                <Marker key={i} position={[loc.lat, loc.lng]}>
-                  <Popup>
-                    <div className="space-y-1">
-                      <p className="font-semibold">{loc.type || 'Alert'}</p>
-                      <p className="text-sm text-gray-600">Occurred: {loc.occurred_at}</p>
-                      <p className="text-sm text-gray-600">Address: {loc.address || 'N/A'}</p>
-                      <p className="text-sm text-gray-600">Responder: {loc.responder_name || 'Not Assigned'}</p>
-                    </div>
-                  </Popup>
-                </Marker>
-              )
-            ))}
-          </MapContainer>
+          {loading || !leafletReady ? (
+            <div className="h-full flex items-center justify-center bg-gray-100">
+              <div className="flex flex-col items-center gap-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="text-sm text-gray-500">Loading map...</p>
+              </div>
+            </div>
+          ) : (
+            <Suspense fallback={
+              <div className="h-full flex items-center justify-center bg-gray-100">
+                <p className="text-sm text-gray-500">Loading map...</p>
+              </div>
+            }>
+              <MapContainer center={defaultPosition} zoom={13} style={{ height: '100%', width: '100%' }}>
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                {locations.map((loc, i) => (
+                  loc.lat && loc.lng && (
+                    <Marker key={i} position={[loc.lat, loc.lng]}>
+                      <Popup>
+                        <div className="space-y-1">
+                          <p className="font-semibold">{loc.type || 'Alert'}</p>
+                          <p className="text-sm text-gray-600">Occurred: {loc.occurred_at}</p>
+                          <p className="text-sm text-gray-600">Address: {loc.address || 'N/A'}</p>
+                          <p className="text-sm text-gray-600">Responder: {loc.responder_name || 'Not Assigned'}</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )
+                ))}
+              </MapContainer>
+            </Suspense>
+          )}
         </div>
       </div>
     </div>

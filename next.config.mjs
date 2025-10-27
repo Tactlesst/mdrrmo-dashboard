@@ -10,7 +10,7 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://*.tile.openstreetmap.org https://unpkg.com",
+              "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://*.tile.openstreetmap.org https://unpkg.com",
               "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com",
               "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.openstreetmap.org https://res.cloudinary.com https://unpkg.com https://cdnjs.cloudflare.com https://images.icon-icons.com",
               "font-src 'self' data:",
@@ -18,7 +18,7 @@ const nextConfig = {
               "frame-src 'self'",
               "object-src 'none'",
               "base-uri 'self'",
-              "form-action 'self'",
+              "form-action 'self' https:",
               "frame-ancestors 'self'",
               "upgrade-insecure-requests"
             ].join('; ')
