@@ -28,9 +28,9 @@ const nextConfig = {
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://*.tile.openstreetmap.org https://unpkg.com",
-              "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com",
+              "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com https://fonts.googleapis.com",
               "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.openstreetmap.org https://res.cloudinary.com https://unpkg.com https://cdnjs.cloudflare.com https://images.icon-icons.com",
-              "font-src 'self' data:",
+              "font-src 'self' data: https://fonts.gstatic.com",
               "connect-src 'self' https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://api.cloudinary.com",
               "frame-src 'self'",
               "object-src 'none'",
