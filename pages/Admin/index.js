@@ -1,6 +1,7 @@
 import * as AiIcons_md from "react-icons/md";
 import React, { useState } from 'react';
 import { useRouter } from "next/router";
+import Image from 'next/image';
 import Dashboard from "./Dashboard";
 import IncomingAlerts from "./Incoming Alert";
 import POS from "./Users";
@@ -39,7 +40,7 @@ export default function Incharge_Main() {
 
                     <button className="text-red-900" onClick={toggleSidebar}><AiIcons_md.MdMenu size={28} /></button>  
                 </div>
-                <img src="./Logoo.png" alt="Logo" className="h-15 w-32 ml-6" />
+                <Image src="/Logoo.png" alt="Logo" width={128} height={60} className="ml-6" priority />
                 <div className="flex flex-col mt-10 gap-4 px-4">
                     <button className={`flex items-center gap-2 p-2 rounded hover:bg-red-200 ${selectedPage === "Dashboard" ? 'text-red-600' : ''}`} onClick={() => handlePageChange("Dashboard")}>
                         <AiIcons_md.MdDashboard size={25} />
@@ -79,7 +80,7 @@ export default function Incharge_Main() {
                     <div className="flex items-center gap-4">
                         
                         <div className="relative">
-                            <img onClick={handleProfileClick} src="./profile.jpg" className={`h-10 w-10 rounded-full cursor-pointer border-2 ${IsProfileDropdown ? 'border-blue-600' : 'border-transparent'}`} />
+                            <Image onClick={handleProfileClick} src="/profile.jpg" alt="Profile" width={40} height={40} className={`rounded-full cursor-pointer border-2 ${IsProfileDropdown ? 'border-blue-600' : 'border-transparent'}`} />
                             {IsProfileDropdown && (
                                 <div className="absolute right-0 mt-2 w-40 bg-white rounded shadow-md z-10 text-sm">
                                     <ul className="py-2">

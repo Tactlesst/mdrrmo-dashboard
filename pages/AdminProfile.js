@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { optimizeCloudinaryUrl } from '../utils/imageOptimizer';
 
 export default function AdminProfileModal({ onClose }) {
   const [admin, setAdmin] = useState({
@@ -103,10 +105,13 @@ export default function AdminProfileModal({ onClose }) {
               }
             />
             {admin.profile_image_url && (
-              <img
-                src={admin.profile_image_url}
+              <Image
+                src={optimizeCloudinaryUrl(admin.profile_image_url, 96, 96)}
                 alt="Profile"
-                className="mt-2 rounded w-24 h-24 object-cover"
+                width={96}
+                height={96}
+                className="mt-2 rounded object-cover"
+                loading="lazy"
               />
             )}
           </div>

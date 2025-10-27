@@ -1,18 +1,18 @@
 'use client';
-import React, { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import React, { useEffect, useRef, useState, Suspense } from 'react';
+import dynamic from 'next/dynamic';
+import { useMap } from 'react-leaflet';
 
-// Fix for default marker icons (optional if using fully custom icons)
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+// Lazy load Leaflet components to improve LCP
+const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
+const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
 
-const createCustomIcon = (type, status) => {
+// Leaflet icon configuration will be loaded dynamically
+
+const createCustomIcon = (type, status, L) => {
+  if (!L) return null;
   const normalizedType = type ? type.toLowerCase() : '';
   const iconUrls = {
     'car accident': 'https://images.icon-icons.com/3196/PNG/512/car_crash_icon_194614.png',
@@ -102,8 +102,26 @@ function FlyToAndOpenPopup({ alerts, selectedAlertId, markerRefs }) {
 
 export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
   const markerRefs = useRef({});
+  const [leafletReady, setLeafletReady] = useState(false);
+  const [L, setL] = useState(null);
 
   const mapCenter = alerts.length ? alerts[0].coords : fallbackCenter;
+
+  // Lazy load Leaflet CSS and configure icons
+  useEffect(() => {
+    import('leaflet/dist/leaflet.css');
+    import('leaflet').then((LeafletModule) => {
+      const LeafletLib = LeafletModule.default;
+      delete LeafletLib.Icon.Default.prototype._getIconUrl;
+      LeafletLib.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      });
+      setL(LeafletLib);
+      setLeafletReady(true);
+    });
+  }, []);
 
   // Add CSS for tinting icons
   useEffect(() => {
@@ -116,70 +134,87 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
     return () => style.remove();
   }, []);
 
+  if (!leafletReady || !L) {
+    return (
+      <div className="rounded-lg overflow-hidden h-[40vh] md:h-[65vh] bg-gray-100 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="text-sm text-gray-500">Loading map...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-lg overflow-hidden h-[40vh] md:h-[65vh]">
-      <MapContainer center={mapCenter} zoom={17} className="w-full h-full">
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution="&copy; OpenStreetMap contributors"
-        />
+      <Suspense fallback={
+        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+          <p className="text-sm text-gray-500">Loading map...</p>
+        </div>
+      }>
+        <MapContainer center={mapCenter} zoom={17} className="w-full h-full">
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution="&copy; OpenStreetMap contributors"
+          />
 
-        {alerts.map((alert) => {
-          if (!alert.coords || alert.coords.some(isNaN)) return null; // Skip invalid coordinates
+          {alerts.map((alert) => {
+            if (!alert.coords || alert.coords.some(isNaN)) return null; // Skip invalid coordinates
 
-          if (!markerRefs.current[alert.id]) {
-            markerRefs.current[alert.id] = React.createRef();
-          }
+            if (!markerRefs.current[alert.id]) {
+              markerRefs.current[alert.id] = React.createRef();
+            }
 
-          const customIcon = createCustomIcon(alert.type, alert.status);
+            const customIcon = createCustomIcon(alert.type, alert.status, L);
 
-          return (
-            <Marker
-              key={alert.id}
-              position={alert.coords}
-              ref={markerRefs.current[alert.id]}
-              icon={customIcon}
-            >
-              <Popup>
-                <div className="text-sm space-y-1">
-                  <p>
-                    <strong>Type:</strong> {alert.type || '—'}
-                  </p>
-                  <p>
-                    <strong>Status:</strong> {alert.status || '—'}
-                  </p>
-                  <p>
-                    <strong>Address:</strong> {alert.address || '—'}
-                  </p>
-                  <p>
-                    <strong>Date:</strong>{' '}
-                    {alert.date || <span className="italic text-gray-500">Unknown</span>}
-                  </p>
-                  <p>
-                    <strong>Responder:</strong>{' '}
-                    {alert.user || <span className="italic text-gray-500">Unassigned</span>}
-                  </p>
-                  {alert.description ? (
+            return (
+              <Marker
+                key={alert.id}
+                position={alert.coords}
+                ref={markerRefs.current[alert.id]}
+                icon={customIcon}
+              >
+                <Popup>
+                  <div className="text-sm space-y-1">
                     <p>
-                      <strong>Description:</strong> {alert.description}
+                      <strong>Type:</strong> {alert.type || '—'}
                     </p>
-                  ) : (
-                    <p className="italic text-gray-500">No description provided</p>
-                  )}
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
+                    <p>
+                      <strong>Status:</strong> {alert.status || '—'}
+                    </p>
+                    <p>
+                      <strong>Address:</strong> {alert.address || '—'}
+                    </p>
+                    <p>
+                      <strong>Date:</strong>{' '}
+                      {alert.date || <span className="italic text-gray-500">Unknown</span>}
+                    </p>
+                    <p>
+                      <strong>Responder:</strong>{' '}
+                      {alert.user || <span className="italic text-gray-500">Unassigned</span>}
+                    </p>
+                    {alert.description ? (
+                      <p>
+                        <strong>Description:</strong> {alert.description}
+                      </p>
+                    ) : (
+                      <p className="italic text-gray-500">No description provided</p>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
 
-        <FlyToAndOpenPopup
-          alerts={alerts}
-          selectedAlertId={selectedAlertId}
-          markerRefs={markerRefs}
-        />
+          <FlyToAndOpenPopup
+            alerts={alerts}
+            selectedAlertId={selectedAlertId}
+            markerRefs={markerRefs}
+          />
 
-        <MapResizer watch={alerts.length} />
-      </MapContainer>
+          <MapResizer watch={alerts.length} />
+        </MapContainer>
+      </Suspense>
     </div>
   );
 }

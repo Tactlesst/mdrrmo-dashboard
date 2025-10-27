@@ -1,6 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  images: {
+    domains: [
+      'res.cloudinary.com',
+      'images.icon-icons.com',
+      'via.placeholder.com',
+      'unpkg.com',
+    ],
+    formats: ['image/avif', 'image/webp'],
+  },
+  compress: true,
   async headers() {
     return [
       {

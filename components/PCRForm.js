@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Image from 'next/image';
 import { FiX } from "react-icons/fi";
 import BodyDiagram3D from "./BodyDiagram3D";
 import SignatureCanvas from "react-signature-canvas";
@@ -343,7 +344,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
         <div className="border-b-2 border-blue-600 pb-6 mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 -mx-8 px-8 -mt-8 pt-8 rounded-t-2xl">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div className="flex-shrink-0 w-20 h-20">
-              <img src="/Logoo.png" alt="Municipality Logo" className="w-full h-full object-contain" />
+              <Image src="/Logoo.png" alt="Municipality Logo" width={80} height={80} className="object-contain" priority />
             </div>
             <div className="flex-1 text-center">
               <p className="text-xs font-medium text-gray-700">Republic of the Philippines</p>
