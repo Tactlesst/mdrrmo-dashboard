@@ -227,7 +227,7 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
 
   if (!leafletReady || !L) {
     return (
-      <div className="rounded-lg overflow-hidden h-[calc(70vh-8rem)] bg-gray-100 flex items-center justify-center">
+      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <p className="text-sm text-gray-500">Loading map...</p>
@@ -237,7 +237,7 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
   }
 
   return (
-    <div className="rounded-lg overflow-hidden h-[calc(70vh-8rem)]">
+    <div className="w-full h-full">
       <Suspense fallback={
         <div className="w-full h-full bg-gray-100 flex items-center justify-center">
           <p className="text-sm text-gray-500">Loading map...</p>

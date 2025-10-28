@@ -1,4 +1,5 @@
 import pool from '@/lib/db';
+import logger from '@/lib/logger';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -43,7 +44,7 @@ export default async function handler(req, res) {
       sender_type: rows[0].sender_type,
     });
   } catch (err) {
-    console.error('Error creating notification:', err);
+    logger.error('Error creating notification:', err.message);
     return res.status(500).json({ message: 'Server error' });
   } finally {
     if (client) client.release();

@@ -10,7 +10,7 @@ export default function Inbox({
   onNotificationClick,
   isLoading,
 }) {
-  const [inboxFilter, setInboxFilter] = useState('system');
+  const [inboxFilter, setInboxFilter] = useState('alerts');
   const [inboxSearch, setInboxSearch] = useState('');
   
   // Note: notifications prop is already filtered in DashboardContent:
@@ -49,47 +49,35 @@ export default function Inbox({
     }
   };
 
-  // Format date for relative time in Asia/Manila timezone
+  // Format date for relative time
   const formatRelativeTime = (dateString) => {
     if (!dateString) {
       console.warn('No dateString provided for formatRelativeTime');
       return 'N/A';
     }
     try {
+      // Parse the date string directly (it's already in UTC from the database)
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
         console.error(`Invalid date string: ${dateString}`);
         return 'N/A';
       }
 
-      // Convert to Asia/Manila
-      const dateManila = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+      // Get current time
       const now = new Date();
-      const nowManila = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+      
+      // Calculate difference in milliseconds
+      const diffMs = now - date;
+      const diffSecs = Math.floor(diffMs / 1000);
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-      const diffMs = nowManila - dateManila;
-      const diffMins = Math.round(diffMs / (1000 * 60));
-      const diffHours = Math.round(diffMs / (1000 * 60 * 60));
-      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-      // Detailed debug logging
-      console.log({
-        input: dateString,
-        parsedDate: date.toISOString(),
-        dateManila: dateManila.toISOString(),
-        now: now.toISOString(),
-        nowManila: nowManila.toISOString(),
-        diffMs,
-        diffMins,
-        diffHours,
-        diffDays,
-      });
-
-      if (diffMs < 0) {
-        console.warn(`Future timestamp detected: ${dateString}, diff: ${diffMins} mins`);
+      // Return relative time
+      if (diffSecs < 30) {
         return 'just now';
       } else if (diffMins < 1) {
-        return 'just now';
+        return `${diffSecs} sec${diffSecs !== 1 ? 's' : ''} ago`;
       } else if (diffMins < 60) {
         return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
       } else if (diffHours < 24) {

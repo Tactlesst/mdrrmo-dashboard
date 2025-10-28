@@ -1,4 +1,5 @@
 import pool from '@/lib/db';
+import logger from '@/lib/logger';
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -14,7 +15,7 @@ export default async function handler(req, res) {
       await client.query('SELECT 1');
     } catch (testErr) {
       // If connection test fails, release and try to get a fresh connection
-      console.warn('Connection test failed, getting fresh connection:', testErr.message);
+      logger.warn('Connection test failed, getting fresh connection:', testErr.message);
       client.release();
       client = await pool.connect();
     }
@@ -123,7 +124,8 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ message: 'Method not allowed' });
   } catch (err) {
-    console.error('Error handling notifications:', {
+    logger.error('Error handling notifications:', err.message);
+    logger.error({
       message: err.message,
       code: err.code,
       stack: err.stack,
@@ -146,7 +148,7 @@ export default async function handler(req, res) {
       try {
         client.release();
       } catch (releaseErr) {
-        console.error('Error releasing client:', releaseErr.message);
+        logger.error('Error releasing client:', releaseErr.message);
       }
     }
   }

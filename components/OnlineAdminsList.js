@@ -27,6 +27,7 @@ export default function OnlineAdminsList({ currentUserId, currentUserName, curre
         const res = await fetch('/api/admins/status');
         if (!res.ok) throw new Error('Failed to fetch status');
         const data = await res.json();
+        console.log('Status API Response:', data); // Debug log
         setAdmins(data.admins || []);
         setResponders(data.responders || []);
         setError('');
@@ -56,6 +57,40 @@ export default function OnlineAdminsList({ currentUserId, currentUserName, curre
     }
   };
 
+  // Format "Last seen" time for offline users
+  const formatLastSeen = (lastActiveAt) => {
+    if (!lastActiveAt) {
+      console.log('No lastActiveAt provided');
+      return null;
+    }
+    
+    try {
+      const lastActive = new Date(lastActiveAt);
+      const now = new Date();
+      const diffMs = now - lastActive;
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      console.log('Last Active:', lastActiveAt, 'Diff mins:', diffMins); // Debug log
+
+      if (diffMins < 1) {
+        return 'Just now';
+      } else if (diffMins < 60) {
+        return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
+      } else if (diffHours < 24) {
+        return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+      } else if (diffDays < 7) {
+        return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+      } else {
+        return lastActive.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+    } catch (error) {
+      console.error('Error formatting last seen:', error);
+      return null;
+    }
+  };
+
   const renderUserCard = (user, type) => (
     <div
       key={`${type}-${user.id}`}
@@ -78,9 +113,16 @@ export default function OnlineAdminsList({ currentUserId, currentUserName, curre
       </div>
 
       <div className="mt-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className={`h-3 w-3 rounded-full ${getStatusColor(user.status)}`} />
-          <span className="text-sm text-gray-800 capitalize">{user.status}</span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span className={`h-3 w-3 rounded-full ${getStatusColor(user.status)} ${user.status?.toLowerCase() === 'online' ? 'animate-pulse' : ''}`} />
+            <span className="text-sm text-gray-800 capitalize">{user.status}</span>
+          </div>
+          {user.status?.toLowerCase() === 'offline' && user.last_active_at && (
+            <span className="text-xs text-gray-500 ml-5">
+              Last seen {formatLastSeen(user.last_active_at)}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {type === 'responder' && user.responder_status && (

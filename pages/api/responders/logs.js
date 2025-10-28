@@ -1,4 +1,5 @@
 import pool from '@/lib/db';
+import logger from '@/lib/logger';
 import { format } from 'date-fns';
 
 export default async function handler(req, res) {
@@ -26,7 +27,7 @@ export default async function handler(req, res) {
 
     res.status(200).json(logs);
   } catch (error) {
-    console.error('Error fetching responder logs:', error);
+    logger.error('Error fetching responder logs:', error.message);
     res.status(500).json({ message: 'Failed to fetch responder logs' });
   }
 }

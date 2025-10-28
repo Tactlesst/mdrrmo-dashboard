@@ -2,6 +2,8 @@ import pool from '@/lib/db';
 import jwt from 'jsonwebtoken';
 import { serialize } from 'cookie';
 import os from 'os';
+import { logSecurityEvent, getClientIP, SecurityEventTypes, SeverityLevels } from '@/lib/securityLogger';
+import logger from '@/lib/logger';
 
 // GeoIP helper
 async function getGeoLocation(ip) {
@@ -22,7 +24,7 @@ async function getGeoLocation(ip) {
     const data = await response.json();
     return `${data.city || ''}, ${data.region || ''}, ${data.country_name || ''}`;
   } catch (error) {
-    console.error('GeoIP lookup error:', error);
+    logger.error('GeoIP lookup error:', error.message);
     return 'Unknown';
   }
 }
@@ -58,23 +60,69 @@ export default async function handler(req, res) {
   }
 
   const { email, password } = req.body;
+  const clientIP = getClientIP(req);
+  const userAgent = req.headers['user-agent'] || 'Unknown';
+
+  // Validation: Required fields
+  if (!email || !password) {
+    await logSecurityEvent({
+      eventType: SecurityEventTypes.VALIDATION_FAILED,
+      email: email || null,
+      ipAddress: clientIP,
+      userAgent,
+      details: 'Missing email or password',
+      severity: SeverityLevels.LOW,
+    });
+    return res.status(400).json({ message: 'Email and password are required' });
+  }
+
+  // Validation: Email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    await logSecurityEvent({
+      eventType: SecurityEventTypes.VALIDATION_FAILED,
+      email,
+      ipAddress: clientIP,
+      userAgent,
+      details: 'Invalid email format',
+      severity: SeverityLevels.LOW,
+    });
+    return res.status(400).json({ message: 'Invalid email format' });
+  }
 
   try {
     const result = await pool.query('SELECT * FROM admins WHERE email = $1', [email]);
     const admin = result.rows[0];
 
     if (!admin || password !== admin.password) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      // Log failed login attempt
+      await logSecurityEvent({
+        eventType: SecurityEventTypes.LOGIN_FAILED,
+        email,
+        ipAddress: clientIP,
+        userAgent,
+        details: `Failed login attempt - ${!admin ? 'User not found' : 'Invalid password'}`,
+        severity: SeverityLevels.MEDIUM,
+      });
+      // Generic message to prevent user enumeration
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     const ip = getIPv4FromRequest(req);
-    const userAgent = req.headers['user-agent'] || 'Unknown';
     const location = await getGeoLocation(ip);
 
-    // Insert session
+    // Mark all previous sessions for this user as inactive
+    await pool.query(
+      `UPDATE admin_sessions 
+       SET is_active = FALSE 
+       WHERE admin_email = $1 AND is_active = TRUE`,
+      [admin.email]
+    );
+
+    // Insert new session
     const sessionInsert = await pool.query(
-      `INSERT INTO admin_sessions (admin_email, ip_address, user_agent, is_active)
-       VALUES ($1, $2, $3, TRUE)
+      `INSERT INTO admin_sessions (admin_email, ip_address, user_agent, is_active, last_active_at)
+       VALUES ($1, $2, $3, TRUE, NOW())
        RETURNING id`,
       [admin.email, `${ip} (${location})`, userAgent]
     );
@@ -118,16 +166,38 @@ export default async function handler(req, res) {
     const serialized = serialize('auth', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24,
     });
 
     res.setHeader('Set-Cookie', serialized);
+    
+    // Log successful login
+    await logSecurityEvent({
+      eventType: SecurityEventTypes.LOGIN_SUCCESS,
+      email: admin.email,
+      ipAddress: clientIP,
+      userAgent,
+      details: `Successful login from ${location}`,
+      severity: SeverityLevels.LOW,
+    });
+    
     res.status(200).json({ message: 'Login successful', redirect: '/AdminDashboard' });
 
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error:', error.message);
+    
+    // Log system error
+    await logSecurityEvent({
+      eventType: 'system_error',
+      email: email || null,
+      ipAddress: clientIP,
+      userAgent,
+      details: `Login system error: ${error.message}`,
+      severity: SeverityLevels.HIGH,
+    });
+    
     res.status(500).json({ message: 'Internal server error' });
   }
 }

@@ -102,9 +102,12 @@ export default function AdminProfileModal({ onClose }) {
 
         <form onSubmit={handleUpdate} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Name</label>
+            <label htmlFor="admin-name" className="block text-sm font-medium text-gray-700">Name</label>
             <input
+              id="admin-name"
+              name="name"
               type="text"
+              autoComplete="name"
               className="mt-1 w-full border rounded px-3 py-2"
               value={admin.name}
               onChange={(e) => setAdmin({ ...admin, name: e.target.value })}
@@ -112,9 +115,12 @@ export default function AdminProfileModal({ onClose }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <label htmlFor="admin-email" className="block text-sm font-medium text-gray-700">Email</label>
             <input
+              id="admin-email"
+              name="email"
               type="email"
+              autoComplete="email"
               disabled
               className="mt-1 w-full border rounded px-3 py-2 bg-gray-100"
               value={admin.email}
@@ -122,8 +128,10 @@ export default function AdminProfileModal({ onClose }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Upload Profile Image</label>
+            <label htmlFor="admin-profile-image" className="block text-sm font-medium text-gray-700">Upload Profile Image</label>
             <input
+              id="admin-profile-image"
+              name="profile-image"
               type="file"
               accept="image/*"
               className="mt-1 w-full border rounded px-3 py-2"
@@ -139,9 +147,12 @@ export default function AdminProfileModal({ onClose }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">New Password</label>
+            <label htmlFor="admin-new-password" className="block text-sm font-medium text-gray-700">New Password</label>
             <input
+              id="admin-new-password"
+              name="new-password"
               type="password"
+              autoComplete="new-password"
               className="mt-1 w-full border rounded px-3 py-2"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}

@@ -125,6 +125,34 @@ export default function ReportsPage() {
     return alerts.filter((alert) => alert.status === 'Responded');
   }, [alerts]);
 
+  // Aggregate responded alerts by type for chart
+  const respondedAlertsByType = useMemo(() => {
+    const counts = {};
+    respondedAlerts.forEach((alert) => {
+      const type = alert.type || 'Unknown';
+      counts[type] = (counts[type] || 0) + 1;
+    });
+    return Object.entries(counts).map(([type, count]) => ({
+      type,
+      count,
+    }));
+  }, [respondedAlerts]);
+
+  // Aggregate responded alerts by responder for chart
+  const respondedAlertsByResponder = useMemo(() => {
+    const counts = {};
+    respondedAlerts.forEach((alert) => {
+      const responder = alert.responder_name || 'Not Assigned';
+      if (responder !== 'Not Assigned') {
+        counts[responder] = (counts[responder] || 0) + 1;
+      }
+    });
+    return Object.entries(counts).map(([responder, count]) => ({
+      responder,
+      count,
+    }));
+  }, [respondedAlerts]);
+
   // Aggregate responder actions for chart
   const responderStats = useMemo(() => {
     const counts = {};
@@ -401,47 +429,62 @@ export default function ReportsPage() {
           )}
         </div>
       
-      {/* Responded Alerts List */}
-      <div className="mt-4">
-        <h3 className="font-semibold text-md text-gray-700 mb-2">
-          Responded Alerts ({respondedAlerts.length})
-        </h3>
-        <div className="max-h-64 overflow-y-auto text-sm">
-          {respondedAlerts.length === 0 ? (
-            <div className="py-6 text-center text-sm text-gray-500">No responded alerts</div>
-          ) : (
-            <div className="border rounded">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="p-2">Type</th>
-                    <th className="p-2">Address</th>
-                    <th className="p-2">Responder</th>
-                    <th className="p-2">Responded At</th>
-                    <th className="p-2">Coordinates</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {respondedAlerts
-                    .sort((a, b) => new Date(b.responded_at).getTime() - new Date(a.responded_at).getTime())
-                    .map((alert, i) => (
-                      <tr key={i} className="border-t hover:bg-gray-50">
-                        <td className="p-2">{alert.type}</td>
-                        <td className="p-2">{alert.address}</td>
-                        <td className="p-2">{alert.responder_name}</td>
-                        <td className="p-2">{alert.responded_at}</td>
-                        <td className="p-2 text-xs text-gray-500">
-                          {alert.lat && alert.lng ? `${alert.lat}, ${alert.lng}` : 'N/A'}
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
+        {/* Responded Alerts Charts */}
+        <div className="mt-4">
+          <h3 className="font-semibold text-md text-gray-700 mb-2">
+            Responded Alerts Analysis ({respondedAlerts.length} total alerts)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Pie Chart - Who Responded */}
+            <div className="h-64">
+              <h4 className="text-sm font-medium text-gray-600 mb-2 text-center">Responders Who Responded</h4>
+              {respondedAlertsByResponder.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm text-gray-500">No responded alerts</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={respondedAlertsByResponder}
+                      dataKey="count"
+                      nameKey="responder"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#16a34a"
+                      label
+                    >
+                      {respondedAlertsByResponder.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={['#16a34a', '#22c55e', '#4ade80', '#86efac', '#bbf7d0'][index % 5]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
-          )}
+
+            {/* Bar Chart - Case Types */}
+            <div className="h-64">
+              <h4 className="text-sm font-medium text-gray-600 mb-2 text-center">Alerts by Case Type</h4>
+              {respondedAlertsByType.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm text-gray-500">No responded alerts</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={respondedAlertsByType}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="type" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="count" fill="#16a34a" name="Responded Alerts" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
 
     </div>
   );

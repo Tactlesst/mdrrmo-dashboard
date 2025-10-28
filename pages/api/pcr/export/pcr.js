@@ -1,5 +1,6 @@
 // /pages/api/export/pcr.js
 import pool from '@/lib/db';
+import logger from '@/lib/logger';
 import { format } from 'date-fns';
 
 export default async function handler(req, res) {
@@ -45,7 +46,7 @@ export default async function handler(req, res) {
     res.setHeader('Content-Disposition', 'attachment; filename=pcr_forms.csv');
     res.status(200).send(csv);
   } catch (error) {
-    console.error('Export PCR error:', error);
+    logger.error('Export PCR error:', error.message);
     res.status(500).json({ message: 'Failed to export PCR forms' });
   }
 }

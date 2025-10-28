@@ -1,5 +1,6 @@
 // pages/api/upload-signature.js
-import { v2 as cloudinary } from "cloudinary";
+import cloudinary from '@/lib/cloudinary';
+import logger from '@/lib/logger';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ url: result.secure_url });
   } catch (error) {
-    console.error("Error uploading signature to Cloudinary:", error);
+    logger.error("Error uploading signature to Cloudinary:", error.message);
     res.status(500).json({ error: `Failed to upload signature: ${error.message}` });
   }
 }

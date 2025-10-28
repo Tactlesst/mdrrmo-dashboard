@@ -1,4 +1,5 @@
 import pool from '@/lib/db';
+import logger from '@/lib/logger';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -21,7 +22,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ responders });
   } catch (error) {
-    console.error('Error fetching responders:', error);
+    logger.error('Error fetching responders:', error.message);
     res.status(500).json({ message: 'Failed to fetch responders' });
   }
 }

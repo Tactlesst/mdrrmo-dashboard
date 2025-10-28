@@ -130,8 +130,12 @@ export default function Users() {
           <h2 className="text-lg font-semibold text-gray-700">
             {activeTab} List
           </h2>
+          <label htmlFor="user-search" className="sr-only">Search by name</label>
           <input
-            type="text"
+            id="user-search"
+            name="search"
+            type="search"
+            autoComplete="off"
             placeholder="Search by name..."
             className="w-full md:w-64 px-4 py-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-300 outline-none transition"
             value={searchTerm}

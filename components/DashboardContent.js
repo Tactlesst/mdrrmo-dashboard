@@ -11,12 +11,15 @@ import AdminProfileModal from './AdminProfileModal';
 import OnlineAdminsList from './OnlineAdminsList';
 import Inbox from './Inbox';
 import Settings from './Settings';
+import useHeartbeat from '@/hooks/useHeartbeat';
 import { FiBell, FiX, FiCheck, FiChevronDown, FiChevronUp, FiInbox, FiEye, FiEyeOff, FiSettings } from 'react-icons/fi';
 
 const MapDisplay = dynamic(() => import('./MapDisplay'), { ssr: false });
 const Alerts = dynamic(() => import('./Alerts'), { ssr: false });
 
 export default function DashboardContent({ user }) {
+  // Enable heartbeat for session management (sends ping every 30 seconds)
+  useHeartbeat('admin', 30000);
   const [admin, setAdmin] = useState({ name: '', email: '', profile_image_url: '' });
   const [activeContent, setActiveContent] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -26,7 +29,7 @@ export default function DashboardContent({ user }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [error, setError] = useState(null);
-  const [headerNotifFilter, setHeaderNotifFilter] = useState('system');
+  const [headerNotifFilter, setHeaderNotifFilter] = useState('alerts');
   const [alertModal, setAlertModal] = useState(null); // { alert, notification }
   const [lastNotificationCount, setLastNotificationCount] = useState(0);
   const audioRef = useRef(null);
@@ -45,25 +48,28 @@ export default function DashboardContent({ user }) {
   const formatRelativeTime = (dateString) => {
     if (!dateString) return 'N/A';
     try {
+      // Parse the date string directly (it's already in UTC from the database)
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
         console.error(`Invalid date string: ${dateString}`);
         return 'N/A';
       }
 
-      const dateManila = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+      // Get current time
       const now = new Date();
-      const nowManila = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
-
-      const diffMs = nowManila - dateManila;
+      
+      // Calculate difference in milliseconds
+      const diffMs = now - date;
+      const diffSecs = Math.floor(diffMs / 1000);
       const diffMins = Math.floor(diffMs / (1000 * 60));
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-      console.log(`Notification date: ${dateString}, Manila: ${dateManila}, Now: ${nowManila}, Diff: ${diffMins} mins`);
-
-      if (diffMs < 0 || diffMins < 1) {
+      // Return relative time
+      if (diffSecs < 30) {
         return 'just now';
+      } else if (diffMins < 1) {
+        return `${diffSecs} sec${diffSecs !== 1 ? 's' : ''} ago`;
       } else if (diffMins < 60) {
         return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
       } else if (diffHours < 24) {
@@ -71,7 +77,13 @@ export default function DashboardContent({ user }) {
       } else if (diffDays < 7) {
         return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
       } else {
-        const options = { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' };
+        // For older dates, show formatted date
+        const options = { 
+          timeZone: 'Asia/Manila', 
+          month: 'short', 
+          day: 'numeric',
+          year: diffDays > 365 ? 'numeric' : undefined
+        };
         return date.toLocaleString('en-PH', options);
       }
     } catch (error) {
@@ -254,29 +266,17 @@ export default function DashboardContent({ user }) {
 
   const handleLogout = async () => {
     try {
-      // Prefer sendBeacon to avoid aborted fetch errors on navigation/unload
-      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-        const payload = new Blob([JSON.stringify({})], { type: 'application/json' });
-        navigator.sendBeacon('/api/logout', payload);
-      } else {
-        // Fallback: keepalive fetch with a short timeout
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3000);
-        try {
-          await fetch('/api/logout', {
-            method: 'POST',
-            keepalive: true,
-            headers: { 'Content-Type': 'application/json' },
-            signal: controller.signal,
-          });
-        } finally {
-          clearTimeout(timeout);
-        }
-      }
-    } catch (e) {
-      // Swallow network abort errors caused by navigation
+      // Call logout API
+      await fetch('/api/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Continue with redirect even if API call fails
     } finally {
-      window.location.assign('/login');
+      // Redirect to login page
+      window.location.href = '/login';
     }
   };
 

@@ -1,3 +1,5 @@
+import logger from '@/lib/logger';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -6,7 +8,7 @@ export default async function handler(req, res) {
   try {
     const formData = req.body;
 
-    // Generate AI-like summary based on form data
+    // Generate comprehensive summary based on ALL form data
     const summary = generateNarrative(formData);
 
     return res.status(200).json({ 
@@ -14,7 +16,7 @@ export default async function handler(req, res) {
       summary 
     });
   } catch (error) {
-    console.error('Error generating summary:', error);
+    logger.error('Error generating summary:', error.message);
     return res.status(500).json({ error: 'Failed to generate summary' });
   }
 }
@@ -122,9 +124,72 @@ function generateNarrative(data) {
     parts.push(`Ambulance Unit: ${data.ambulanceNo}`);
   }
 
-  // Additional Details
-  if (data.narrative) {
-    parts.push(`Additional notes: ${data.narrative}`);
+  // Medical History
+  if (data.medicalHistory) {
+    parts.push(`Medical history: ${data.medicalHistory}`);
+  }
+
+  // Allergies
+  if (data.allergies) {
+    parts.push(`Known allergies: ${data.allergies}`);
+  }
+
+  // Medications
+  if (data.medications) {
+    parts.push(`Current medications: ${data.medications}`);
+  }
+
+  // Assessment
+  if (data.assessment) {
+    parts.push(`Assessment: ${data.assessment}`);
+  }
+
+  // Treatment Provided
+  if (data.treatment) {
+    parts.push(`Treatment provided: ${data.treatment}`);
+  }
+
+  // Patient Disposition
+  if (data.disposition) {
+    parts.push(`Patient disposition: ${data.disposition}`);
+  }
+
+  // Body Diagram Injuries
+  if (data.bodyDiagram && Array.isArray(data.bodyDiagram) && data.bodyDiagram.length > 0) {
+    const injuries = data.bodyDiagram
+      .filter(entry => entry && entry.bodyPart && entry.condition)
+      .map(entry => `${entry.condition} on ${entry.bodyPart}`)
+      .join(', ');
+    if (injuries) {
+      parts.push(`Documented injuries: ${injuries}`);
+    }
+  }
+
+  // Under Influence
+  if (data.underInfluence) {
+    const influences = [];
+    if (data.underInfluence.alcohol) influences.push('alcohol');
+    if (data.underInfluence.drugs) influences.push('drugs');
+    if (influences.length > 0) {
+      parts.push(`Patient appeared to be under the influence of: ${influences.join(', ')}`);
+    }
+  }
+
+  // Relationship to Patient
+  if (data.relationshipToPatient && data.relationshipToPatient !== 'Other') {
+    parts.push(`Relationship to patient: ${data.relationshipToPatient}`);
+  } else if (data.relationshipOther) {
+    parts.push(`Relationship to patient: ${data.relationshipOther}`);
+  }
+
+  // Category (Driver/Passenger/Patient)
+  if (data.category) {
+    parts.push(`Category: ${data.category}`);
+  }
+
+  // Recorder Information
+  if (data.recorder) {
+    parts.push(`Report recorded by: ${data.recorder}`);
   }
 
   // Join all parts with proper punctuation

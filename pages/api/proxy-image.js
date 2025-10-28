@@ -1,13 +1,15 @@
 // pages/api/proxy-image.js
+import logger from '@/lib/logger';
+
 export default async function handler(req, res) {
   const { url } = req.query;
   if (!url) {
-    console.error("Image proxy error: No URL provided");
+    logger.error("Image proxy error: No URL provided");
     return res.status(400).json({ error: "Image URL is required" });
   }
 
   try {
-    console.log("Fetching image from Cloudinary:", url);
+    logger.info("Fetching image from Cloudinary:", url);
     const response = await fetch(url, {
       headers: {
         Accept: "image/*",
@@ -17,7 +19,7 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "No error details available");
-      console.error(`Cloudinary fetch failed: HTTP ${response.status} - ${errorText}`);
+      logger.error(`Cloudinary fetch failed: HTTP ${response.status}`);
       return res
         .status(response.status)
         .json({ error: `Cloudinary fetch failed: ${errorText}` });
@@ -30,7 +32,7 @@ export default async function handler(req, res) {
     // Stream instead of buffering
     response.body.pipe(res);
   } catch (error) {
-    console.error("Image proxy error:", error.message, { url });
+    logger.error("Image proxy error:", error.message);
     res.status(500).json({ error: `Failed to fetch image: ${error.message}` });
   }
 }

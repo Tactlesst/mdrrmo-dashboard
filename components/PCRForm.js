@@ -48,6 +48,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
     responseTeam: [],
     contactPerson: "",
     relationship: "",
+    relationshipOther: "",
     contactNumber: "",
     doi: "",
     toi: "",
@@ -207,13 +208,36 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
         location: prev.location && prev.caseType === initialData?.caseType ? prev.location : defaultAlert?.address || "",
       }));
     } else if (name === "alertId") {
-      // Update location based on selected alert
+      // Update location and time based on selected alert
       const selectedAlert = alerts.find(alert => alert.id === value);
       console.log("Selected alertId:", value, "Selected alert:", selectedAlert);
+      
+      // Extract time from alert's responded_at timestamp
+      let extractedTime = "";
+      let extractedPeriod = "AM";
+      
+      if (selectedAlert?.responded_at) {
+        try {
+          const date = new Date(selectedAlert.responded_at);
+          const hours24 = date.getHours();
+          const minutes = date.getMinutes();
+          
+          // For the time input (24-hour format for HTML input type="time")
+          extractedTime = `${String(hours24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+          
+          // Determine AM/PM
+          extractedPeriod = hours24 >= 12 ? "PM" : "AM";
+        } catch (error) {
+          console.error("Error extracting time from alert:", error);
+        }
+      }
+      
       setFormData(prev => ({
         ...prev,
         alertId: value,
         location: selectedAlert?.address || prev.location,
+        timeCall: extractedTime || prev.timeCall,
+        timeCallPeriod: extractedPeriod,
       }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -269,9 +293,21 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
     try {
       setIsSubmitting(true);
       
-      // Prepare data for summary generation
+      // Confirm if there's existing text
+      if (formData.narrative && formData.narrative.trim().length > 0) {
+        const confirmed = window.confirm(
+          'This will replace the current narrative text with an AI-generated summary based on all form fields. Continue?'
+        );
+        if (!confirmed) {
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
+      // Prepare data for summary generation (exclude current narrative to avoid duplication)
       const summaryData = {
         ...formData,
+        narrative: '', // Don't include existing narrative
         timeCall: formatTimeToAMPM(formData.timeCall, formData.timeCallPeriod),
         timeArrivedScene: formatTimeToAMPM(formData.timeArrivedScene, formData.timeArrivedScenePeriod),
         timeLeftScene: formatTimeToAMPM(formData.timeLeftScene, formData.timeLeftScenePeriod),
@@ -290,17 +326,17 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
 
       const { summary } = await response.json();
       
-      // Update narrative field with generated summary
+      // REPLACE narrative field with generated summary
       setFormData(prev => ({
         ...prev,
-        narrative: summary,
+        narrative: summary, // This completely replaces the existing text
       }));
 
       // Show success message
-      alert('AI Summary generated successfully!');
+      alert('✅ AI Summary generated successfully! The narrative has been updated with a comprehensive summary of all form fields.');
     } catch (error) {
       console.error('Error generating summary:', error);
-      alert('Failed to generate summary. Please try again.');
+      alert('❌ Failed to generate summary. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -702,6 +738,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Time of Call:
               </label>
+              <p className="text-xs text-gray-500 mb-1">Auto-populated from alert time</p>
               <div className="flex space-x-2">
                 <input
                   type="time"
@@ -989,14 +1026,46 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Relationship:
               </label>
-              <input
-                type="text"
+              <select
                 name="relationship"
                 value={formData.relationship}
                 onChange={handleChange}
                 className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
-              />
+              >
+                <option value="">Select Relationship</option>
+                <option value="Spouse">Spouse</option>
+                <option value="Mother">Mother</option>
+                <option value="Father">Father</option>
+                <option value="Son">Son</option>
+                <option value="Daughter">Daughter</option>
+                <option value="Brother">Brother</option>
+                <option value="Sister">Sister</option>
+                <option value="Sibling">Sibling</option>
+                <option value="Grandmother">Grandmother</option>
+                <option value="Grandfather">Grandfather</option>
+                <option value="Aunt">Aunt</option>
+                <option value="Uncle">Uncle</option>
+                <option value="Cousin">Cousin</option>
+                <option value="Nephew">Nephew</option>
+                <option value="Niece">Niece</option>
+                <option value="Friend">Friend</option>
+                <option value="Neighbor">Neighbor</option>
+                <option value="Guardian">Guardian</option>
+                <option value="Caregiver">Caregiver</option>
+                <option value="Other">Other</option>
+              </select>
+              {formData.relationship === "Other" && (
+                <input
+                  type="text"
+                  name="relationshipOther"
+                  value={formData.relationshipOther}
+                  onChange={handleChange}
+                  placeholder="Please specify relationship"
+                  className="mt-2 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
+                  disabled={isSubmitting || readOnly}
+                />
+              )}
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">

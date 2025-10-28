@@ -1,6 +1,7 @@
 
 import pool from "@/lib/db";
 import jwt from "jsonwebtoken";
+import logger from "@/lib/logger";
 
 export default async function handler(req, res) {
   if (req.method === "GET") {
@@ -12,7 +13,7 @@ export default async function handler(req, res) {
       `);
       res.status(200).json({ data: rows });
     } catch (error) {
-      console.error("Failed to fetch PCR forms:", error);
+      logger.error("Failed to fetch PCR forms:", error.message);
       res.status(500).json({ error: "Failed to fetch PCR forms" });
     }
   } else if (req.method === "POST") {
@@ -49,7 +50,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Missing required fields: patientName, date, recorder" });
       }
 
-      console.log("Incoming POST req.body:", JSON.stringify(req.body, null, 2));
+      logger.debug("Incoming POST req.body:", JSON.stringify(req.body, null, 2));
 
       const validateTimeFormat = (time) => {
         return time && /^\d{2}:\d{2}\s(AM|PM)$/.test(time) ? time : "";
@@ -124,13 +125,13 @@ export default async function handler(req, res) {
           ]
         );
       } catch (err) {
-        console.error('PCR create notification failed:', err.message);
+        logger.error('PCR create notification failed:', err.message);
       }
 
-      console.log("Inserted data:", JSON.stringify(rows[0], null, 2));
+      logger.debug("Inserted data:", JSON.stringify(rows[0], null, 2));
       res.status(201).json({ data: rows[0] });
     } catch (error) {
-      console.error("Failed to save PCR form:", error);
+      logger.error("Failed to save PCR form:", error.message);
       res.status(500).json({ error: "Failed to save PCR form" });
     }
   } else if (req.method === "PUT") {
@@ -170,7 +171,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Missing required fields: patient_name, date, recorder" });
       }
 
-      console.log("Incoming PUT req.body:", JSON.stringify(req.body, null, 2));
+      logger.debug("Incoming PUT req.body:", JSON.stringify(req.body, null, 2));
 
       // Fetch existing form to merge with updates
       const existingFormRes = await pool.query(
@@ -261,13 +262,13 @@ export default async function handler(req, res) {
           ]
         );
       } catch (err) {
-        console.error('PCR update notification failed (/api/pcr PUT):', err.message);
+        logger.error('PCR update notification failed (/api/pcr PUT):', err.message);
       }
 
-      console.log("Updated data:", JSON.stringify(rows[0], null, 2));
+      logger.debug("Updated data:", JSON.stringify(rows[0], null, 2));
       res.status(200).json({ data: rows[0] });
     } catch (error) {
-      console.error("Failed to update PCR form:", error);
+      logger.error("Failed to update PCR form:", error.message);
       res.status(500).json({ error: "Failed to update PCR form" });
     }
   } else {

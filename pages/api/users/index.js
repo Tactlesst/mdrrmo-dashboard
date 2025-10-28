@@ -1,4 +1,6 @@
 import pool from '@/lib/db';
+import jwt from 'jsonwebtoken';
+import logger from '@/lib/logger';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -52,7 +54,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json(normalize(rows));
   } catch (err) {
-    console.error('Error fetching users:', err);
+    logger.error('Error fetching users:', err.message);
     return res.status(500).json({ message: 'Server error' });
   }
 }

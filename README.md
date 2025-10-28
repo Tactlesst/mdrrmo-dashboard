@@ -1,6 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# MDRRMO Dashboard
 
-## Getting Started
+A comprehensive Municipal Disaster Risk Reduction and Management Office (MDRRMO) dashboard system built with Next.js, featuring real-time emergency response management, live status tracking, and patient care reporting.
+
+[![Netlify Status](https://api.netlify.com/api/v1/badges/2e6f5f05-46f6-4ee6-a776-b300a7607c8e/deploy-status)](https://app.netlify.com/projects/roadacci/deploys)
+
+## 📚 Documentation
+
+### Quick Access
+- **[DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md)** - Complete documentation index
+- **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** - Quick reference guide
+- **[SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md)** - System architecture overview
+
+### Key Features Documentation
+- **[SECURITY_ENHANCEMENTS.md](./SECURITY_ENHANCEMENTS.md)** - Security features and best practices
+- **[VALIDATION_SUMMARY.md](./VALIDATION_SUMMARY.md)** - API validation and error handling
+- **[OPTIMIZATION_SUMMARY.md](./OPTIMIZATION_SUMMARY.md)** - Performance optimizations (3-5x faster)
+- **[CHAT_FUNCTIONALITY_UPDATE.md](./CHAT_FUNCTIONALITY_UPDATE.md)** - Real-time chat system
+- **[LIVE_STATUS_SYSTEM.md](./LIVE_STATUS_SYSTEM.md)** - Live user status tracking
+
+## ✨ Key Features
+
+- 🔐 **Secure Authentication** - JWT-based auth with bcrypt password hashing
+- 👥 **Live Status Tracking** - Real-time online/offline user status
+- 💬 **Real-Time Chat** - Instant messaging between admins and responders
+- 📋 **PCR Forms** - Patient Care Report forms with auto-population
+- 🗺️ **Interactive Maps** - Leaflet-based emergency location tracking
+- 📊 **Analytics Dashboard** - Response time analytics and reporting
+- ⚡ **High Performance** - 3-5x faster load times with optimizations
+- 🔒 **Rate Limiting** - Protection against brute force attacks
+
+## 🚀 Getting Started
 
 First, run the development server:
 
@@ -33,13 +62,66 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## 🛠️ Technology Stack
 
+- **Frontend**: Next.js, React, Tailwind CSS
+- **Backend**: Next.js API Routes, Node.js
+- **Database**: PostgreSQL
+- **Maps**: Leaflet
+- **Charts**: Victory
+- **Authentication**: JWT + bcrypt
+- **Deployment**: Netlify
 
+## 📦 Installation
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/2e6f5f05-46f6-4ee6-a776-b300a7607c8e/deploy-status)](https://app.netlify.com/projects/roadacci/deploys)
+```bash
+# Install dependencies
+npm install
 
-## Deploy on Vercel
+# Set up environment variables
+# Create .env.local with:
+# DATABASE_URL=your_postgresql_connection_string
+# JWT_SECRET=your_secret_key
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Run database migrations
+psql -U username -d database -f database-migration-add-indexes.sql
+psql -U username -d database -f database-migration-add-chat.sql
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+# Start development server
+npm run dev
+```
+
+## 🔒 Security Features
+
+- ✅ Bcrypt password hashing
+- ✅ JWT token authentication
+- ✅ HttpOnly secure cookies
+- ✅ Rate limiting (5 attempts per 15 min)
+- ✅ SQL injection prevention
+- ✅ XSS protection
+- ✅ CSRF protection
+
+## 📈 Performance
+
+- **Dashboard Load**: 3-5x faster (0.5-1.5s)
+- **API Calls**: Parallel execution
+- **Database**: Optimized with indexes (4-5x faster)
+- **Images**: Optimized and lazy-loaded
+
+## 📖 Additional Resources
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Learn Next.js](https://nextjs.org/learn-pages-router)
+- [Project Documentation Index](./DOCUMENTATION_INDEX.md)
+
+## 🤝 Contributing
+
+For detailed information about the system architecture, features, and implementation details, please refer to the documentation files listed above.
+
+## 📄 License
+
+This project is part of the MDRRMO Dashboard system.
+
+---
+
+**For complete documentation, start with [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md)**

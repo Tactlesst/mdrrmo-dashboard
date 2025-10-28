@@ -1,4 +1,5 @@
-import { v2 as cloudinary } from 'cloudinary';
+import { v2 as cloudinary } from '@/lib/cloudinary';
+import logger from '@/lib/logger';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -28,7 +29,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ url: result.secure_url });
   } catch (err) {
-    console.error('Upload error:', err);
+    logger.error('Upload error:', err.message);
     res.status(500).json({ message: 'Image upload failed' });
   }
 }

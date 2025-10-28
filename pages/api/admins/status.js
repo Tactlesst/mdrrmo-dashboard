@@ -3,6 +3,22 @@ import pool from '@/lib/db';
 
 export default async function handler(req, res) {
   try {
+    // Auto-cleanup: Mark inactive sessions as offline (last_active_at > 2 minutes)
+    await pool.query(`
+      UPDATE admin_sessions 
+      SET is_active = FALSE 
+      WHERE last_active_at < NOW() - INTERVAL '2 minutes' 
+      AND is_active = TRUE
+    `);
+
+    await pool.query(`
+      UPDATE responder_sessions 
+      SET is_active = FALSE, 
+          status = 'offline' 
+      WHERE last_active_at < NOW() - INTERVAL '2 minutes' 
+      AND is_active = TRUE
+    `);
+
     // Fetch admins with session status
     const adminResult = await pool.query(`
       SELECT 
@@ -14,13 +30,14 @@ export default async function handler(req, res) {
         a.contact,
         a.address,
         COALESCE(s.is_active, false) AS is_active,
+        s.last_active_at,
         CASE 
           WHEN s.is_active THEN 'Online' 
           ELSE 'Offline' 
         END AS status
       FROM admins a
       LEFT JOIN LATERAL (
-        SELECT is_active
+        SELECT is_active, last_active_at
         FROM admin_sessions
         WHERE admin_email = a.email
         ORDER BY last_active_at DESC
@@ -40,6 +57,7 @@ export default async function handler(req, res) {
         r.contact,
         r.address,
         COALESCE(s.is_active, false) AS is_active,
+        s.last_active_at,
         COALESCE(s.status, 'offline') AS responder_status,
         CASE 
           WHEN s.status = 'online' THEN 'Online'
@@ -49,7 +67,7 @@ export default async function handler(req, res) {
         END AS status
       FROM responders r
       LEFT JOIN LATERAL (
-        SELECT is_active, status
+        SELECT is_active, status, last_active_at
         FROM responder_sessions
         WHERE responder_id = r.id
         ORDER BY last_active_at DESC

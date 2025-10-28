@@ -1,5 +1,6 @@
 import pool from "@/lib/db";
 import jwt from "jsonwebtoken";
+import logger from "@/lib/logger";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -39,14 +40,76 @@ export default async function handler(req, res) {
 
     const { fullName, email, dob, contact, address, role } = req.body;
 
+    // Validation: Required fields
     if (!fullName || !email || !role) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    let insertQuery = "";
-    let values = [];
+    // Validation: Email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Invalid email format" });
+    }
+
+    // Validation: Name length
+    if (fullName.trim().length < 2) {
+      return res.status(400).json({ error: "Full name must be at least 2 characters" });
+    }
+
+    // Validation: Role validation
+    const validRoles = ["Residents", "Responders", "Co-Admins"];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: "Invalid role specified" });
+    }
+
+    // Determine target table based on role
     let targetTable = "";
     let targetRole = "";
+    if (role === "Residents") {
+      targetTable = "users";
+      targetRole = "Resident";
+    } else if (role === "Responders") {
+      targetTable = "responders";
+      targetRole = "Responder";
+    } else if (role === "Co-Admins") {
+      targetTable = "admins";
+      targetRole = "Co-Admin";
+    }
+
+    // Validation: Check for duplicate email in target table
+    const duplicateCheck = await pool.query(
+      `SELECT id FROM ${targetTable} WHERE email = $1`,
+      [email]
+    );
+    if (duplicateCheck.rows.length > 0) {
+      return res.status(409).json({ error: `Email already registered in this role` });
+    }
+
+    // Validation: Cross-table email check
+    const crossCheckQueries = [];
+    if (role !== "Residents") {
+      crossCheckQueries.push(pool.query("SELECT id FROM users WHERE email = $1", [email]));
+    }
+    if (role !== "Responders") {
+      crossCheckQueries.push(pool.query("SELECT id FROM responders WHERE email = $1", [email]));
+    }
+    if (role !== "Co-Admins") {
+      crossCheckQueries.push(pool.query("SELECT id FROM admins WHERE email = $1", [email]));
+    }
+
+    const crossCheckResults = await Promise.all(crossCheckQueries);
+    for (let i = 0; i < crossCheckResults.length; i++) {
+      if (crossCheckResults[i].rows.length > 0) {
+        const existingRole = role === "Residents" ? 
+          (i === 0 ? "Responder" : "Admin") : 
+          (role === "Responders" ? (i === 0 ? "Resident" : "Admin") : 
+          (i === 0 ? "Resident" : "Responder"));
+        return res.status(409).json({ error: `Email already registered as ${existingRole}` });
+      }
+    }
+
+    let insertQuery = "";
+    let values = [];
 
     if (role === "Residents") {
       targetTable = "users";
@@ -128,7 +191,7 @@ export default async function handler(req, res) {
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error("Error adding user:", error);
+    logger.error("Error adding user:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 }

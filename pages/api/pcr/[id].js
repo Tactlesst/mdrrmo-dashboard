@@ -1,5 +1,6 @@
 import pool from "@/lib/db";
 import jwt from "jsonwebtoken";
+import logger from "@/lib/logger";
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -65,7 +66,7 @@ export default async function handler(req, res) {
 
         res.status(200).json({ success: true, data: responseData });
       } catch (error) {
-        console.error("Error fetching PCR form:", error);
+        logger.error("Error fetching PCR form:", error.message);
         res.status(500).json({ error: "Database error while fetching PCR form." });
       }
     } else if (req.method === "PUT") {
@@ -145,7 +146,7 @@ export default async function handler(req, res) {
             ]
           );
         } catch (err) {
-          console.error('PCR update notification failed:', err.message);
+          logger.error('PCR update notification failed:', err.message);
         }
 
         // Format the response data with proper date handling
@@ -165,7 +166,7 @@ export default async function handler(req, res) {
 
         res.status(200).json({ success: true, data: responseData });
       } catch (error) {
-        console.error("Error updating PCR form:", error);
+        logger.error("Error updating PCR form:", error.message);
         res.status(500).json({ error: "Database error while updating PCR form." });
       }
     } else if (req.method === "DELETE") {
@@ -181,7 +182,7 @@ export default async function handler(req, res) {
 
         res.status(200).json({ success: true, message: "Form deleted successfully." });
       } catch (error) {
-        console.error("Error deleting PCR form:", error);
+        logger.error("Error deleting PCR form:", error.message);
         res.status(500).json({ error: "Database error while deleting PCR form." });
       }
     } else {
@@ -189,7 +190,7 @@ export default async function handler(req, res) {
       res.status(405).end(`Method ${req.method} Not Allowed`);
     }
   } catch (error) {
-    console.error("Authentication error:", error);
+    logger.error("Authentication error:", error.message);
     res.status(401).json({ error: "Invalid or expired token" });
   }
 }

@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import SecurityLogs from './SecurityLogs';
+import { FiSettings, FiShield } from 'react-icons/fi';
 
 export default function Settings() {
+  const [activeTab, setActiveTab] = useState('general');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [apkUrl, setApkUrl] = useState('');
   const [responderApkUrl, setResponderApkUrl] = useState('');
@@ -49,13 +52,48 @@ export default function Settings() {
   };
 
   return (
-    <div className="max-w-xl">
-      <h2 className="text-xl font-semibold text-gray-800 mb-4">Settings</h2>
-      <div className="space-y-4">
+    <div className="max-w-6xl">
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Settings</h2>
+      
+      {/* Tabs */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="flex space-x-8">
+          <button
+            onClick={() => setActiveTab('general')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+              activeTab === 'general'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <FiSettings />
+            General Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+              activeTab === 'security'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <FiShield />
+            Security Logs
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'general' && (
+        <div className="max-w-xl">
+          <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">MDRRMO Website URL</label>
+          <label htmlFor="website-url" className="block text-sm font-medium text-gray-700 mb-1">MDRRMO Website URL</label>
           <input
+            id="website-url"
+            name="website-url"
             type="url"
+            autoComplete="url"
             value={websiteUrl}
             onChange={(e) => setWebsiteUrl(e.target.value)}
             className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
@@ -63,9 +101,12 @@ export default function Settings() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Default APK URL (fallback)</label>
+          <label htmlFor="default-apk-url" className="block text-sm font-medium text-gray-700 mb-1">Default APK URL (fallback)</label>
           <input
+            id="default-apk-url"
+            name="default-apk-url"
             type="text"
+            autoComplete="off"
             value={apkUrl}
             onChange={(e) => setApkUrl(e.target.value)}
             className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
@@ -74,10 +115,13 @@ export default function Settings() {
           <p className="text-xs text-gray-500 mt-1">Place files in <code>/public/apk/</code> or provide an external link.</p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Responder APK URL</label>
+          <label htmlFor="responder-apk-url" className="block text-sm font-medium text-gray-700 mb-1">Responder APK URL</label>
           <div className="flex gap-2">
             <input
+              id="responder-apk-url"
+              name="responder-apk-url"
               type="text"
+              autoComplete="off"
               value={responderApkUrl}
               onChange={(e) => setResponderApkUrl(e.target.value)}
               className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
@@ -97,10 +141,13 @@ export default function Settings() {
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Resident APK URL</label>
+          <label htmlFor="resident-apk-url" className="block text-sm font-medium text-gray-700 mb-1">Resident APK URL</label>
           <div className="flex gap-2">
             <input
+              id="resident-apk-url"
+              name="resident-apk-url"
               type="text"
+              autoComplete="off"
               value={residentApkUrl}
               onChange={(e) => setResidentApkUrl(e.target.value)}
               className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
@@ -131,7 +178,14 @@ export default function Settings() {
             <span className={`text-sm ${message === 'Saved' ? 'text-green-600' : 'text-red-600'}`}>{message}</span>
           )}
         </div>
-      </div>
+          </div>
+        </div>
+      )}
+
+      {/* Security Logs Tab */}
+      {activeTab === 'security' && (
+        <SecurityLogs />
+      )}
     </div>
   );
 }

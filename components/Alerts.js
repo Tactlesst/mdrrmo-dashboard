@@ -61,13 +61,17 @@ export default function Alerts() {
 
   return (
     <div className="flex flex-col lg:flex-row bg-gray-100 font-serif h-[40vh] md:h-[70vh]">
-      <div className="flex-1 bg-white rounded-xl shadow-lg p-3">
-        <h2 className="text-xl font-bold mb-2">Incident Map</h2>
-        <AlertMap
-          alerts={normalizedAlerts}
-          fallbackCenter={fallbackCenter}
-          selectedAlertId={selectedAlertId}
-        />
+      <div className="flex-1 bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="px-3 pt-3 pb-2">
+          <h2 className="text-xl font-bold">Incident Map</h2>
+        </div>
+        <div className="h-[calc(100%-3rem)]">
+          <AlertMap
+            alerts={normalizedAlerts}
+            fallbackCenter={fallbackCenter}
+            selectedAlertId={selectedAlertId}
+          />
+        </div>
       </div>
 
       <AlertList
