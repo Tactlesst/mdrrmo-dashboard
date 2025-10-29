@@ -2,11 +2,23 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: [
-      'res.cloudinary.com',
-      'images.icon-icons.com',
-      'via.placeholder.com',
-      'unpkg.com',
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.icon-icons.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'via.placeholder.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'unpkg.com',
+      },
     ],
     formats: ['image/avif', 'image/webp'],
   },

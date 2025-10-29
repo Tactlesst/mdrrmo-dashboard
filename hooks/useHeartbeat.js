@@ -1,5 +1,5 @@
 // hooks/useHeartbeat.js
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 /**
  * Custom hook to send heartbeat pings to keep session alive
@@ -7,37 +7,112 @@ import { useEffect } from 'react';
  * @param {number} interval - Heartbeat interval in milliseconds (default: 30000 = 30 seconds)
  */
 export default function useHeartbeat(userType = 'admin', interval = 30000) {
+  const lastHeartbeatRef = useRef(Date.now());
+  const intervalRef = useRef(null);
+  const rafRef = useRef(null);
+
   useEffect(() => {
     // Determine the correct heartbeat endpoint based on user type
     const endpoint = userType === 'responder' 
       ? '/api/responders/heartbeat' 
       : '/api/heartbeat';
 
-    // Function to send heartbeat
-    const sendHeartbeat = async () => {
+    let isActive = true;
+
+    // Function to send heartbeat with retry logic
+    const sendHeartbeat = async (retryCount = 0) => {
+      if (!isActive) return;
+
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
           credentials: 'include', // Include cookies for JWT token
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          // Add keepalive to ensure request completes even if page is closing
+          keepalive: true,
         });
 
         if (!response.ok) {
           console.error('Heartbeat failed:', response.status);
+          // Retry once if failed
+          if (retryCount < 1) {
+            setTimeout(() => sendHeartbeat(retryCount + 1), 2000);
+          }
+        } else {
+          lastHeartbeatRef.current = Date.now();
         }
       } catch (error) {
         console.error('Heartbeat error:', error);
+        // Retry once if network error
+        if (retryCount < 1) {
+          setTimeout(() => sendHeartbeat(retryCount + 1), 2000);
+        }
       }
+    };
+
+    // Check if heartbeat is needed (handles throttled intervals)
+    const checkAndSendHeartbeat = () => {
+      const now = Date.now();
+      const timeSinceLastHeartbeat = now - lastHeartbeatRef.current;
+
+      // If enough time has passed, send heartbeat
+      if (timeSinceLastHeartbeat >= interval) {
+        sendHeartbeat();
+      }
+    };
+
+    // Handle page visibility changes
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page became visible, send immediate heartbeat
+        console.log('Page visible, sending heartbeat');
+        sendHeartbeat();
+      }
+    };
+
+    // Handle page focus
+    const handleFocus = () => {
+      const timeSinceLastHeartbeat = Date.now() - lastHeartbeatRef.current;
+      // If more than interval time passed, send heartbeat
+      if (timeSinceLastHeartbeat >= interval) {
+        console.log('Page focused, sending heartbeat');
+        sendHeartbeat();
+      }
+    };
+
+    // Use requestAnimationFrame for more reliable timing
+    const scheduleCheck = () => {
+      if (!isActive) return;
+      checkAndSendHeartbeat();
+      rafRef.current = requestAnimationFrame(scheduleCheck);
     };
 
     // Send initial heartbeat immediately
     sendHeartbeat();
 
-    // Set up interval for periodic heartbeats
-    const heartbeatInterval = setInterval(sendHeartbeat, interval);
+    // Set up interval for periodic heartbeats (fallback)
+    intervalRef.current = setInterval(checkAndSendHeartbeat, interval);
 
-    // Cleanup function to clear interval when component unmounts
+    // Use RAF for more reliable timing
+    rafRef.current = requestAnimationFrame(scheduleCheck);
+
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    // Cleanup function
     return () => {
-      clearInterval(heartbeatInterval);
+      isActive = false;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [userType, interval]);
 }

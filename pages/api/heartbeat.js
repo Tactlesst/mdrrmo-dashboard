@@ -1,5 +1,5 @@
 // pages/api/heartbeat.js
-import pool from '@/lib/db';
+import { executeQuery } from '@/lib/dbQuery';
 import jwt from 'jsonwebtoken';
 import { parse } from 'cookie';
 
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     const adminEmail = decoded.email;
 
     // Update last_active_at timestamp in admin_sessions
-    await pool.query(
+    await executeQuery(
       `UPDATE admin_sessions 
        SET last_active_at = NOW(), 
            is_active = TRUE 

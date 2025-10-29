@@ -320,6 +320,7 @@ CREATE TABLE public.pcr_forms (
     created_by_type text NOT NULL,
     created_by_id integer NOT NULL,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    alert_id uuid,
     CONSTRAINT pcr_forms_created_by_type_check CHECK ((created_by_type = ANY (ARRAY['admin'::text, 'responder'::text])))
 );
 
@@ -1802,6 +1803,20 @@ CREATE INDEX idx_token_blacklist_responder_id ON public.token_blacklist USING bt
 
 
 --
+-- Name: idx_pcr_forms_alert_id; Type: INDEX; Schema: public; Owner: neondb_owner
+--
+
+CREATE INDEX idx_pcr_forms_alert_id ON public.pcr_forms USING btree (alert_id);
+
+
+--
+-- Name: idx_pcr_forms_created_by; Type: INDEX; Schema: public; Owner: neondb_owner
+--
+
+CREATE INDEX idx_pcr_forms_created_by ON public.pcr_forms USING btree (created_by_type, created_by_id);
+
+
+--
 -- Name: admin_sessions admin_sessions_admin_email_fkey; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
 --
 
@@ -1911,6 +1926,30 @@ ALTER TABLE ONLY public.responder_sessions
 
 ALTER TABLE ONLY public.streets
     ADD CONSTRAINT streets_barangay_id_fkey FOREIGN KEY (barangay_id) REFERENCES public.barangays(id);
+
+
+--
+-- Name: pcr_forms pcr_forms_alert_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+--
+
+ALTER TABLE ONLY public.pcr_forms
+    ADD CONSTRAINT pcr_forms_alert_id_fkey FOREIGN KEY (alert_id) REFERENCES public.alerts(id) ON DELETE SET NULL;
+
+
+--
+-- Name: pcr_forms pcr_forms_created_by_admin_fkey; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+--
+
+ALTER TABLE ONLY public.pcr_forms
+    ADD CONSTRAINT pcr_forms_created_by_admin_fkey FOREIGN KEY (created_by_id) REFERENCES public.admins(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: pcr_forms pcr_forms_created_by_responder_fkey; Type: FK CONSTRAINT; Schema: public; Owner: neondb_owner
+--
+
+ALTER TABLE ONLY public.pcr_forms
+    ADD CONSTRAINT pcr_forms_created_by_responder_fkey FOREIGN KEY (created_by_id) REFERENCES public.responders(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
 
 
 --

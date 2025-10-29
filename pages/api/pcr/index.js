@@ -45,7 +45,7 @@ export default async function handler(req, res) {
 
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      const { patientName, date, location, recorder, poi, ...fullForm } = req.body;
+      const { patientName, date, location, recorder, poi, alertId, ...fullForm } = req.body;
       if (!patientName || !date || !recorder) {
         return res.status(400).json({ error: "Missing required fields: patientName, date, recorder" });
       }
@@ -65,9 +65,10 @@ export default async function handler(req, res) {
           recorder,
           full_form,
           created_by_type,
-          created_by_id
+          created_by_id,
+          alert_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
         `,
         [
@@ -77,6 +78,7 @@ export default async function handler(req, res) {
           recorder,
           {
             ...fullForm,
+            alertId: alertId || fullForm.alertId || null, // Keep in JSONB for backward compatibility
             poi: poi || {},
             timeCall: validateTimeFormat(fullForm.timeCall),
             timeArrivedScene: validateTimeFormat(fullForm.timeArrivedScene),
@@ -84,7 +86,8 @@ export default async function handler(req, res) {
             timeArrivedHospital: validateTimeFormat(fullForm.timeArrivedHospital),
           },
           type,
-          user.id
+          user.id,
+          alertId || fullForm.alertId || null // New alert_id column
         ]
       );
 
@@ -166,7 +169,7 @@ export default async function handler(req, res) {
 
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      const { patient_name, date, location, recorder, full_form } = req.body;
+      const { patient_name, date, location, recorder, full_form, alert_id } = req.body;
       if (!patient_name || !date || !recorder) {
         return res.status(400).json({ error: "Missing required fields: patient_name, date, recorder" });
       }
@@ -175,7 +178,7 @@ export default async function handler(req, res) {
 
       // Fetch existing form to merge with updates
       const existingFormRes = await pool.query(
-        "SELECT full_form FROM pcr_forms WHERE id = $1",
+        "SELECT full_form, alert_id FROM pcr_forms WHERE id = $1",
         [id]
       );
       if (existingFormRes.rows.length === 0) {
@@ -183,14 +186,19 @@ export default async function handler(req, res) {
       }
 
       const existingFullForm = existingFormRes.rows[0].full_form || {};
+      const existingAlertId = existingFormRes.rows[0].alert_id;
 
       const validateTimeFormat = (time) => {
         return time && /^\d{2}:\d{2}\s(AM|PM)$/.test(time) ? time : "";
       };
 
+      // Extract alertId from full_form if provided
+      const newAlertId = alert_id || full_form?.alertId || existingAlertId || null;
+
       const updatedFullForm = {
         ...existingFullForm,
         ...full_form,
+        alertId: newAlertId, // Keep in JSONB for backward compatibility
         poi: full_form.poi || existingFullForm.poi || {},
         timeCall: validateTimeFormat(full_form.timeCall || existingFullForm.timeCall),
         timeArrivedScene: validateTimeFormat(full_form.timeArrivedScene || existingFullForm.timeArrivedScene),
@@ -207,8 +215,9 @@ export default async function handler(req, res) {
           location = $3,
           recorder = $4,
           full_form = $5,
+          alert_id = $6,
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = $6
+        WHERE id = $7
         RETURNING *
         `,
         [
@@ -217,6 +226,7 @@ export default async function handler(req, res) {
           location || updatedFullForm.poi?.brgy || "",
           recorder,
           updatedFullForm,
+          newAlertId,
           id
         ]
       );

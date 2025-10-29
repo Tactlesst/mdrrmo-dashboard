@@ -66,6 +66,38 @@ const createCustomIcon = (type, status, L) => {
   });
 };
 
+const createResponderIcon = (isActive, heading, L) => {
+  if (!L) return null;
+  const color = isActive ? '#059669' : '#6B7280';
+  const bgColor = isActive ? '#D1FAE5' : '#E5E7EB';
+  const rotation = heading || 0;
+  
+  return L.divIcon({
+    className: 'custom-responder-marker',
+    html: `
+      <div style="transform: rotate(${rotation}deg); transition: transform 0.3s ease;">
+        <svg width="36" height="36" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <!-- Background circle -->
+          <circle cx="12" cy="12" r="11" fill="${bgColor}" stroke="${color}" stroke-width="2"/>
+          <!-- Ambulance/Emergency vehicle icon -->
+          <g transform="translate(12, 12)">
+            <!-- Vehicle body -->
+            <rect x="-6" y="-4" width="12" height="6" rx="1" fill="${color}"/>
+            <!-- Cross symbol -->
+            <rect x="-1" y="-3" width="2" height="4" fill="white"/>
+            <rect x="-2.5" y="-1.5" width="5" height="1" fill="white"/>
+            <!-- Direction indicator (arrow) -->
+            <path d="M 0,-6 L 2,-4 L -2,-4 Z" fill="${color}"/>
+          </g>
+        </svg>
+      </div>
+    `,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -18],
+  });
+};
+
 function MapResizer({ watch }) {
   const map = useMap();
 
@@ -149,6 +181,7 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
   const [leafletReady, setLeafletReady] = useState(false);
   const [L, setL] = useState(null);
   const isMountedRef = useRef(true);
+  const [responders, setResponders] = useState([]);
 
   const mapCenter = alerts.length ? alerts[0].coords : fallbackCenter;
 
@@ -159,6 +192,37 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
       isMountedRef.current = false;
     };
   }, []);
+
+  // Fetch responder locations
+  useEffect(() => {
+    const fetchResponders = async () => {
+      try {
+        const url = selectedAlertId 
+          ? `/api/responders/tracking?alertId=${selectedAlertId}`
+          : '/api/responders/tracking';
+        
+        console.log('Fetching responders from:', url);
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        console.log('Responder data received:', data);
+        
+        if (data.success && isMountedRef.current) {
+          setResponders(data.responders || []);
+          console.log(`✅ ${data.responders?.length || 0} responders loaded`);
+        } else {
+          console.warn('Failed to fetch responders:', data);
+        }
+      } catch (err) {
+        console.error('Error fetching responder locations:', err);
+      }
+    };
+
+    fetchResponders();
+    const interval = setInterval(fetchResponders, 10000); // Update every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [selectedAlertId]);
 
   // Lazy load Leaflet CSS and configure icons
   useEffect(() => {
@@ -190,6 +254,19 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
     style.textContent = `
       .tint-red { filter: hue-rotate(0deg) brightness(0.8) sepia(0.5); }
       .tint-orange { filter: hue-rotate(40deg) brightness(0.9) sepia(0.5); }
+      
+      /* Responder Marker Styles */
+      .custom-responder-marker {
+        background: transparent !important;
+        border: none !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .custom-responder-marker svg {
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+      }
       
       /* Modern Popup Styles */
       .leaflet-popup-content-wrapper {
@@ -310,6 +387,62 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
                         <span className="text-gray-800">
                           {alert.user || <span className="italic text-gray-400">Unassigned</span>}
                         </span>
+                      </div>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+
+          {/* Render responder markers */}
+          {responders.map((responder) => {
+            if (!responder.location?.latitude || !responder.location?.longitude) return null;
+
+            const responderCoords = [responder.location.latitude, responder.location.longitude];
+            const isActive = responder.status === 'online' || responder.status === 'ready to go';
+            const responderIcon = createResponderIcon(isActive, responder.location.heading, L);
+
+            return (
+              <Marker
+                key={`responder-${responder.responderId}`}
+                position={responderCoords}
+                icon={responderIcon}
+              >
+                <Popup maxWidth={220} className="custom-popup">
+                  <div className="p-0">
+                    <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-gray-200">
+                      <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-500'}`}></div>
+                      <h3 className="font-bold text-gray-800 text-sm">🚑 {responder.responderName}</h3>
+                    </div>
+                    
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {responder.status}
+                        </span>
+                      </div>
+                      
+                      {responder.location.speed && (
+                        <div className="flex items-start gap-1.5">
+                          <span className="text-gray-500">⚡</span>
+                          <span className="text-gray-800">Speed: {(responder.location.speed * 3.6).toFixed(1)} km/h</span>
+                        </div>
+                      )}
+                      
+                      {responder.assignment && (
+                        <div className="mt-2 p-1.5 bg-red-50 rounded border border-red-200">
+                          <p className="text-xs font-semibold text-red-800">
+                            Responding to: {responder.assignment.type}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-start gap-1.5 text-gray-500">
+                        <span>🕐</span>
+                        <span>Updated: {new Date(responder.location.updatedAt).toLocaleTimeString()}</span>
                       </div>
                     </div>
                   </div>
