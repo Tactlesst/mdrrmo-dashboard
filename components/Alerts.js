@@ -45,7 +45,7 @@ export default function Alerts() {
       }
     };
     fetchData();
-    const interval = setInterval(fetchData, 10000);
+    const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds (was 10 seconds)
     return () => clearInterval(interval);
   }, []);
 

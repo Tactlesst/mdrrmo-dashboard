@@ -355,7 +355,7 @@ export default function AddUserModal({ onClose, role, onAddUser }) {
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
-                placeholder="Enter full address"
+                placeholder="e.g. Brgy Talusan, Balingasag, Misamis Oriental"
                 className={`w-full border rounded-md px-3 py-2 ${
                   fieldErrors.address ? "border-red-500" : "border-gray-300"
                 }`}

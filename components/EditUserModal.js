@@ -11,6 +11,7 @@ export default function EditUserModal({ user, role, onClose, onSave }) {
     middleName: '',
     lastName: '',
     email: '',
+    dob: '',
     contact: '',
     address: '',
   });
@@ -39,11 +40,26 @@ export default function EditUserModal({ user, role, onClose, onSave }) {
     const lastName = nameParts.length > 2 ? nameParts.slice(-1)[0] : nameParts[1] || '';
     const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '';
 
+    // Format date to YYYY-MM-DD for date input
+    let formattedDob = '';
+    if (user.dob) {
+      try {
+        const date = new Date(user.dob);
+        if (!isNaN(date.getTime())) {
+          // Format as YYYY-MM-DD
+          formattedDob = date.toISOString().split('T')[0];
+        }
+      } catch (error) {
+        console.error('Error formatting date:', error);
+      }
+    }
+
     setFormData({
       firstName,
       middleName,
       lastName,
       email: user.email || '',
+      dob: formattedDob,
       contact: user.contact || '',
       address: user.address || '',
     });
@@ -108,14 +124,35 @@ export default function EditUserModal({ user, role, onClose, onSave }) {
 
   const validate = () => {
     const errors = {};
+    
     if (!formData.firstName || !formData.lastName)
       errors.fullName = 'First and last name are required';
+    
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       errors.email = 'Invalid email format';
+    
     if (!/^09\d{9}$/.test(formData.contact))
       errors.contact = 'Contact must be 11 digits starting with 09';
+    
+    if (!formData.dob) {
+      errors.dob = 'Date of birth is required';
+    } else {
+      const dob = new Date(formData.dob);
+      const today = new Date();
+      const age = today.getFullYear() - dob.getFullYear();
+      const monthDiff = today.getMonth() - dob.getMonth();
+      const dayDiff = today.getDate() - dob.getDate();
+
+      if (dob > today) {
+        errors.dob = 'Date of birth cannot be in the future';
+      } else if (age < 18 || (age === 18 && (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)))) {
+        errors.dob = 'User must be at least 18 years old';
+      }
+    }
+    
     if (!formData.address)
       errors.address = 'Address is required';
+    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -131,7 +168,7 @@ export default function EditUserModal({ user, role, onClose, onSave }) {
       name: fullName,
       email: formData.email.trim(),
       contact: formData.contact.trim(),
-      dob: user.dob || null,
+      dob: formData.dob,
       address: formData.address.trim(),
     };
 
@@ -189,6 +226,20 @@ export default function EditUserModal({ user, role, onClose, onSave }) {
           </div>
           {formErrors.fullName && <p className="text-red-500 text-xs">{formErrors.fullName}</p>}
 
+          {/* Date of Birth */}
+          <div>
+            <label className="text-gray-500 font-medium">Date of Birth</label>
+            <input
+              type="date"
+              value={formData.dob}
+              onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+              className={`w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 ${
+                formErrors.dob ? 'border-red-500' : 'border-gray-300'
+              }`}
+            />
+            {formErrors.dob && <p className="text-red-500 text-xs mt-1">{formErrors.dob}</p>}
+          </div>
+
           {/* Email & Contact */}
           {['Email', 'Contact Number'].map((label, i) => (
             <div key={label}>
@@ -232,6 +283,7 @@ export default function EditUserModal({ user, role, onClose, onSave }) {
                 onChange={(e) =>
                   setFormData({ ...formData, address: e.target.value.replace(/\b\w/g, (c) => c.toUpperCase()) })
                 }
+                placeholder="e.g. Brgy Talusan, Balingasag, Misamis Oriental"
                 className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
               />
             ) : (

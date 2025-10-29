@@ -306,23 +306,7 @@ const PCRPrint = ({ form, onClose }) => {
               <FiPrinter className="mr-2" size={18} />
               Print Report
             </button>
-            <button
-              onClick={handleDownload}
-              disabled={!isReady || Object.values(imageErrors).some((error) => error)}
-              className={`flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg no-print ${
-                !isReady || Object.values(imageErrors).some((error) => error) ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-            >
-              <FiDownload className="mr-2" size={18} />
-              Download PDF
-            </button>
-            <button
-              onClick={handleDownloadText}
-              className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all shadow-md hover:shadow-lg no-print"
-            >
-              <FiDownload className="mr-2" size={18} />
-              Download Text
-            </button>
+
             <button
               onClick={onClose}
               className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all shadow-md hover:shadow-lg no-print"
@@ -457,9 +441,6 @@ const PCRPrint = ({ form, onClose }) => {
                 <p className="text-xs font-medium text-gray-700 print:text-[8pt]">Republic of the Philippines</p>
                 <p className="text-xs font-medium text-gray-700 print:text-[8pt]">Province of Masbate Oriental</p>
                 <p className="text-xs font-semibold text-gray-800 print:text-[9pt] print:font-bold">MUNICIPALITY OF BALINGSAG</p>
-              </div>
-              <div className="flex-shrink-0 w-16 h-16 print:w-12 print:h-12">
-                <img src="/img20250713_10500646_page-0001 (4).jpg" alt="MDRRMO Logo" className="w-full h-full object-contain" />
               </div>
             </div>
             <h1 className="text-xl font-bold text-center print:print-font print:text-[12pt] print:mb-1">PATIENT CARE REPORT</h1>

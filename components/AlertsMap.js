@@ -253,6 +253,13 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
+      /* Ensure map container has proper height */
+      .leaflet-container {
+        height: 100% !important;
+        width: 100% !important;
+        z-index: 0;
+      }
+      
       .tint-red { filter: hue-rotate(0deg) brightness(0.8) sepia(0.5); }
       .tint-orange { filter: hue-rotate(40deg) brightness(0.9) sepia(0.5); }
       
@@ -315,13 +322,18 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full" style={{ minHeight: '400px' }}>
       <Suspense fallback={
         <div className="w-full h-full bg-gray-100 flex items-center justify-center">
           <p className="text-sm text-gray-500">Loading map...</p>
         </div>
       }>
-        <MapContainer center={mapCenter} zoom={17} className="w-full h-full">
+        <MapContainer 
+          center={mapCenter} 
+          zoom={17} 
+          className="w-full h-full"
+          style={{ height: '100%', width: '100%', minHeight: '400px' }}
+        >
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution="&copy; OpenStreetMap contributors"
@@ -378,15 +390,34 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
                         <span className="text-gray-800">
                           {alert.date ? new Date(alert.date).toLocaleDateString('en-US', { 
                             month: 'short', 
-                            day: 'numeric'
+                            day: 'numeric',
+                            year: 'numeric'
                           }) : <span className="italic text-gray-400">Unknown</span>}
                         </span>
                       </div>
                       
                       <div className="flex items-start gap-1.5">
-                        <span className="text-gray-500">👤</span>
+                        <span className="text-gray-500">🕐</span>
                         <span className="text-gray-800">
-                          {alert.user || <span className="italic text-gray-400">Unassigned</span>}
+                          {alert.date || alert.occurred_at ? new Date(alert.date || alert.occurred_at).toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: true
+                          }) : <span className="italic text-gray-400">Unknown</span>}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-start gap-1.5">
+                        <span className="text-gray-500">📱</span>
+                        <span className="text-gray-800">
+                          <span className="font-medium">Sent by:</span> {alert.resident_name || alert.user_name || <span className="italic text-gray-400">Unknown</span>}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-start gap-1.5">
+                        <span className="text-gray-500">🚑</span>
+                        <span className="text-gray-800">
+                          <span className="font-medium">Responder:</span> {alert.user || alert.responder_name || <span className="italic text-gray-400">Unassigned</span>}
                         </span>
                       </div>
                     </div>

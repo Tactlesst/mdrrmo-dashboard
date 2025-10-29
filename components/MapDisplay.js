@@ -58,12 +58,12 @@ const Dashboard = () => {
     const fetchData = async () => {
       try {
         // Fetch all data in parallel for faster loading
-        const [alertsRes, usersRes, locationsRes, respondersRes, sessionsRes] = await Promise.all([
+        const [alertsRes, usersRes, locationsRes, respondersRes, statusRes] = await Promise.all([
           fetch('/api/alerts'),
           fetch('/api/users?role=Residents'),
           fetch('/api/alerts/locations'),
           fetch('/api/responders'),
-          fetch('/api/responders/sessions'),
+          fetch('/api/admins/status'),
         ]);
 
         // Check responses
@@ -71,15 +71,15 @@ const Dashboard = () => {
         if (!usersRes.ok) throw new Error(`Users HTTP ${usersRes.status}`);
         if (!locationsRes.ok) throw new Error(`Locations HTTP ${locationsRes.status}`);
         if (!respondersRes.ok) throw new Error(`Responders HTTP ${respondersRes.status}`);
-        if (!sessionsRes.ok) throw new Error(`Sessions HTTP ${sessionsRes.status}`);
+        if (!statusRes.ok) throw new Error(`Status HTTP ${statusRes.status}`);
 
         // Parse all responses in parallel
-        const [alertsData, usersData, locationsData, respondersData, sessionsData] = await Promise.all([
+        const [alertsData, usersData, locationsData, respondersData, statusData] = await Promise.all([
           alertsRes.json(),
           usersRes.json(),
           locationsRes.json(),
           respondersRes.json(),
-          sessionsRes.json(),
+          statusRes.json(),
         ]);
 
         // Process alerts
@@ -113,15 +113,19 @@ const Dashboard = () => {
         setResponders(respondersArr);
         setTotalResponders(respondersArr.length);
 
-        // Process sessions
-        const sessionsArr = sessionsData.sessions || sessionsData;
-        setSessions(sessionsArr);
-        const readyResponders = new Set(
-          sessionsArr
-            .filter((session) => session.is_active && session.status === 'ready to go')
-            .map((session) => session.responder_id)
-        ).size;
-        setAvailableResponders(readyResponders);
+        // Process responder status from /api/admins/status
+        const respondersStatus = statusData.responders || [];
+        setSessions(respondersStatus);
+        
+        // Debug: Log responder status
+        console.log('All responders from status API:', respondersStatus);
+        console.log('Active responders:', respondersStatus.filter(r => r.is_active));
+        
+        // Count responders that are online (is_active = true)
+        const activeResponders = respondersStatus.filter(r => r.is_active).length;
+        
+        console.log('Available responders count:', activeResponders);
+        setAvailableResponders(activeResponders);
       } catch (e) {
         console.error('Failed to fetch dashboard data:', e);
         setAlerts([]);

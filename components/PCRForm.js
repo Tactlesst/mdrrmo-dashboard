@@ -168,6 +168,16 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
+    // Validation for contact number
+    if (name === "contactNumber") {
+      // Only allow numbers and limit to 11 digits
+      const numbersOnly = value.replace(/\D/g, '');
+      if (numbersOnly.length <= 11) {
+        setFormData(prev => ({ ...prev, [name]: numbersOnly }));
+      }
+      return;
+    }
+
     if (type === "checkbox" && name.includes(".")) {
       const [parentName, childName] = name.split(".");
       setFormData(prev => ({
@@ -198,35 +208,55 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
         .filter(alert => alert.type === value && alert.address && typeof alert.address === "string")
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       setAvailableAlerts(matchingAlerts);
+      
       // Set default alertId and location to the most recent alert
       const defaultAlert = matchingAlerts[0];
       console.log("Selected caseType:", value, "Matching alerts:", matchingAlerts);
-      setFormData(prev => ({
-        ...prev,
-        caseType: value,
-        alertId: prev.location && prev.caseType === initialData?.caseType ? prev.alertId : defaultAlert?.id || "",
-        location: prev.location && prev.caseType === initialData?.caseType ? prev.location : defaultAlert?.address || "",
-      }));
-    } else if (name === "alertId") {
-      // Update location and time based on selected alert
-      const selectedAlert = alerts.find(alert => alert.id === value);
-      console.log("Selected alertId:", value, "Selected alert:", selectedAlert);
+      console.log("Default alert:", defaultAlert);
       
-      // Extract time from alert's responded_at timestamp
+      // Extract time from default alert's occurred_at timestamp
       let extractedTime = "";
-      let extractedPeriod = "AM";
       
-      if (selectedAlert?.responded_at) {
+      if (defaultAlert?.occurred_at) {
         try {
-          const date = new Date(selectedAlert.responded_at);
+          const date = new Date(defaultAlert.occurred_at);
           const hours24 = date.getHours();
           const minutes = date.getMinutes();
           
           // For the time input (24-hour format for HTML input type="time")
           extractedTime = `${String(hours24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
           
-          // Determine AM/PM
-          extractedPeriod = hours24 >= 12 ? "PM" : "AM";
+          console.log("Extracted time from default alert:", extractedTime);
+        } catch (error) {
+          console.error("Error extracting time from default alert:", error);
+        }
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        caseType: value,
+        alertId: prev.location && prev.caseType === initialData?.caseType ? prev.alertId : defaultAlert?.id || "",
+        location: prev.location && prev.caseType === initialData?.caseType ? prev.location : defaultAlert?.address || "",
+        timeCall: extractedTime || prev.timeCall,
+      }));
+    } else if (name === "alertId") {
+      // Update location and time based on selected alert
+      const selectedAlert = alerts.find(alert => alert.id === value);
+      console.log("Selected alertId:", value, "Selected alert:", selectedAlert);
+      
+      // Extract time from alert's occurred_at timestamp (when incident happened)
+      let extractedTime = "";
+      
+      if (selectedAlert?.occurred_at) {
+        try {
+          const date = new Date(selectedAlert.occurred_at);
+          const hours24 = date.getHours();
+          const minutes = date.getMinutes();
+          
+          // For the time input (24-hour format for HTML input type="time")
+          extractedTime = `${String(hours24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+          
+          console.log("Extracted time from alert:", extractedTime);
         } catch (error) {
           console.error("Error extracting time from alert:", error);
         }
@@ -237,7 +267,6 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
         alertId: value,
         location: selectedAlert?.address || prev.location,
         timeCall: extractedTime || prev.timeCall,
-        timeCallPeriod: extractedPeriod,
       }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -284,9 +313,16 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
     }
   };
 
-  const formatTimeToAMPM = (time, period) => {
+  const formatTimeToAMPM = (time) => {
     if (!time || !/^\d{2}:\d{2}$/.test(time)) return "";
-    return `${time} ${period.toUpperCase()}`;
+    
+    // Convert 24-hour format to 12-hour format with AM/PM
+    const [hours24, minutes] = time.split(':');
+    const hours = parseInt(hours24, 10);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12; // Convert 0 to 12 for midnight
+    
+    return `${String(hours12).padStart(2, '0')}:${minutes} ${period}`;
   };
 
   const handleGenerateSummary = async () => {
@@ -308,10 +344,10 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
       const summaryData = {
         ...formData,
         narrative: '', // Don't include existing narrative
-        timeCall: formatTimeToAMPM(formData.timeCall, formData.timeCallPeriod),
-        timeArrivedScene: formatTimeToAMPM(formData.timeArrivedScene, formData.timeArrivedScenePeriod),
-        timeLeftScene: formatTimeToAMPM(formData.timeLeftScene, formData.timeLeftScenePeriod),
-        timeArrivedHospital: formatTimeToAMPM(formData.timeArrivedHospital, formData.timeArrivedHospitalPeriod),
+        timeCall: formatTimeToAMPM(formData.timeCall),
+        timeArrivedScene: formatTimeToAMPM(formData.timeArrivedScene),
+        timeLeftScene: formatTimeToAMPM(formData.timeLeftScene),
+        timeArrivedHospital: formatTimeToAMPM(formData.timeArrivedHospital),
       };
 
       const response = await fetch('/api/generate-summary', {
@@ -362,10 +398,10 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
 
       const updatedFormData = {
         ...formData,
-        timeCall: formatTimeToAMPM(formData.timeCall, formData.timeCallPeriod),
-        timeArrivedScene: formatTimeToAMPM(formData.timeArrivedScene, formData.timeArrivedScenePeriod),
-        timeLeftScene: formatTimeToAMPM(formData.timeLeftScene, formData.timeLeftScenePeriod),
-        timeArrivedHospital: formatTimeToAMPM(formData.timeArrivedHospital, formData.timeArrivedHospitalPeriod),
+        timeCall: formatTimeToAMPM(formData.timeCall),
+        timeArrivedScene: formatTimeToAMPM(formData.timeArrivedScene),
+        timeLeftScene: formatTimeToAMPM(formData.timeLeftScene),
+        timeArrivedHospital: formatTimeToAMPM(formData.timeArrivedHospital),
         patientSignature: patientSignatureUrl,
         witnessSignature: witnessSignatureUrl,
         receivingSignature: receivingSignatureUrl,
@@ -584,6 +620,9 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 name="age"
                 value={formData.age}
                 onChange={handleChange}
+                min="0"
+                max="150"
+                placeholder="0-150"
                 className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
@@ -738,77 +777,41 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Time of Call:
               </label>
-              <p className="text-xs text-gray-500 mb-1">Auto-populated from alert time</p>
-              <div className="flex space-x-2">
-                <input
-                  type="time"
-                  name="timeCall"
-                  value={formData.timeCall}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
-                  disabled={isSubmitting || readOnly}
-                />
-                <select
-                  name="timeCallPeriod"
-                  value={formData.timeCallPeriod}
-                  onChange={handleChange}
-                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
-                  disabled={isSubmitting || readOnly}
-                >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
-              </div>
+              <input
+                type="time"
+                name="timeCall"
+                value={formData.timeCall}
+                onChange={handleChange}
+                required
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
+                disabled={isSubmitting || readOnly}
+              />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Time Arrived at Scene:
               </label>
-              <div className="flex space-x-2">
-                <input
-                  type="time"
-                  name="timeArrivedScene"
-                  value={formData.timeArrivedScene}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
-                  disabled={isSubmitting || readOnly}
-                />
-                <select
-                  name="timeArrivedScenePeriod"
-                  value={formData.timeArrivedScenePeriod}
-                  onChange={handleChange}
-                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
-                  disabled={isSubmitting || readOnly}
-                >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
-              </div>
+              <input
+                type="time"
+                name="timeArrivedScene"
+                value={formData.timeArrivedScene}
+                onChange={handleChange}
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
+                disabled={isSubmitting || readOnly}
+              />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Time Left Scene:
               </label>
-              <div className="flex space-x-2">
-                <input
-                  type="time"
-                  name="timeLeftScene"
-                  value={formData.timeLeftScene}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
-                  disabled={isSubmitting || readOnly}
-                />
-                <select
-                  name="timeLeftScenePeriod"
-                  value={formData.timeLeftScenePeriod}
-                  onChange={handleChange}
-                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
-                  disabled={isSubmitting || readOnly}
-                >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
-              </div>
+              <input
+                type="time"
+                name="timeLeftScene"
+                value={formData.timeLeftScene}
+                onChange={handleChange}
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
+                disabled={isSubmitting || readOnly}
+              />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -827,26 +830,14 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Time Arrived at Hospital:
               </label>
-              <div className="flex space-x-2">
-                <input
-                  type="time"
-                  name="timeArrivedHospital"
-                  value={formData.timeArrivedHospital}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
-                  disabled={isSubmitting || readOnly}
-                />
-                <select
-                  name="timeArrivedHospitalPeriod"
-                  value={formData.timeArrivedHospitalPeriod}
-                  onChange={handleChange}
-                  className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm text-sm"
-                  disabled={isSubmitting || readOnly}
-                >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
-                </select>
-              </div>
+              <input
+                type="time"
+                name="timeArrivedHospital"
+                value={formData.timeArrivedHospital}
+                onChange={handleChange}
+                className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
+                disabled={isSubmitting || readOnly}
+              />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -1072,13 +1063,20 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 Contact Number:
               </label>
               <input
-                type="text"
+                type="tel"
                 name="contactNumber"
                 value={formData.contactNumber}
                 onChange={handleChange}
+                placeholder="09XXXXXXXXX"
+                maxLength="11"
+                pattern="[0-9]{11}"
+                title="Please enter exactly 11 digits"
                 className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               />
+              {formData.contactNumber && formData.contactNumber.length !== 11 && (
+                <p className="text-xs text-red-500 mt-1">Contact number must be exactly 11 digits</p>
+              )}
             </div>
           </div>
 
@@ -1338,12 +1336,12 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                     type="button"
                     onClick={handleGenerateSummary}
                     disabled={isSubmitting}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    Generate AI Summary
+                    Generate Summary
                   </button>
                 )}
               </div>
@@ -1352,7 +1350,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
                 value={formData.narrative}
                 onChange={handleChange}
                 rows="12"
-                placeholder="Click 'Generate AI Summary' to automatically create a narrative based on the form data, or type your own..."
+                placeholder="Click 'Generate Summary' to automatically create a narrative based on the form data, or type your own..."
                 className="mt-1 block w-full border-2 border-gray-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-3 py-2"
                 disabled={isSubmitting || readOnly}
               ></textarea>
