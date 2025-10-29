@@ -8,6 +8,7 @@ const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapCo
 const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
 const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
+const Polyline = dynamic(() => import('react-leaflet').then(mod => mod.Polyline), { ssr: false });
 
 // Leaflet icon configuration will be loaded dynamically
 
@@ -395,6 +396,79 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
             );
           })}
 
+          {/* Render route lines from responders to their assigned alerts */}
+          {responders.map((responder) => {
+            // Debug logging
+            console.log('Processing responder for route:', {
+              responderId: responder.responderId,
+              responderName: responder.responderName,
+              hasAssignment: !!responder.assignment,
+              assignmentAlertId: responder.assignment?.alertId,
+              hasLocation: !!(responder.location?.latitude && responder.location?.longitude),
+              location: responder.location
+            });
+
+            if (!responder.assignment || !responder.location?.latitude || !responder.location?.longitude) {
+              console.log('❌ Skipping responder - missing assignment or location');
+              return null;
+            }
+
+            // Find the alert this responder is assigned to
+            const assignedAlert = alerts.find(alert => alert.id === responder.assignment.alertId);
+            
+            console.log('Looking for alert:', responder.assignment.alertId, 'Found:', !!assignedAlert);
+            
+            if (!assignedAlert) {
+              console.log('❌ Alert not found in alerts array');
+              return null;
+            }
+            
+            if (!assignedAlert.coords || assignedAlert.coords.length !== 2) {
+              console.log('❌ Alert has invalid coords:', assignedAlert.coords);
+              return null;
+            }
+
+            // Also check if alert has matching responder name (for ongoing alerts)
+            const isMatchingResponder = assignedAlert.user && 
+              assignedAlert.user.toLowerCase().includes(responder.responderName.toLowerCase());
+
+            const responderCoords = [responder.location.latitude, responder.location.longitude];
+            const alertCoords = assignedAlert.coords;
+
+            // Different colors for different matching scenarios
+            let routeColor = '#2563EB'; // Default blue
+            let routeOpacity = 0.8;
+            let routeWeight = 5;
+            
+            if (isMatchingResponder && assignedAlert.status === 'Ongoing') {
+              routeColor = '#059669'; // Green for matching responder on ongoing alert
+              routeOpacity = 0.95;
+              routeWeight = 6;
+            }
+
+            console.log('✅ Drawing route:', {
+              from: responderCoords,
+              to: alertCoords,
+              color: routeColor,
+              isMatching: isMatchingResponder
+            });
+
+            return (
+              <Polyline
+                key={`route-${responder.responderId}`}
+                positions={[responderCoords, alertCoords]}
+                pathOptions={{
+                  color: routeColor,
+                  weight: routeWeight,
+                  opacity: routeOpacity,
+                  dashArray: '10, 10',
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            );
+          })}
+
           {/* Render responder markers */}
           {responders.map((responder) => {
             if (!responder.location?.latitude || !responder.location?.longitude) return null;
@@ -432,11 +506,30 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
                         </div>
                       )}
                       
+                      {responder.location.distance && (
+                        <div className="flex items-start gap-1.5">
+                          <span className="text-gray-500">📍</span>
+                          <span className="text-gray-800">Distance: {responder.location.distance}</span>
+                        </div>
+                      )}
+                      
+                      {responder.location.eta && (
+                        <div className="flex items-start gap-1.5">
+                          <span className="text-gray-500">⏱️</span>
+                          <span className="text-gray-800 font-semibold">ETA: {responder.location.eta} min</span>
+                        </div>
+                      )}
+                      
                       {responder.assignment && (
                         <div className="mt-2 p-1.5 bg-red-50 rounded border border-red-200">
                           <p className="text-xs font-semibold text-red-800">
                             Responding to: {responder.assignment.type}
                           </p>
+                          {responder.location.eta && (
+                            <p className="text-xs text-red-600 mt-0.5">
+                              Arriving in ~{responder.location.eta} minutes
+                            </p>
+                          )}
                         </div>
                       )}
                       

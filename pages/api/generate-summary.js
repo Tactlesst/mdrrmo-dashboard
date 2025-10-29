@@ -1,4 +1,5 @@
 import logger from '@/lib/logger';
+import { generateAINarrative, checkOllamaHealth } from '@/lib/ollama';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -7,13 +8,35 @@ export default async function handler(req, res) {
 
   try {
     const formData = req.body;
+    const useAI = req.body.useAI !== false; // Default to true unless explicitly disabled
 
-    // Generate comprehensive summary based on ALL form data
-    const summary = generateNarrative(formData);
+    let summary;
+    let method = 'rule-based';
+
+    // Try AI generation first if enabled
+    if (useAI) {
+      try {
+        const aiSummary = await generateAINarrative(formData);
+        if (aiSummary) {
+          summary = aiSummary;
+          method = 'ai';
+          logger.info('Generated narrative using AI');
+        }
+      } catch (aiError) {
+        logger.warn('AI generation failed, falling back to rule-based:', aiError.message);
+      }
+    }
+
+    // Fallback to rule-based generation
+    if (!summary) {
+      summary = generateNarrative(formData);
+      logger.info('Generated narrative using rule-based method');
+    }
 
     return res.status(200).json({ 
       success: true, 
-      summary 
+      summary,
+      method // Return which method was used
     });
   } catch (error) {
     logger.error('Error generating summary:', error.message);

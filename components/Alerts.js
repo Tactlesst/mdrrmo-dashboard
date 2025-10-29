@@ -12,19 +12,40 @@ export default function Alerts() {
   const [selectedAlertId, setSelectedAlertId] = useState(null);
 
   useEffect(() => {
-    const fetchAlerts = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch('/api/alerts');
-        const data = await res.json();
-        setAlerts(data.alerts || []);
+        const alertsRes = await fetch('/api/alerts');
+        const alertsData = await alertsRes.json();
+        const fetchedAlerts = alertsData.alerts || [];
+        
+        const respondersRes = await fetch('/api/responders/tracking');
+        const respondersData = await respondersRes.json();
+        const fetchedResponders = respondersData.responders || [];
+        
+        const alertsWithResponderData = fetchedAlerts.map(alert => {
+          const responder = fetchedResponders.find(r => r.assignment?.alertId === alert.id);
+          if (responder && responder.location) {
+            return {
+              ...alert,
+              eta: responder.location.eta,
+              distance: responder.location.distance,
+              responder_speed: responder.location.speed ? (responder.location.speed * 3.6).toFixed(1) : null,
+              route_started_at: responder.assignment?.routeStartedAt,
+              estimated_arrival: responder.estimatedArrival,
+            };
+          }
+          return alert;
+        });
+        
+        setAlerts(alertsWithResponderData);
       } catch (err) {
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
-    fetchAlerts();
-    const interval = setInterval(fetchAlerts, 15000);
+    fetchData();
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, []);
 

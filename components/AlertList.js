@@ -61,6 +61,53 @@ export default function AlertList({
                   <span className="font-medium">Responder:</span>{' '}
                   {alert.responder_name || <span className="text-gray-500 italic">Not Assigned</span>}
                 </p>
+                
+                {/* Show navigation status for ongoing alerts */}
+                {alert.status === 'Ongoing' && alert.responder_name && (
+                  <div className="bg-blue-50 border border-blue-200 rounded p-2 mt-2">
+                    <p className="font-semibold text-blue-800 flex items-center gap-1">
+                      🚑 En Route to Incident
+                    </p>
+                    {alert.route_started_at && (
+                      <p className="text-blue-700 text-xs mt-1">
+                        🚦 Started: <span className="font-semibold">
+                          {new Date(alert.route_started_at).toLocaleString('en-PH', { 
+                            timeZone: 'Asia/Manila',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </p>
+                    )}
+                    {alert.estimated_arrival && (
+                      <p className="text-blue-700 text-xs">
+                        🏁 Est. Arrival: <span className="font-semibold">
+                          {new Date(alert.estimated_arrival).toLocaleString('en-PH', { 
+                            timeZone: 'Asia/Manila',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </p>
+                    )}
+                    {alert.eta && (
+                      <p className="text-blue-700 mt-1">
+                        ⏱️ ETA: <span className="font-semibold">{alert.eta} min</span>
+                      </p>
+                    )}
+                    {alert.distance && (
+                      <p className="text-blue-700">
+                        📍 Distance: <span className="font-semibold">{alert.distance}</span>
+                      </p>
+                    )}
+                    {alert.responder_speed && (
+                      <p className="text-blue-700">
+                        ⚡ Speed: <span className="font-semibold">{alert.responder_speed} km/h</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+                
                 <p>
                   <span className="font-medium">Responded At:</span>{' '}
                   {alert.responded_at
