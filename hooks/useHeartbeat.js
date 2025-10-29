@@ -4,12 +4,11 @@ import { useEffect, useRef } from 'react';
 /**
  * Custom hook to send heartbeat pings to keep session alive
  * @param {string} userType - 'admin' or 'responder'
- * @param {number} interval - Heartbeat interval in milliseconds (default: 30000 = 30 seconds)
+ * @param {number} interval - Heartbeat interval in milliseconds (default: 300000 = 5 minutes)
  */
-export default function useHeartbeat(userType = 'admin', interval = 30000) {
+export default function useHeartbeat(userType = 'admin', interval = 300000) {
   const lastHeartbeatRef = useRef(Date.now());
   const intervalRef = useRef(null);
-  const rafRef = useRef(null);
 
   useEffect(() => {
     // Determine the correct heartbeat endpoint based on user type
@@ -82,21 +81,11 @@ export default function useHeartbeat(userType = 'admin', interval = 30000) {
       }
     };
 
-    // Use requestAnimationFrame for more reliable timing
-    const scheduleCheck = () => {
-      if (!isActive) return;
-      checkAndSendHeartbeat();
-      rafRef.current = requestAnimationFrame(scheduleCheck);
-    };
-
     // Send initial heartbeat immediately
     sendHeartbeat();
 
-    // Set up interval for periodic heartbeats (fallback)
-    intervalRef.current = setInterval(checkAndSendHeartbeat, interval);
-
-    // Use RAF for more reliable timing
-    rafRef.current = requestAnimationFrame(scheduleCheck);
+    // Set up interval for periodic heartbeats
+    intervalRef.current = setInterval(sendHeartbeat, interval);
 
     // Listen for visibility changes
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -107,9 +96,6 @@ export default function useHeartbeat(userType = 'admin', interval = 30000) {
       isActive = false;
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
-      }
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);

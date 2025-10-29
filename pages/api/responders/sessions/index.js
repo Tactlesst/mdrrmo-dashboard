@@ -12,13 +12,14 @@ export default async function handler(req, res) {
         rs.id,
         rs.responder_id,
         rs.status,
-        rs.is_active,
-        rs.last_active_at,
-        r.name
+        rs.location_updated_at,
+        r.name,
+        CASE WHEN rs.ended_at IS NULL THEN TRUE ELSE FALSE END as is_active
       FROM responder_sessions rs
       JOIN responders r ON rs.responder_id = r.id
-      WHERE rs.is_active = TRUE
-      ORDER BY rs.last_active_at DESC
+      WHERE rs.ended_at IS NULL
+        AND rs.location_updated_at > NOW() - INTERVAL '5 minutes'
+      ORDER BY rs.location_updated_at DESC
     `);
 
     const sessions = result.rows.map((row) => ({
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
       name: row.name,
       status: row.status,
       is_active: row.is_active,
-      last_active_at: row.last_active_at,
+      last_active_at: row.location_updated_at,
     }));
 
     res.status(200).json({ sessions });

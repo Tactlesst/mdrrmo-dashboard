@@ -63,8 +63,6 @@ export default async function handler(req, res) {
           speed = $4,
           accuracy = $5,
           location_updated_at = NOW(),
-          last_active_at = NOW(),
-          is_active = TRUE,
           assigned_alert_id = $6,
           destination_latitude = $7,
           destination_longitude = $8,
@@ -73,7 +71,7 @@ export default async function handler(req, res) {
             WHEN assigned_alert_id != $6 AND $6 IS NOT NULL THEN NOW()
             ELSE route_started_at
           END
-        WHERE responder_id = $9
+        WHERE responder_id = $9 AND ended_at IS NULL
         RETURNING id, assigned_alert_id
       `;
 
@@ -104,11 +102,10 @@ export default async function handler(req, res) {
             destination_latitude,
             destination_longitude,
             route_started_at,
-            is_active,
             status
           ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, 
                     CASE WHEN $7 IS NOT NULL THEN NOW() ELSE NULL END,
-                    TRUE, 'online')
+                    'active')
           RETURNING id, assigned_alert_id
         `;
 

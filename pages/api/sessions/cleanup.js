@@ -17,13 +17,13 @@ export default async function handler(req, res) {
        RETURNING id`
     );
 
-    // Mark responder sessions as inactive if last_active_at is older than 2 minutes
+    // Mark responder sessions as ended if location_updated_at is older than 5 minutes
     const responderResult = await pool.query(
       `UPDATE responder_sessions 
-       SET is_active = FALSE, 
+       SET ended_at = NOW(),
            status = 'offline' 
-       WHERE last_active_at < NOW() - INTERVAL '2 minutes' 
-       AND is_active = TRUE
+       WHERE location_updated_at < NOW() - INTERVAL '5 minutes' 
+       AND ended_at IS NULL
        RETURNING id`
     );
 

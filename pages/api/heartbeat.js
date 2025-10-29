@@ -1,5 +1,5 @@
 // pages/api/heartbeat.js
-import { executeQuery } from '@/lib/dbQuery';
+import pool from '@/lib/db';
 import jwt from 'jsonwebtoken';
 import { parse } from 'cookie';
 
@@ -11,10 +11,9 @@ export default async function handler(req, res) {
   try {
     // Parse cookies from request
     const cookies = parse(req.headers.cookie || '');
-    const token = cookies.auth; // Changed from cookies.token to cookies.auth
+    const token = cookies.auth;
 
     if (!token) {
-      console.log('No auth token found in cookies:', Object.keys(cookies));
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
@@ -29,10 +28,9 @@ export default async function handler(req, res) {
     const adminEmail = decoded.email;
 
     // Update last_active_at timestamp in admin_sessions
-    await executeQuery(
+    await pool.query(
       `UPDATE admin_sessions 
-       SET last_active_at = NOW(), 
-           is_active = TRUE 
+       SET last_active_at = NOW()
        WHERE admin_email = $1`,
       [adminEmail]
     );

@@ -11,12 +11,13 @@ export default async function handler(req, res) {
       AND is_active = TRUE
     `);
 
+    // Mark old responder sessions as ended
     await pool.query(`
       UPDATE responder_sessions 
-      SET is_active = FALSE, 
+      SET ended_at = NOW(),
           status = 'offline' 
-      WHERE last_active_at < NOW() - INTERVAL '2 minutes' 
-      AND is_active = TRUE
+      WHERE location_updated_at < NOW() - INTERVAL '5 minutes' 
+      AND ended_at IS NULL
     `);
 
     // Fetch admins with session status
@@ -57,20 +58,23 @@ export default async function handler(req, res) {
         r.contact,
         r.address,
         COALESCE(s.is_active, false) AS is_active,
-        s.last_active_at,
+        s.location_updated_at as last_active_at,
         COALESCE(s.status, 'offline') AS responder_status,
         CASE 
-          WHEN s.status = 'online' THEN 'Online'
+          WHEN s.status = 'active' THEN 'Online'
           WHEN s.status = 'standby' THEN 'Standby'
           WHEN s.status = 'ready to go' THEN 'Ready'
           ELSE 'Offline'
         END AS status
       FROM responders r
       LEFT JOIN LATERAL (
-        SELECT is_active, status, last_active_at
+        SELECT 
+          CASE WHEN ended_at IS NULL THEN true ELSE false END as is_active,
+          status, 
+          location_updated_at
         FROM responder_sessions
         WHERE responder_id = r.id
-        ORDER BY last_active_at DESC
+        ORDER BY location_updated_at DESC NULLS LAST
         LIMIT 1
       ) s ON true
       ORDER BY r.name;

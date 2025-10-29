@@ -1,5 +1,5 @@
 // pages/api/responders/heartbeat.js
-import { executeQuery } from '@/lib/dbQuery';
+import pool from '@/lib/db';
 import jwt from 'jsonwebtoken';
 import logger from '@/lib/logger';
 import { parse } from 'cookie';
@@ -28,12 +28,12 @@ export default async function handler(req, res) {
 
     const responderId = decoded.id;
 
-    // Update last_active_at timestamp in responder_sessions
-    await executeQuery(
+    // Update location_updated_at timestamp in responder_sessions
+    await pool.query(
       `UPDATE responder_sessions 
-       SET last_active_at = NOW(), 
-           is_active = TRUE 
-       WHERE responder_id = $1`,
+       SET location_updated_at = NOW()
+       WHERE responder_id = $1 
+         AND ended_at IS NULL`,
       [responderId]
     );
 
