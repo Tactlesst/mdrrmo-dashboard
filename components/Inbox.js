@@ -15,9 +15,9 @@ export default function Inbox({
   
   // Note: notifications prop is already filtered in DashboardContent:
   // - System notifications: shown globally for all users
-  // - Alerts (responder-sent): shown globally for all users
+  // - Alerts (responder & chat/user alerts): shown globally for all users
   // - Admin (admin actions): shown globally for all users
-  // - Others (chat, etc.): filtered to current user only
+  // - Others: filtered to current user only
 
   // Format date for Manila timezone
   const formatPHDate = (dateString) => {
@@ -113,7 +113,7 @@ export default function Inbox({
         : true;
 
     const type = (notification.sender_type || '').toLowerCase();
-    const isAlert = type === 'responder';
+    const isAlert = type === 'responder' || type === 'chat';
     const isAdminCat = type === 'admin';
     const isSystem = type === 'system';
     const matchesFilter =
@@ -123,7 +123,7 @@ export default function Inbox({
       (inboxFilter === 'other' && !isAlert && !isAdminCat && !isSystem);
 
     if (matchesSearch && matchesFilter) {
-      if (type === 'responder') {
+      if (type === 'responder' || type === 'chat') {
         categorizedNotifications.alerts.push(notification);
       } else if (type === 'admin') {
         categorizedNotifications.admin.push(notification);

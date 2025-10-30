@@ -32,6 +32,7 @@ export default function DashboardContent({ user }) {
   const [headerNotifFilter, setHeaderNotifFilter] = useState('alerts');
   const [alertModal, setAlertModal] = useState(null); // { alert, notification }
   const [lastNotificationCount, setLastNotificationCount] = useState(0);
+  const [selectedAlertIdFromNotification, setSelectedAlertIdFromNotification] = useState(null);
   const audioRef = useRef(null);
   // Settings state moved into components/Settings.js
   const sidebarRef = useRef(null);
@@ -42,6 +43,20 @@ export default function DashboardContent({ user }) {
   useEffect(() => {
     audioRef.current = new Audio('/alarm.mp3.mp3');
     audioRef.current.volume = 0.7;
+    audioRef.current.loop = true; // Loop the alarm until acknowledged
+    audioRef.current.muted = false; // Ensure audio is not muted
+    
+    // Enable audio on first user interaction (required by browsers)
+    const enableAudio = () => {
+      if (audioRef.current) {
+        audioRef.current.muted = false;
+      }
+    };
+    document.addEventListener('click', enableAudio, { once: true });
+    
+    return () => {
+      document.removeEventListener('click', enableAudio);
+    };
   }, []);
 
   // Format date for relative time in Asia/Manila timezone
@@ -141,17 +156,17 @@ export default function DashboardContent({ user }) {
         // Filter: System, Alerts, and Admin = global, Others = current user only
         const filtered = validNotifications.filter(n => {
           const type = (n.sender_type || '').toLowerCase();
-          if (type === 'system' || type === 'responder' || type === 'admin') {
-            return true; // Show all system, alerts, and admin notifications globally
+          if (type === 'system' || type === 'responder' || type === 'admin' || type === 'chat') {
+            return true; // Show all system, alerts, admin, and user alert (chat) notifications globally
           }
-          // For chat and others: show only if they belong to current user
+          // For others: show only if they belong to current user
           return n.account_id === user.id;
         });
         
         setNotifications(filtered);
         
-        // Check for new alert notifications
-        const unreadAlerts = filtered.filter(n => !n.is_read && n.sender_type === 'responder');
+        // Check for new alert notifications (from responders or users via chat)
+        const unreadAlerts = filtered.filter(n => !n.is_read && (n.sender_type === 'responder' || n.sender_type === 'chat'));
         if (unreadAlerts.length > lastNotificationCount && lastNotificationCount > 0) {
           // New alert received - play sound and show modal
           const latestAlert = unreadAlerts[0];
@@ -180,6 +195,58 @@ export default function DashboardContent({ user }) {
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [user.id]);
+
+  // Check for unread alerts on mount and show modal immediately
+  useEffect(() => {
+    if (notifications.length > 0) {
+      const unreadAlerts = notifications.filter(n => !n.is_read && (n.sender_type === 'responder' || n.sender_type === 'chat'));
+      if (unreadAlerts.length > 0 && !alertModal) {
+        // Show the first unread alert with count of remaining alerts
+        setAlertModal({ 
+          notification: unreadAlerts[0],
+          remainingCount: unreadAlerts.length - 1,
+          allUnreadAlerts: unreadAlerts
+        });
+      }
+    }
+  }, [notifications]);
+
+  // Play alarm sound only when modal is showing
+  useEffect(() => {
+    if (alertModal && audioRef.current) {
+      console.log('🔊 Attempting to play emergency alarm...');
+      audioRef.current.currentTime = 0;
+      audioRef.current.muted = false; // Ensure not muted
+      audioRef.current.volume = 0.7; // Ensure volume is set
+      
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('✅ Emergency alarm playing successfully');
+          })
+          .catch(err => {
+            console.error('❌ Audio play failed:', err);
+            console.log('Trying to play with user interaction...');
+            // Try to play on next user interaction
+            const playOnClick = () => {
+              if (audioRef.current && alertModal) {
+                audioRef.current.play()
+                  .then(() => console.log('✅ Alarm playing after user interaction'))
+                  .catch(e => console.error('Still failed:', e));
+              }
+              document.removeEventListener('click', playOnClick);
+            };
+            document.addEventListener('click', playOnClick, { once: true });
+          });
+      }
+    } else if (!alertModal && audioRef.current) {
+      // Stop sound when modal is closed
+      console.log('🔇 Stopping emergency alarm');
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+  }, [alertModal]);
 
   // Settings are handled inside <Settings />
 
@@ -247,6 +314,24 @@ export default function DashboardContent({ user }) {
       setError('Cannot process notification: Invalid data');
       return;
     }
+    
+    // Check if this is an alert notification and extract alert ID
+    const isAlertNotification = notification.sender_type === 'responder' || notification.sender_type === 'chat';
+    if (isAlertNotification && notification.message) {
+      const alertIdMatch = notification.message.match(/\[Alert ID: (\d+)\]/);
+      if (alertIdMatch) {
+        const alertId = parseInt(alertIdMatch[1]);
+        console.log('Extracted alert ID from notification:', alertId);
+        // Mark as read and redirect to alerts page with selected alert
+        handleMarkAsRead(notification.id);
+        setSelectedAlertIdFromNotification(alertId);
+        setActiveContent('alerts');
+        setShowNotifications(false);
+        return;
+      }
+    }
+    
+    // Default behavior for non-alert notifications
     setSelectedNotification(notification);
     setShowNotifications(false);
     if (!notification.is_read) {
@@ -448,7 +533,7 @@ export default function DashboardContent({ user }) {
                   </div>
                 </div>
                 {(() => {
-                  const isAlert = (n) => n.sender_type === 'responder';
+                  const isAlert = (n) => n.sender_type === 'responder' || n.sender_type === 'chat';
                   const isAdminCat = (n) => n.sender_type === 'admin';
                   const isSystem = (n) => n.sender_type === 'system';
                   const inFilter = (n) => {
@@ -573,8 +658,8 @@ export default function DashboardContent({ user }) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${selectedNotification.sender_type === 'responder' ? 'bg-red-100 text-red-700' : selectedNotification.sender_type === 'admin' ? 'bg-blue-100 text-blue-700' : selectedNotification.sender_type === 'system' ? 'bg-gray-100 text-gray-700' : 'bg-slate-100 text-slate-700'}`}>
-                  {selectedNotification.sender_type === 'responder' ? 'Alerts' : selectedNotification.sender_type === 'admin' ? 'Admin' : selectedNotification.sender_type === 'system' ? 'System' : 'Others'}
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${selectedNotification.sender_type === 'responder' || selectedNotification.sender_type === 'chat' ? 'bg-red-100 text-red-700' : selectedNotification.sender_type === 'admin' ? 'bg-blue-100 text-blue-700' : selectedNotification.sender_type === 'system' ? 'bg-gray-100 text-gray-700' : 'bg-slate-100 text-slate-700'}`}>
+                  {selectedNotification.sender_type === 'user' || selectedNotification.sender_type === 'chat' ? 'Alerts' : selectedNotification.sender_type === 'admin' ? 'Admin' : selectedNotification.sender_type === 'system' ? 'System' : 'Others'}
                 </span>
                 <button
                   onClick={handleCloseDetails}
@@ -702,7 +787,12 @@ export default function DashboardContent({ user }) {
         {activeContent && (
           <main className="flex-1 min-h-0 bg-white rounded-xl shadow-md p-6 overflow-auto">
             {activeContent === 'dashboard' && <MapDisplay />}
-            {activeContent === 'alerts' && <Alerts />}
+            {activeContent === 'alerts' && (
+              <Alerts 
+                initialSelectedAlertId={selectedAlertIdFromNotification}
+                onAlertViewed={() => setSelectedAlertIdFromNotification(null)}
+              />
+            )}
             {activeContent === 'inbox' && (
               <Inbox 
                 notifications={notifications}
@@ -732,8 +822,8 @@ export default function DashboardContent({ user }) {
       )}
 
       {alertModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70] p-4 animate-fadeIn">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg animate-shake">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[70] p-4 animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg animate-shake" onClick={(e) => e.stopPropagation()}>
             <style jsx>{`
               @keyframes fadeIn {
                 from { opacity: 0; }
@@ -764,9 +854,17 @@ export default function DashboardContent({ user }) {
                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center animate-pulse-alert">
                   <span className="text-2xl">🚨</span>
                 </div>
-                <div>
+                <div className="flex-1">
                   <h2 className="text-xl font-bold">Emergency Alert Received!</h2>
-                  <p className="text-sm text-red-100">Immediate attention required</p>
+                  <p className="text-sm text-red-100">
+                    {alertModal.remainingCount > 0 
+                      ? `${alertModal.remainingCount + 1} unread alerts • Showing 1 of ${alertModal.remainingCount + 1}`
+                      : 'Immediate attention required'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full">
+                  <span className="text-lg animate-pulse-alert">🔊</span>
+                  <span className="text-xs font-medium">ALARM</span>
                 </div>
               </div>
             </div>
@@ -777,17 +875,39 @@ export default function DashboardContent({ user }) {
                 <p className="text-xs text-red-600 mt-1">{formatRelativeTime(alertModal.notification.created_at)}</p>
               </div>
               <div className="space-y-3">
-                <button onClick={() => { setActiveContent('dashboard'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium">
-                  <span>📍</span> View Alert on Map
+                <button onClick={() => { setActiveContent('alerts'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 font-bold text-lg shadow-lg animate-pulse-alert">
+                  <span>⚠️</span> VIEW ALERT NOW
                 </button>
-                <button onClick={() => { setActiveContent('alerts'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2 font-medium">
-                  <span>⚠️</span> Go to Alerts Page
+                
+                {alertModal.remainingCount > 0 && (
+                  <button 
+                    onClick={() => { 
+                      handleMarkAsRead(alertModal.notification.id);
+                      const nextAlerts = alertModal.allUnreadAlerts.slice(1);
+                      if (nextAlerts.length > 0) {
+                        setAlertModal({
+                          notification: nextAlerts[0],
+                          remainingCount: nextAlerts.length - 1,
+                          allUnreadAlerts: nextAlerts
+                        });
+                      } else {
+                        setAlertModal(null);
+                      }
+                    }} 
+                    className="w-full px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2 font-bold shadow-lg"
+                  >
+                    <span>➡️</span> NEXT ALERT ({alertModal.remainingCount} remaining)
+                  </button>
+                )}
+                
+                <button onClick={() => { setActiveContent('dashboard'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium">
+                  <span>📍</span> View on Map
                 </button>
                 <button onClick={() => { setActiveContent('online-admins'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 font-medium">
-                  <span>💬</span> Notify/Chat with Responders
+                  <span>💬</span> Notify Responders
                 </button>
-                <button onClick={() => { setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium">
-                  Dismiss
+                <button onClick={() => { setActiveContent('alerts'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium">
+                  Acknowledge & View Later
                 </button>
               </div>
             </div>
