@@ -111,18 +111,16 @@ export default async function handler(req, res) {
     const ip = getIPv4FromRequest(req);
     const location = await getGeoLocation(ip);
 
-    // Mark all previous sessions for this user as inactive
-    await pool.query(
-      `UPDATE admin_sessions 
-       SET is_active = FALSE 
-       WHERE admin_email = $1 AND is_active = TRUE`,
-      [admin.email]
-    );
-
-    // Insert new session
+    // Insert or update session (handle duplicate key constraint)
     const sessionInsert = await pool.query(
       `INSERT INTO admin_sessions (admin_email, ip_address, user_agent, is_active, last_active_at)
        VALUES ($1, $2, $3, TRUE, NOW())
+       ON CONFLICT (admin_email) 
+       DO UPDATE SET 
+         ip_address = EXCLUDED.ip_address,
+         user_agent = EXCLUDED.user_agent,
+         is_active = TRUE,
+         last_active_at = NOW()
        RETURNING id`,
       [admin.email, `${ip} (${location})`, userAgent]
     );
