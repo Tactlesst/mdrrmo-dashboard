@@ -15,7 +15,7 @@ export default function Inbox({
   
   // Note: notifications prop is already filtered in DashboardContent:
   // - System notifications: shown globally for all users
-  // - Alerts (responder/alerts): shown globally for all users
+  // - Alerts (responder/alerts1): shown globally for all users
   // - Chat: shown globally for all users
   // - Admin (admin actions): shown globally for all users
   // - Others: filtered to current user only
@@ -115,7 +115,7 @@ export default function Inbox({
         : true;
 
     const type = (notification.sender_type || '').toLowerCase();
-    const isAlert = type === 'responder' || type === 'alerts';
+    const isAlert = type === 'responder' || type === 'alerts1';
     const isChat = type === 'chat';
     const isAdminCat = type === 'admin';
     const isSystem = type === 'system';
@@ -127,7 +127,7 @@ export default function Inbox({
       (inboxFilter === 'other' && !isAlert && !isChat && !isAdminCat && !isSystem);
 
     if (matchesSearch && matchesFilter) {
-      if (type === 'responder' || type === 'alerts') {
+      if (type === 'responder' || type === 'alerts1') {
         categorizedNotifications.alerts.push(notification);
       } else if (type === 'chat') {
         categorizedNotifications.chat.push(notification);

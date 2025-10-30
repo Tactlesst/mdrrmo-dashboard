@@ -21,7 +21,7 @@ export default async function handler(req, res) {
         sender_name,
         message,
         created_at,
-        read
+        is_read
       FROM notifications
       WHERE sender_type = 'chat'
         AND (
