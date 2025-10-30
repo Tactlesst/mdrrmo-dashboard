@@ -369,7 +369,7 @@ const PCRForm = ({ onClose, initialData = null, onSubmit, createdByType, created
       }));
 
       // Show success message
-      alert('✅ AI Summary generated successfully! The narrative has been updated with a comprehensive summary of all form fields.');
+      alert('✅Summary generated successfully! The narrative has been updated with a comprehensive summary of all form fields.');
     } catch (error) {
       console.error('Error generating summary:', error);
       alert('❌ Failed to generate summary. Please try again.');

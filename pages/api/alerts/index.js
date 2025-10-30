@@ -27,6 +27,7 @@ export default async function handler(req, res) {
         address: alert.address,
         type: alert.type,
         status: alert.status,
+        severity: alert.severity || 'medium', // Include severity field
         occurred_at: alert.occurred_at,
         lat: alert.lat,
         lng: alert.lng,

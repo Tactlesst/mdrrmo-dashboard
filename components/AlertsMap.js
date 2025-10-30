@@ -177,7 +177,7 @@ function FlyToAndOpenPopup({ alerts, selectedAlertId, markerRefs }) {
   return null;
 }
 
-export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
+export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onSeverityUpdate }) {
   const markerRefs = useRef({});
   const [leafletReady, setLeafletReady] = useState(false);
   const [L, setL] = useState(null);
@@ -355,7 +355,7 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
                 ref={markerRefs.current[alert.id]}
                 icon={customIcon}
               >
-                <Popup maxWidth={240} className="custom-popup">
+                <Popup maxWidth={280} className="custom-popup">
                   <div className="p-0">
                     {/* Header with icon and type */}
                     <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-gray-200">
@@ -367,8 +367,8 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
                       <h3 className="font-bold text-gray-800 text-sm">{alert.type || 'Alert'}</h3>
                     </div>
 
-                    {/* Status Badge */}
-                    <div className="mb-2">
+                    {/* Status and Severity Badges */}
+                    <div className="mb-2 flex gap-2 flex-wrap">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
                         alert.status === 'Not Responded' ? 'bg-red-100 text-red-700' : 
                         alert.status === 'Ongoing' || alert.status === 'In Progress' ? 'bg-yellow-100 text-yellow-700' : 
@@ -376,6 +376,46 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
                       }`}>
                         {alert.status || 'Unknown Status'}
                       </span>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        alert.severity === 'critical' ? 'bg-red-600 text-white' : 
+                        alert.severity === 'high' ? 'bg-orange-500 text-white' : 
+                        alert.severity === 'medium' ? 'bg-yellow-500 text-white' : 
+                        'bg-blue-500 text-white'
+                      }`}>
+                        {alert.severity ? alert.severity.toUpperCase() : 'MEDIUM'}
+                      </span>
+                    </div>
+                    
+                    {/* Severity Selector for Admins */}
+                    <div className="mb-2">
+                      <label className="text-xs font-semibold text-gray-700 block mb-1">Set Priority:</label>
+                      <select 
+                        className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={alert.severity || 'medium'}
+                        onChange={async (e) => {
+                          const newSeverity = e.target.value;
+                          try {
+                            const res = await fetch('/api/alerts/update-severity', {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ alertId: alert.id, severity: newSeverity })
+                            });
+                            if (res.ok) {
+                              // Update local state without reload
+                              if (onSeverityUpdate) {
+                                onSeverityUpdate(alert.id, newSeverity);
+                              }
+                            }
+                          } catch (err) {
+                            console.error('Error updating severity:', err);
+                          }
+                        }}
+                      >
+                        <option value="low">🟢 Low Priority</option>
+                        <option value="medium">🟡 Medium Priority</option>
+                        <option value="high">🟠 High Priority</option>
+                        <option value="critical">🔴 Critical</option>
+                      </select>
                     </div>
 
                     {/* Details */}
@@ -504,11 +544,24 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
 
           {/* Render responder markers */}
           {responders.map((responder) => {
-            if (!responder.location?.latitude || !responder.location?.longitude) return null;
+            console.log('Rendering responder marker:', {
+              id: responder.responderId,
+              name: responder.responderName,
+              status: responder.status,
+              hasLocation: !!(responder.location?.latitude && responder.location?.longitude),
+              coords: responder.location ? [responder.location.latitude, responder.location.longitude] : null
+            });
+            
+            if (!responder.location?.latitude || !responder.location?.longitude) {
+              console.log('❌ Skipping responder marker - no location');
+              return null;
+            }
 
             const responderCoords = [responder.location.latitude, responder.location.longitude];
-            const isActive = responder.status === 'online' || responder.status === 'ready to go';
+            const isActive = responder.status === 'online' || responder.status === 'ready to go' || responder.status === 'active';
             const responderIcon = createResponderIcon(isActive, responder.location.heading, L);
+            
+            console.log('✅ Creating responder marker at:', responderCoords, 'isActive:', isActive);
 
             return (
               <Marker

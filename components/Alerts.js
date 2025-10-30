@@ -66,12 +66,18 @@ export default function Alerts() {
         address: a.address || '—',
         type: a.type || '—',
         status: a.status || 'Not Responded',
+        severity: a.severity || 'medium', // Include severity
         occurred_at: a.occurred_at,
         responded_at: a.responded_at,
         date: a.occurred_at ? a.occurred_at.slice(0, 10) : null,
         coords: [a.lat, a.lng],
         user: a.responder_name || 'Unassigned',
         description: a.description || '', // Added description field
+        eta: a.eta,
+        distance: a.distance,
+        responder_speed: a.responder_speed,
+        route_started_at: a.route_started_at,
+        estimated_arrival: a.estimated_arrival,
       }));
   }, [alerts]);
 
@@ -79,6 +85,15 @@ export default function Alerts() {
   const indexOfFirst = indexOfLast - entriesPerPage;
   const currentAlerts = normalizedAlerts.slice(indexOfFirst, indexOfLast);
   const totalPages = Math.max(1, Math.ceil(normalizedAlerts.length / entriesPerPage));
+
+  // Update severity without full page reload
+  const handleSeverityUpdate = (alertId, newSeverity) => {
+    setAlerts(prevAlerts => 
+      prevAlerts.map(alert => 
+        alert.id === alertId ? { ...alert, severity: newSeverity } : alert
+      )
+    );
+  };
 
   return (
     <div className="flex flex-col lg:flex-row bg-gray-100 font-serif h-[40vh] md:h-[70vh]">
@@ -91,6 +106,7 @@ export default function Alerts() {
             alerts={normalizedAlerts}
             fallbackCenter={fallbackCenter}
             selectedAlertId={selectedAlertId}
+            onSeverityUpdate={handleSeverityUpdate}
           />
         </div>
       </div>

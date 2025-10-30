@@ -120,6 +120,17 @@ export default function AlertList({
                   <span className={getStatusBadge(alert.status)}>{alert.status}</span>
                 </p>
                 <p>
+                  <span className="font-medium">Priority:</span>{' '}
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    alert.severity === 'critical' ? 'bg-red-600 text-white' : 
+                    alert.severity === 'high' ? 'bg-orange-500 text-white' : 
+                    alert.severity === 'medium' ? 'bg-yellow-500 text-white' : 
+                    'bg-blue-500 text-white'
+                  }`}>
+                    {alert.severity ? alert.severity.toUpperCase() : 'MEDIUM'}
+                  </span>
+                </p>
+                <p>
                   <span className="font-medium">Reported On:</span>{' '}
                   {alert.occurred_at
                     ? new Date(alert.occurred_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })
