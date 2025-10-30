@@ -119,10 +119,10 @@ const Dashboard = () => {
         
         // Debug: Log responder status
         console.log('All responders from status API:', respondersStatus);
-        console.log('Active responders:', respondersStatus.filter(r => r.is_active));
+        console.log('Active responders:', respondersStatus.filter(r => r.responder_status?.toLowerCase() === 'active'));
         
-        // Count responders that are online (is_active = true)
-        const activeResponders = respondersStatus.filter(r => r.is_active).length;
+        // Count responders that are available (responder_status = 'active')
+        const activeResponders = respondersStatus.filter(r => r.responder_status?.toLowerCase() === 'active').length;
         
         console.log('Available responders count:', activeResponders);
         setAvailableResponders(activeResponders);

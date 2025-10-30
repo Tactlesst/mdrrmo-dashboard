@@ -81,8 +81,12 @@ export default function useHeartbeat(userType = 'admin', interval = 300000) {
       }
     };
 
-    // Send initial heartbeat immediately
-    sendHeartbeat();
+    // Send initial heartbeat after 10 second delay to allow app initialization
+    const initialTimeout = setTimeout(() => {
+      if (isActive) {
+        sendHeartbeat();
+      }
+    }, 10000);
 
     // Set up interval for periodic heartbeats
     intervalRef.current = setInterval(sendHeartbeat, interval);
@@ -94,6 +98,7 @@ export default function useHeartbeat(userType = 'admin', interval = 300000) {
     // Cleanup function
     return () => {
       isActive = false;
+      clearTimeout(initialTimeout);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }

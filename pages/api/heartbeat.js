@@ -27,10 +27,12 @@ export default async function handler(req, res) {
 
     const adminEmail = decoded.email;
 
-    // Update last_active_at timestamp in admin_sessions
+    // Update admin session - sets both timestamp AND is_active flag
+    // Note: This requires the session to already exist. For full fix, run database-migration-fix-admin-sessions.sql
     await pool.query(
       `UPDATE admin_sessions 
-       SET last_active_at = NOW()
+       SET is_active = TRUE,
+           last_active_at = NOW()
        WHERE admin_email = $1`,
       [adminEmail]
     );

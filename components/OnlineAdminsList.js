@@ -115,10 +115,22 @@ export default function OnlineAdminsList({ currentUserId, currentUserName, curre
       <div className="mt-3 flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className={`h-3 w-3 rounded-full ${getStatusColor(user.status)} ${user.status?.toLowerCase() === 'online' ? 'animate-pulse' : ''}`} />
-            <span className="text-sm text-gray-800 capitalize">{user.status}</span>
+            {/* For responders: if responder_status is 'active', show as Online */}
+            {type === 'responder' && user.responder_status?.toLowerCase() === 'active' ? (
+              <>
+                <span className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-sm text-gray-800 capitalize">Online</span>
+              </>
+            ) : (
+              <>
+                <span className={`h-3 w-3 rounded-full ${getStatusColor(user.status)} ${user.status?.toLowerCase() === 'online' ? 'animate-pulse' : ''}`} />
+                <span className="text-sm text-gray-800 capitalize">{user.status}</span>
+              </>
+            )}
           </div>
-          {user.status?.toLowerCase() === 'offline' && user.last_active_at && (
+          {/* Only show "Last seen" if truly offline (not active) */}
+          {!(type === 'responder' && user.responder_status?.toLowerCase() === 'active') && 
+           user.status?.toLowerCase() === 'offline' && user.last_active_at && (
             <span className="text-xs text-gray-500 ml-5">
               Last seen {formatLastSeen(user.last_active_at)}
             </span>
@@ -127,7 +139,9 @@ export default function OnlineAdminsList({ currentUserId, currentUserName, curre
         <div className="flex items-center gap-3">
           {type === 'responder' && user.responder_status && (
             <div className="text-xs text-gray-600">
-              <span className="font-medium text-red-600">Responder:</span>{' '}
+              <span className={`font-medium ${user.responder_status?.toLowerCase() === 'active' ? 'text-green-600' : 'text-red-600'}`}>
+                Responder:
+              </span>{' '}
               {user.responder_status}
             </div>
           )}

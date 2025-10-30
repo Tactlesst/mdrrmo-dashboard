@@ -18,8 +18,8 @@ const MapDisplay = dynamic(() => import('./MapDisplay'), { ssr: false });
 const Alerts = dynamic(() => import('./Alerts'), { ssr: false });
 
 export default function DashboardContent({ user }) {
-  // Enable heartbeat for session management (sends ping every 5 minutes)
-  useHeartbeat('admin', 300000);
+  // Enable heartbeat for session management (sends ping every 2 minutes for accurate status)
+  useHeartbeat('admin', 120000);
   const [admin, setAdmin] = useState({ name: '', email: '', profile_image_url: '' });
   const [activeContent, setActiveContent] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);

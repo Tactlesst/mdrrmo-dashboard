@@ -3,7 +3,12 @@ import pool from '@/lib/db'; // ✅ NO curly braces
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
-      const result = await pool.query(`
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Query timeout after 15 seconds')), 15000)
+      );
+      
+      const queryPromise = pool.query(`
         SELECT 
           alerts.*,
           users.name AS resident_name,
@@ -12,7 +17,10 @@ export default async function handler(req, res) {
         LEFT JOIN users ON alerts.user_id = users.id
         LEFT JOIN responders ON alerts.responder_id = responders.id
         ORDER BY alerts.created_at DESC
+        LIMIT 1000
       `);
+      
+      const result = await Promise.race([queryPromise, timeoutPromise]);
 
       const alerts = result.rows.map((alert) => ({
         id: alert.id,

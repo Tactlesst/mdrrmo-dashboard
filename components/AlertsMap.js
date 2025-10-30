@@ -142,7 +142,7 @@ function FlyToAndOpenPopup({ alerts, selectedAlertId, markerRefs }) {
     try {
       if (map && map.flyTo) {
         console.log('Flying to:', alert.coords);
-        map.flyTo(alert.coords, 16, { duration: 1.5 });
+        map.flyTo(alert.coords, 17, { duration: 1.5 });
         console.log('FlyTo executed successfully');
         
         // Wait for flyTo animation to complete, then open popup
