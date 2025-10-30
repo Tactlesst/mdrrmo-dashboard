@@ -155,7 +155,7 @@ export default function DashboardContent({ user }) {
         // Filter: System, Alerts, Admin, and Chat = global, Others = current user only
         const filtered = validNotifications.filter(n => {
           const type = (n.sender_type || '').toLowerCase();
-          if (type === 'system' || type === 'responder' || type === 'admin' || type === 'chat') {
+          if (type === 'system' || type === 'responder' || type === 'alerts' || type === 'admin' || type === 'chat') {
             return true; // Show all system, alerts, admin, and chat notifications globally
           }
           // For others: show only if they belong to current user
@@ -164,8 +164,8 @@ export default function DashboardContent({ user }) {
         
         setNotifications(filtered);
         
-        // Check for new alert notifications (from responders ONLY - exclude chat)
-        const unreadAlerts = filtered.filter(n => !n.is_read && n.sender_type === 'responder');
+        // Check for new alert notifications (from responders or alerts - exclude chat)
+        const unreadAlerts = filtered.filter(n => !n.is_read && (n.sender_type === 'responder' || n.sender_type === 'alerts'));
         if (unreadAlerts.length > lastNotificationCount && lastNotificationCount > 0) {
           // New alert received - play sound and show modal
           const latestAlert = unreadAlerts[0];
@@ -195,10 +195,10 @@ export default function DashboardContent({ user }) {
     return () => clearInterval(interval);
   }, [user.id]);
 
-  // Check for unread alerts on mount and show modal immediately (responders ONLY)
+  // Check for unread alerts on mount and show modal immediately (responders and alerts)
   useEffect(() => {
     if (notifications.length > 0) {
-      const unreadAlerts = notifications.filter(n => !n.is_read && n.sender_type === 'responder');
+      const unreadAlerts = notifications.filter(n => !n.is_read && (n.sender_type === 'responder' || n.sender_type === 'alerts'));
       if (unreadAlerts.length > 0 && !alertModal) {
         // Show the first unread alert with count of remaining alerts
         setAlertModal({ 
@@ -314,8 +314,8 @@ export default function DashboardContent({ user }) {
       return;
     }
     
-    // Check if this is an alert notification (responders only) - redirect to alerts page
-    const isAlertNotification = notification.sender_type === 'responder';
+    // Check if this is an alert notification (responders or alerts) - redirect to alerts page
+    const isAlertNotification = notification.sender_type === 'responder' || notification.sender_type === 'alerts';
     if (isAlertNotification) {
       // Mark as read and redirect to alerts page
       handleMarkAsRead(notification.id);
@@ -532,7 +532,7 @@ export default function DashboardContent({ user }) {
                   </div>
                 </div>
                 {(() => {
-                  const isAlert = (n) => n.sender_type === 'responder';
+                  const isAlert = (n) => n.sender_type === 'responder' || n.sender_type === 'alerts';
                   const isChat = (n) => n.sender_type === 'chat';
                   const isAdminCat = (n) => n.sender_type === 'admin';
                   const isSystem = (n) => n.sender_type === 'system';
@@ -659,8 +659,8 @@ export default function DashboardContent({ user }) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${selectedNotification.sender_type === 'responder' ? 'bg-red-100 text-red-700' : selectedNotification.sender_type === 'chat' ? 'bg-purple-100 text-purple-700' : selectedNotification.sender_type === 'admin' ? 'bg-blue-100 text-blue-700' : selectedNotification.sender_type === 'system' ? 'bg-gray-100 text-gray-700' : 'bg-slate-100 text-slate-700'}`}>
-                  {selectedNotification.sender_type === 'responder' ? 'Alerts' : selectedNotification.sender_type === 'chat' ? 'Chat' : selectedNotification.sender_type === 'admin' ? 'Admin' : selectedNotification.sender_type === 'system' ? 'System' : 'Others'}
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${selectedNotification.sender_type === 'responder' || selectedNotification.sender_type === 'alerts' ? 'bg-red-100 text-red-700' : selectedNotification.sender_type === 'chat' ? 'bg-purple-100 text-purple-700' : selectedNotification.sender_type === 'admin' ? 'bg-blue-100 text-blue-700' : selectedNotification.sender_type === 'system' ? 'bg-gray-100 text-gray-700' : 'bg-slate-100 text-slate-700'}`}>
+                  {selectedNotification.sender_type === 'responder' || selectedNotification.sender_type === 'alerts' ? 'Alerts' : selectedNotification.sender_type === 'chat' ? 'Chat' : selectedNotification.sender_type === 'admin' ? 'Admin' : selectedNotification.sender_type === 'system' ? 'System' : 'Others'}
                 </span>
                 <button
                   onClick={handleCloseDetails}
