@@ -388,7 +388,8 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
                       <div className="flex items-start gap-1.5">
                         <span className="text-gray-500">📅</span>
                         <span className="text-gray-800">
-                          {alert.date ? new Date(alert.date).toLocaleDateString('en-US', { 
+                          {alert.occurred_at ? new Date(alert.occurred_at).toLocaleDateString('en-PH', { 
+                            timeZone: 'Asia/Manila',
                             month: 'short', 
                             day: 'numeric',
                             year: 'numeric'
@@ -399,7 +400,8 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId }) {
                       <div className="flex items-start gap-1.5">
                         <span className="text-gray-500">🕐</span>
                         <span className="text-gray-800">
-                          {alert.date || alert.occurred_at ? new Date(alert.date || alert.occurred_at).toLocaleTimeString('en-US', { 
+                          {alert.occurred_at ? new Date(alert.occurred_at).toLocaleTimeString('en-PH', { 
+                            timeZone: 'Asia/Manila',
                             hour: '2-digit', 
                             minute: '2-digit',
                             hour12: true
