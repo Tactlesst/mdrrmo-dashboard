@@ -732,11 +732,36 @@ export default function DashboardContent({ user }) {
       )}
 
       {alertModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
-            <div className="bg-red-600 text-white px-6 py-4 rounded-t-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70] p-4 animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg animate-shake">
+            <style jsx>{`
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+              @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+                20%, 40%, 60%, 80% { transform: translateX(10px); }
+              }
+              @keyframes pulse {
+                0%, 100% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.05); opacity: 0.8; }
+              }
+              .animate-fadeIn {
+                animation: fadeIn 0.3s ease-out;
+              }
+              .animate-shake {
+                animation: shake 0.5s ease-in-out;
+              }
+              .animate-pulse-alert {
+                animation: pulse 1.5s ease-in-out infinite;
+              }
+            `}</style>
+            <div className="bg-red-600 text-white px-6 py-4 rounded-t-xl relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-red-500 to-red-600 animate-pulse-alert"></div>
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center animate-pulse-alert">
                   <span className="text-2xl">🚨</span>
                 </div>
                 <div>
