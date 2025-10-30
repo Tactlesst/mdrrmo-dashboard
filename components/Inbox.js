@@ -15,7 +15,8 @@ export default function Inbox({
   
   // Note: notifications prop is already filtered in DashboardContent:
   // - System notifications: shown globally for all users
-  // - Alerts (responder & chat/user alerts): shown globally for all users
+  // - Alerts (responder): shown globally for all users
+  // - Chat: shown globally for all users
   // - Admin (admin actions): shown globally for all users
   // - Others: filtered to current user only
 
@@ -96,6 +97,7 @@ export default function Inbox({
   // Categorize and filter notifications
   const categorizedNotifications = {
     alerts: [],
+    chat: [],
     admin: [],
     system: [],
     other: [],
@@ -113,18 +115,22 @@ export default function Inbox({
         : true;
 
     const type = (notification.sender_type || '').toLowerCase();
-    const isAlert = type === 'responder' || type === 'chat';
+    const isAlert = type === 'responder';
+    const isChat = type === 'chat';
     const isAdminCat = type === 'admin';
     const isSystem = type === 'system';
     const matchesFilter =
       (inboxFilter === 'alerts' && isAlert) ||
+      (inboxFilter === 'chat' && isChat) ||
       (inboxFilter === 'admin' && isAdminCat) ||
       (inboxFilter === 'system' && isSystem) ||
-      (inboxFilter === 'other' && !isAlert && !isAdminCat && !isSystem);
+      (inboxFilter === 'other' && !isAlert && !isChat && !isAdminCat && !isSystem);
 
     if (matchesSearch && matchesFilter) {
-      if (type === 'responder' || type === 'chat') {
+      if (type === 'responder') {
         categorizedNotifications.alerts.push(notification);
+      } else if (type === 'chat') {
+        categorizedNotifications.chat.push(notification);
       } else if (type === 'admin') {
         categorizedNotifications.admin.push(notification);
       } else if (type === 'system') {
@@ -138,6 +144,7 @@ export default function Inbox({
   // Sort notifications within each category by created_at (descending)
   const orderedCategories = [
     { name: 'Alerts', key: 'alerts', notifications: categorizedNotifications.alerts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) },
+    { name: 'Chat Messages', key: 'chat', notifications: categorizedNotifications.chat.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) },
     { name: 'Admin Notifications', key: 'admin', notifications: categorizedNotifications.admin.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) },
     { name: 'System Notifications', key: 'system', notifications: categorizedNotifications.system.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) },
     { name: 'Other Notifications', key: 'other', notifications: categorizedNotifications.other.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) },
@@ -172,6 +179,12 @@ export default function Inbox({
               className={`px-3 py-1.5 text-sm rounded-full ${inboxFilter === 'alerts' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
             >
               Alerts
+            </button>
+            <button
+              onClick={() => setInboxFilter('chat')}
+              className={`px-3 py-1.5 text-sm rounded-full ${inboxFilter === 'chat' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              Chat
             </button>
             <button
               onClick={() => setInboxFilter('admin')}
