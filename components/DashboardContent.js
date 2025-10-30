@@ -896,7 +896,7 @@ export default function DashboardContent({ user }) {
                   </button>
                 )}
                 
-                <button onClick={() => { setActiveContent('dashboard'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium">
+                <button onClick={() => { setActiveContent('alerts'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium">
                   <span>📍</span> View on Map
                 </button>
                 <button onClick={() => { setActiveContent('online-admins'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 font-medium">
