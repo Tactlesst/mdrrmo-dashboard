@@ -32,7 +32,6 @@ export default function DashboardContent({ user }) {
   const [headerNotifFilter, setHeaderNotifFilter] = useState('alerts');
   const [alertModal, setAlertModal] = useState(null); // { alert, notification }
   const [lastNotificationCount, setLastNotificationCount] = useState(0);
-  const [selectedAlertIdFromNotification, setSelectedAlertIdFromNotification] = useState(null);
   const audioRef = useRef(null);
   // Settings state moved into components/Settings.js
   const sidebarRef = useRef(null);
@@ -315,20 +314,14 @@ export default function DashboardContent({ user }) {
       return;
     }
     
-    // Check if this is an alert notification and extract alert ID
+    // Check if this is an alert notification - redirect to alerts page
     const isAlertNotification = notification.sender_type === 'responder' || notification.sender_type === 'chat';
-    if (isAlertNotification && notification.message) {
-      const alertIdMatch = notification.message.match(/\[Alert ID: (\d+)\]/);
-      if (alertIdMatch) {
-        const alertId = parseInt(alertIdMatch[1]);
-        console.log('Extracted alert ID from notification:', alertId);
-        // Mark as read and redirect to alerts page with selected alert
-        handleMarkAsRead(notification.id);
-        setSelectedAlertIdFromNotification(alertId);
-        setActiveContent('alerts');
-        setShowNotifications(false);
-        return;
-      }
+    if (isAlertNotification) {
+      // Mark as read and redirect to alerts page
+      handleMarkAsRead(notification.id);
+      setActiveContent('alerts');
+      setShowNotifications(false);
+      return;
     }
     
     // Default behavior for non-alert notifications
@@ -787,12 +780,7 @@ export default function DashboardContent({ user }) {
         {activeContent && (
           <main className="flex-1 min-h-0 bg-white rounded-xl shadow-md p-6 overflow-auto">
             {activeContent === 'dashboard' && <MapDisplay />}
-            {activeContent === 'alerts' && (
-              <Alerts 
-                initialSelectedAlertId={selectedAlertIdFromNotification}
-                onAlertViewed={() => setSelectedAlertIdFromNotification(null)}
-              />
-            )}
+            {activeContent === 'alerts' && <Alerts />}
             {activeContent === 'inbox' && (
               <Inbox 
                 notifications={notifications}

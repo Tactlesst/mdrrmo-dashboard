@@ -3,24 +3,13 @@ import { useEffect, useMemo, useState } from 'react';
 import AlertMap from './AlertsMap';
 import AlertList from './AlertList';
 
-export default function Alerts({ initialSelectedAlertId, onAlertViewed }) {
+export default function Alerts() {
   const fallbackCenter = [8.743412346817417, 124.77629163417616];
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [selectedAlertId, setSelectedAlertId] = useState(null);
-
-  // Handle initial alert selection from notification
-  useEffect(() => {
-    if (initialSelectedAlertId) {
-      console.log('Setting initial selected alert ID:', initialSelectedAlertId);
-      setSelectedAlertId(initialSelectedAlertId);
-      if (onAlertViewed) {
-        onAlertViewed();
-      }
-    }
-  }, [initialSelectedAlertId, onAlertViewed]);
 
   useEffect(() => {
     const fetchData = async () => {
