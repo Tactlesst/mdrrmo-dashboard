@@ -291,46 +291,56 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-50 p-6 font-sans flex flex-col gap-6">
       {/* Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4">
-          <div className="p-3 bg-green-100 rounded-full text-green-600 text-xl">
+        {/* Total New Users Badge */}
+        <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4 transition-all duration-300 hover:shadow-xl hover:scale-105 hover:-translate-y-1 cursor-pointer group">
+          <div className="p-3 bg-green-100 rounded-full text-green-600 text-xl transition-all duration-300 group-hover:bg-green-600 group-hover:text-white group-hover:rotate-12 group-hover:scale-110">
             <FiUserPlus />
           </div>
-          <div>
-            <p className="text-gray-500 text-sm">Total New Users (This Month)</p>
-            <p className="text-2xl font-semibold text-green-600">
+          <div className="flex-1">
+            <p className="text-gray-500 text-sm transition-colors duration-300 group-hover:text-gray-700">Total New Users (This Month)</p>
+            <p className="text-2xl font-semibold text-green-600 transition-all duration-300 group-hover:text-green-700 group-hover:scale-110">
               {loading ? <span className="animate-pulse">...</span> : totalNewUsers}
             </p>
           </div>
         </div>
-        <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4">
-          <div className="p-3 bg-red-100 rounded-full text-red-600 text-xl">
+
+        {/* Number of Alerts Badge */}
+        <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4 transition-all duration-300 hover:shadow-xl hover:scale-105 hover:-translate-y-1 cursor-pointer group">
+          <div className="p-3 bg-red-100 rounded-full text-red-600 text-xl transition-all duration-300 group-hover:bg-red-600 group-hover:text-white group-hover:rotate-12 group-hover:scale-110 relative">
             <FiAlertCircle />
+            {!loading && alerts.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
+            )}
           </div>
-          <div>
-            <p className="text-gray-500 text-sm">Number of Alerts</p>
-            <p className="text-2xl font-semibold text-red-600">
+          <div className="flex-1">
+            <p className="text-gray-500 text-sm transition-colors duration-300 group-hover:text-gray-700">Number of Alerts</p>
+            <p className="text-2xl font-semibold text-red-600 transition-all duration-300 group-hover:text-red-700 group-hover:scale-110">
               {loading ? <span className="animate-pulse">...</span> : alerts.length}
             </p>
           </div>
         </div>
-        <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4">
-          <div className="p-3 bg-blue-100 rounded-full text-blue-600 text-xl">
+
+        {/* Responders Available Badge */}
+        <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4 transition-all duration-300 hover:shadow-xl hover:scale-105 hover:-translate-y-1 cursor-pointer group">
+          <div className="p-3 bg-blue-100 rounded-full text-blue-600 text-xl transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-12 group-hover:scale-110">
             <FiUsers />
           </div>
-          <div>
-            <p className="text-gray-500 text-sm">Responders Available</p>
-            <p className="text-2xl font-semibold text-blue-600">
+          <div className="flex-1">
+            <p className="text-gray-500 text-sm transition-colors duration-300 group-hover:text-gray-700">Responders Available</p>
+            <p className="text-2xl font-semibold text-blue-600 transition-all duration-300 group-hover:text-blue-700 group-hover:scale-110">
               {loading ? <span className="animate-pulse">...</span> : `${availableResponders} / ${totalResponders}`}
             </p>
           </div>
         </div>
-        <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4">
-          <div className="p-3 bg-purple-100 rounded-full text-purple-600 text-xl">
+
+        {/* Total Users Badge */}
+        <div className="bg-white p-5 rounded-xl shadow flex items-center gap-4 transition-all duration-300 hover:shadow-xl hover:scale-105 hover:-translate-y-1 cursor-pointer group">
+          <div className="p-3 bg-purple-100 rounded-full text-purple-600 text-xl transition-all duration-300 group-hover:bg-purple-600 group-hover:text-white group-hover:rotate-12 group-hover:scale-110">
             <FiUsers />
           </div>
-          <div>
-            <p className="text-gray-500 text-sm">Total Users</p>
-            <p className="text-2xl font-semibold text-purple-600">
+          <div className="flex-1">
+            <p className="text-gray-500 text-sm transition-colors duration-300 group-hover:text-gray-700">Total Users</p>
+            <p className="text-2xl font-semibold text-purple-600 transition-all duration-300 group-hover:text-purple-700 group-hover:scale-110">
               {loading ? <span className="animate-pulse">...</span> : totalUsers}
             </p>
           </div>

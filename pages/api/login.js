@@ -156,8 +156,13 @@ export default async function handler(req, res) {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: admin.id, email: admin.email, sessionId },
-      process.env.JWT_SECRET,
+      { 
+        id: admin.id, 
+        email: admin.email, 
+        name: admin.name || admin.email,
+        sessionId 
+      },
+      process.env.JWT_SECRET || 'fallback-secret-key-change-in-production',
       { expiresIn: '1d' }
     );
 

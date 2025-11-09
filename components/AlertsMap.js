@@ -12,6 +12,146 @@ const Polyline = dynamic(() => import('react-leaflet').then(mod => mod.Polyline)
 
 // Leaflet icon configuration will be loaded dynamically
 
+// Validate if coordinates are valid numbers
+const isValidCoordinate = (coord) => {
+  return coord !== null && 
+         coord !== undefined && 
+         typeof coord === 'number' && 
+         !isNaN(coord) && 
+         isFinite(coord);
+};
+
+// Validate if an alert has valid coordinates
+const hasValidCoords = (alert) => {
+  if (!alert || !alert.coords || !Array.isArray(alert.coords) || alert.coords.length !== 2) {
+    return false;
+  }
+  const [lat, lng] = alert.coords;
+  return isValidCoordinate(lat) && 
+         isValidCoordinate(lng) && 
+         lat >= -90 && lat <= 90 && 
+         lng >= -180 && lng <= 180;
+};
+
+// Calculate distance between two coordinates in meters using Haversine formula
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // Distance in meters
+};
+
+// Cluster alerts that are within 100 meters of each other
+const clusterAlerts = (alerts, maxDistance = 100) => {
+  const clusters = [];
+  const processed = new Set();
+
+  alerts.forEach((alert, index) => {
+    if (processed.has(index)) return;
+
+    const cluster = {
+      alerts: [alert],
+      center: alert.coords,
+      indices: [index],
+    };
+
+    // Find nearby alerts
+    alerts.forEach((otherAlert, otherIndex) => {
+      if (index === otherIndex || processed.has(otherIndex)) return;
+
+      // Check for exact coordinate match first
+      const isSameLocation = 
+        alert.coords[0] === otherAlert.coords[0] && 
+        alert.coords[1] === otherAlert.coords[1];
+
+      // Calculate distance if not exact match
+      const distance = isSameLocation ? 0 : calculateDistance(
+        alert.coords[0],
+        alert.coords[1],
+        otherAlert.coords[0],
+        otherAlert.coords[1]
+      );
+
+      if (isSameLocation || distance <= maxDistance) {
+        cluster.alerts.push(otherAlert);
+        cluster.indices.push(otherIndex);
+        processed.add(otherIndex);
+      }
+    });
+
+    // Calculate center point for clusters with multiple alerts
+    if (cluster.alerts.length > 1) {
+      // Filter out any alerts with invalid coords before calculating center
+      const validAlertsInCluster = cluster.alerts.filter(a => 
+        a.coords && 
+        Array.isArray(a.coords) && 
+        a.coords.length === 2 &&
+        typeof a.coords[0] === 'number' &&
+        typeof a.coords[1] === 'number' &&
+        !isNaN(a.coords[0]) && 
+        !isNaN(a.coords[1]) &&
+        isFinite(a.coords[0]) &&
+        isFinite(a.coords[1])
+      );
+      
+      if (validAlertsInCluster.length > 0) {
+        const avgLat = validAlertsInCluster.reduce((sum, a) => sum + a.coords[0], 0) / validAlertsInCluster.length;
+        const avgLng = validAlertsInCluster.reduce((sum, a) => sum + a.coords[1], 0) / validAlertsInCluster.length;
+        
+        // Final validation of calculated center
+        if (!isNaN(avgLat) && !isNaN(avgLng) && isFinite(avgLat) && isFinite(avgLng)) {
+          cluster.center = [avgLat, avgLng];
+        }
+      }
+    }
+
+    processed.add(index);
+    clusters.push(cluster);
+  });
+
+  return clusters;
+};
+
+// Create cluster icon
+const createClusterIcon = (count, L) => {
+  if (!L) return null;
+  
+  const size = count > 10 ? 50 : count > 5 ? 45 : 40;
+  const color = count > 10 ? '#DC2626' : count > 5 ? '#EA580C' : '#F59E0B';
+  
+  return L.divIcon({
+    className: 'custom-cluster-marker',
+    html: `
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        background: ${color};
+        border: 3px solid white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        font-weight: bold;
+        color: white;
+        font-size: ${count > 99 ? '12px' : '16px'};
+      ">
+        ${count}
+      </div>
+    `,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  });
+};
+
 const createCustomIcon = (type, status, L) => {
   if (!L) return null;
   const normalizedType = type ? type.toLowerCase() : '';
@@ -124,55 +264,99 @@ function FlyToAndOpenPopup({ alerts, selectedAlertId, markerRefs }) {
   const map = useMap();
 
   useEffect(() => {
-    console.log('FlyToAndOpenPopup triggered:', { selectedAlertId, alertsCount: alerts.length });
-    
-    if (!selectedAlertId) {
-      console.log('No selectedAlertId, skipping');
+    if (!selectedAlertId || !map) {
       return;
     }
 
     const alert = alerts.find((a) => a.id === selectedAlertId);
-    console.log('Found alert:', alert);
     
-    if (!alert || !alert.coords || alert.coords.some(isNaN)) {
-      console.warn('Invalid alert or coordinates');
+    if (!alert) {
+      console.warn('Alert not found:', selectedAlertId);
+      return;
+    }
+
+    // Comprehensive coordinate validation
+    if (!alert.coords || !Array.isArray(alert.coords) || alert.coords.length !== 2) {
+      console.warn('Alert has invalid coords structure:', alert.coords);
+      return;
+    }
+
+    const [lat, lng] = alert.coords;
+    
+    // Check every possible way coordinates could be invalid
+    if (lat === null || lat === undefined || lng === null || lng === undefined) {
+      console.warn('Coordinates are null or undefined');
+      return;
+    }
+
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      console.warn('Coordinates are not numbers:', { lat: typeof lat, lng: typeof lng });
+      return;
+    }
+
+    if (isNaN(lat) || isNaN(lng)) {
+      console.warn('Coordinates are NaN:', { lat, lng });
+      return;
+    }
+
+    if (!isFinite(lat) || !isFinite(lng)) {
+      console.warn('Coordinates are not finite:', { lat, lng });
+      return;
+    }
+
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      console.warn('Coordinates out of valid range:', { lat, lng });
       return;
     }
 
     try {
-      if (map && map.flyTo) {
-        console.log('Flying to:', alert.coords);
-        map.flyTo(alert.coords, 17, { duration: 1.5 });
-        console.log('FlyTo executed successfully');
-        
-        // Wait for flyTo animation to complete, then open popup
-        const popupTimeout = setTimeout(() => {
-          try {
-            // Find the marker using Leaflet's layer system
-            map.eachLayer((layer) => {
-              if (layer.getLatLng && layer.openPopup) {
-                const pos = layer.getLatLng();
-                // Check if this layer is at the alert's coordinates
-                if (Math.abs(pos.lat - alert.coords[0]) < 0.0001 && 
-                    Math.abs(pos.lng - alert.coords[1]) < 0.0001) {
-                  layer.openPopup();
-                  console.log('Popup opened successfully via layer search');
-                }
+      // Use setView instead of flyTo to avoid animation issues
+      map.setView([lat, lng], 18);
+      
+      // Check if this alert is part of a cluster
+      const validAlerts = alerts.filter(a => a.coords !== null && hasValidCoords(a));
+      const clusters = clusterAlerts(validAlerts, 100);
+      
+      // Find if the selected alert is in a cluster
+      const cluster = clusters.find(c => c.alerts.some(a => a.id === selectedAlertId));
+      
+      setTimeout(() => {
+        if (cluster && cluster.alerts.length > 1) {
+          // Alert is in a cluster - open cluster popup
+          const clusterRefKey = `cluster-${cluster.alerts[0].id}`;
+          const clusterRef = markerRefs.current[clusterRefKey];
+          if (clusterRef && clusterRef.current) {
+            try {
+              // Try different methods to open the popup
+              if (typeof clusterRef.current.openPopup === 'function') {
+                clusterRef.current.openPopup();
+              } else if (clusterRef.current._popup) {
+                clusterRef.current._popup.openOn(map);
               }
-            });
-          } catch (error) {
-            console.error('Popup open error:', error);
+            } catch (err) {
+              console.warn('Could not open cluster popup:', err);
+            }
           }
-        }, 1600); // Slightly longer than flyTo duration
-        
-        return () => clearTimeout(popupTimeout);
-      } else {
-        console.warn('Map or flyTo method not available');
-      }
+        } else {
+          // Single alert - open individual marker popup
+          const markerRef = markerRefs.current[selectedAlertId];
+          if (markerRef && markerRef.current) {
+            try {
+              if (typeof markerRef.current.openPopup === 'function') {
+                markerRef.current.openPopup();
+              } else if (markerRef.current._popup) {
+                markerRef.current._popup.openOn(map);
+              }
+            } catch (err) {
+              console.warn('Could not open marker popup:', err);
+            }
+          }
+        }
+      }, 100);
     } catch (error) {
-      console.error('Map flyTo error:', error);
+      console.error('Error navigating to alert:', error);
     }
-  }, [selectedAlertId, alerts, map]);
+  }, [selectedAlertId, alerts, map, markerRefs]);
 
   return null;
 }
@@ -184,7 +368,9 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
   const isMountedRef = useRef(true);
   const [responders, setResponders] = useState([]);
 
-  const mapCenter = alerts.length ? alerts[0].coords : fallbackCenter;
+  // Filter alerts with valid coordinates and use the first valid one, or fallback
+  const validAlerts = alerts.filter(alert => alert.coords !== null && hasValidCoords(alert));
+  const mapCenter = validAlerts.length > 0 ? validAlerts[0].coords : fallbackCenter;
 
   // Track component mount status
   useEffect(() => {
@@ -194,25 +380,15 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
     };
   }, []);
 
-  // Fetch responder locations
+  // Fetch responder locations (all responders, not filtered by alert)
   useEffect(() => {
     const fetchResponders = async () => {
       try {
-        const url = selectedAlertId 
-          ? `/api/responders/tracking?alertId=${selectedAlertId}`
-          : '/api/responders/tracking';
-        
-        console.log('Fetching responders from:', url);
-        const res = await fetch(url);
+        const res = await fetch('/api/responders/tracking');
         const data = await res.json();
         
-        console.log('Responder data received:', data);
-        
-        if (data.success && isMountedRef.current) {
+        if (isMountedRef.current && data.success) {
           setResponders(data.responders || []);
-          console.log(`✅ ${data.responders?.length || 0} responders loaded`);
-        } else {
-          console.warn('Failed to fetch responders:', data);
         }
       } catch (err) {
         console.error('Error fetching responder locations:', err);
@@ -223,7 +399,7 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
     const interval = setInterval(fetchResponders, 10000); // Update every 10 seconds
 
     return () => clearInterval(interval);
-  }, [selectedAlertId]);
+  }, []); // No dependencies - just fetch all responders periodically
 
   // Lazy load Leaflet CSS and configure icons
   useEffect(() => {
@@ -339,28 +515,163 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
             attribution="&copy; OpenStreetMap contributors"
           />
 
-          {alerts.map((alert) => {
-            if (!alert.coords || alert.coords.some(isNaN)) return null; // Skip invalid coordinates
+          {/* Cluster alerts within 100 meters */}
+          {clusterAlerts(alerts.filter(alert => alert.coords !== null && hasValidCoords(alert)), 100)
+            .filter(cluster => {
+              // Ensure cluster has a valid center before rendering
+              if (!cluster.center || !Array.isArray(cluster.center) || cluster.center.length !== 2) {
+                return false;
+              }
+              const [lat, lng] = cluster.center;
+              return typeof lat === 'number' && typeof lng === 'number' && 
+                     !isNaN(lat) && !isNaN(lng) && 
+                     isFinite(lat) && isFinite(lng);
+            })
+            .map((cluster, clusterIndex) => {
+            const isCluster = cluster.alerts.length > 1;
+            
+            if (isCluster) {
+              // Render cluster marker
+              const clusterIcon = createClusterIcon(cluster.alerts.length, L);
+              
+              // Store cluster marker ref using the first alert's ID as reference
+              const clusterRefKey = `cluster-${cluster.alerts[0].id}`;
+              if (!markerRefs.current[clusterRefKey]) {
+                markerRefs.current[clusterRefKey] = React.createRef();
+              }
+              
+              return (
+                <Marker
+                  key={`cluster-${clusterIndex}`}
+                  position={cluster.center}
+                  icon={clusterIcon}
+                  ref={markerRefs.current[clusterRefKey]}
+                >
+                  <Popup maxWidth={320} className="custom-popup">
+                    <div className="p-0">
+                      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+                        <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                        <h3 className="font-bold text-gray-800 text-base">
+                          {cluster.alerts.length} Incidents in This Area
+                        </h3>
+                      </div>
+                      
+                      <div className="max-h-64 overflow-y-auto space-y-3">
+                        {cluster.alerts.map((alert) => (
+                          <div key={alert.id} className="p-3 bg-white rounded-lg border border-gray-300 shadow-sm">
+                            {/* Alert Type and Status Badge */}
+                            <div className="flex items-start justify-between mb-2">
+                              <h4 className="font-semibold text-sm text-gray-900">{alert.type || 'Alert'}</h4>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                alert.status === 'Not Responded' ? 'bg-red-500 text-white' : 
+                                alert.status === 'Pending' ? 'bg-yellow-400 text-gray-900' :
+                                alert.status === 'Ongoing' || alert.status === 'In Progress' ? 'bg-yellow-400 text-gray-900' : 
+                                'bg-green-500 text-white'
+                              }`}>
+                                {alert.status || 'Unknown'}
+                              </span>
+                            </div>
+                            
+                            {/* Priority Dropdown */}
+                            <div className="mb-2">
+                              <label className="text-[10px] font-medium text-gray-600 block mb-1">Set Priority:</label>
+                              <select 
+                                className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                value={alert.severity || 'medium'}
+                                onChange={async (e) => {
+                                  const newSeverity = e.target.value;
+                                  try {
+                                    const res = await fetch('/api/alerts/update-severity', {
+                                      method: 'PUT',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ alertId: alert.id, severity: newSeverity })
+                                    });
+                                    if (res.ok && onSeverityUpdate) {
+                                      onSeverityUpdate(alert.id, newSeverity);
+                                    }
+                                  } catch (err) {
+                                    console.error('Error updating severity:', err);
+                                  }
+                                }}
+                              >
+                                <option value="low">🟢 Low Priority</option>
+                                <option value="medium">🟡 Medium Priority</option>
+                                <option value="high">🟠 High Priority</option>
+                                <option value="critical">🔴 Critical</option>
+                              </select>
+                            </div>
+                            
+                            {/* Alert Details */}
+                            <div className="text-xs text-gray-700 space-y-1">
+                              <div className="flex items-start gap-1">
+                                <span className="text-gray-500">📍</span>
+                                <span className="flex-1">{alert.address || '—'}</span>
+                              </div>
+                              {alert.contact && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-gray-500">📞</span>
+                                  <a href={`tel:${alert.contact}`} className="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                                    {alert.contact}
+                                  </a>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-1">
+                                <span className="text-gray-500">📅</span>
+                                <span>{alert.occurred_at ? new Date(alert.occurred_at).toLocaleDateString('en-PH', { 
+                                  timeZone: 'Asia/Manila',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                }) : 'Unknown'}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-gray-500">🕐</span>
+                                <span>{alert.occurred_at ? new Date(alert.occurred_at).toLocaleTimeString('en-PH', { 
+                                  timeZone: 'Asia/Manila',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : 'Unknown'}</span>
+                              </div>
+                              <div className="flex items-start gap-1">
+                                <span className="text-gray-500">📱</span>
+                                <span className="flex-1"><span className="font-medium">Sent by:</span> {alert.resident_name || 'Unknown'}</span>
+                              </div>
+                              <div className="flex items-start gap-1">
+                                <span className="text-gray-500">🚑</span>
+                                <span className="flex-1"><span className="font-medium">Responder:</span> {alert.user || alert.responder_name || 'Not Assigned'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            } else {
+              // Render single alert marker
+              const alert = cluster.alerts[0];
+              
+              if (!markerRefs.current[alert.id]) {
+                markerRefs.current[alert.id] = React.createRef();
+              }
 
-            if (!markerRefs.current[alert.id]) {
-              markerRefs.current[alert.id] = React.createRef();
-            }
+              const customIcon = createCustomIcon(alert.type, alert.status, L);
 
-            const customIcon = createCustomIcon(alert.type, alert.status, L);
-
-            return (
-              <Marker
-                key={alert.id}
-                position={alert.coords}
-                ref={markerRefs.current[alert.id]}
-                icon={customIcon}
-              >
-                <Popup maxWidth={280} className="custom-popup">
+              return (
+                <Marker
+                  key={alert.id}
+                  position={alert.coords}
+                  ref={markerRefs.current[alert.id]}
+                  icon={customIcon}
+                >
+                  <Popup maxWidth={280} className="custom-popup">
                   <div className="p-0">
                     {/* Header with icon and type */}
                     <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-gray-200">
                       <div className={`w-2 h-2 rounded-full ${
                         alert.status === 'Not Responded' ? 'bg-red-500' : 
+                        alert.status === 'Pending' ? 'bg-yellow-500' :
                         alert.status === 'Ongoing' || alert.status === 'In Progress' ? 'bg-yellow-500' : 
                         'bg-green-500'
                       }`}></div>
@@ -371,6 +682,7 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
                     <div className="mb-2 flex gap-2 flex-wrap">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
                         alert.status === 'Not Responded' ? 'bg-red-100 text-red-700' : 
+                        alert.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
                         alert.status === 'Ongoing' || alert.status === 'In Progress' ? 'bg-yellow-100 text-yellow-700' : 
                         'bg-green-100 text-green-700'
                       }`}>
@@ -425,6 +737,15 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
                         <span className="text-gray-800 font-medium flex-1">{alert.address || '—'}</span>
                       </div>
                       
+                      {alert.contact && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-500">📞</span>
+                          <a href={`tel:${alert.contact}`} className="text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                            {alert.contact}
+                          </a>
+                        </div>
+                      )}
+                      
                       <div className="flex items-start gap-1.5">
                         <span className="text-gray-500">📅</span>
                         <span className="text-gray-800">
@@ -466,7 +787,8 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
                   </div>
                 </Popup>
               </Marker>
-            );
+              );
+            }
           })}
 
           {/* Render route lines from responders to their assigned alerts */}

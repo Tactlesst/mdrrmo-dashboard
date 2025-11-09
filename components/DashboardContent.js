@@ -365,7 +365,7 @@ export default function DashboardContent({ user }) {
             d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
         </svg>
     )},
-    { id: 'alerts', name: 'Alerts', icon: (
+    { id: 'alerts', name: 'Mancon UI', icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round"
             d="M12 9v2m0 4h.01M5.06 19h13.88c1.54 0 2.5-1.66 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.34.19 3 1.72 3z" />
@@ -818,61 +818,90 @@ export default function DashboardContent({ user }) {
       )}
 
       {alertModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[70] p-4 animate-fadeIn" onClick={(e) => e.stopPropagation()}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg animate-shake" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed bottom-4 right-4 z-[70] w-80 animate-slideIn">
+          <div className="bg-white rounded-lg shadow-2xl border-2 border-red-500 overflow-hidden animate-shake">
             <style jsx>{`
-              @keyframes fadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
+              @keyframes slideIn {
+                from { 
+                  transform: translateX(400px);
+                  opacity: 0;
+                }
+                to { 
+                  transform: translateX(0);
+                  opacity: 1;
+                }
               }
               @keyframes shake {
                 0%, 100% { transform: translateX(0); }
-                10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
-                20%, 40%, 60%, 80% { transform: translateX(10px); }
+                10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
+                20%, 40%, 60%, 80% { transform: translateX(3px); }
               }
               @keyframes pulse {
                 0%, 100% { transform: scale(1); opacity: 1; }
                 50% { transform: scale(1.05); opacity: 0.8; }
               }
-              .animate-fadeIn {
-                animation: fadeIn 0.3s ease-out;
+              @keyframes glow {
+                0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+                50% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.7); }
+              }
+              .animate-slideIn {
+                animation: slideIn 0.4s ease-out;
               }
               .animate-shake {
-                animation: shake 0.5s ease-in-out;
+                animation: shake 0.5s ease-in-out, glow 2s ease-in-out infinite;
               }
               .animate-pulse-alert {
                 animation: pulse 1.5s ease-in-out infinite;
               }
             `}</style>
-            <div className="bg-red-600 text-white px-6 py-4 rounded-t-xl relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-red-500 to-red-600 animate-pulse-alert"></div>
-              <div className="flex items-center gap-3 relative z-10">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center animate-pulse-alert">
-                  <span className="text-2xl">🚨</span>
+            
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-600 via-red-500 to-red-600 text-white px-2.5 py-2 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-red-500 to-red-600 animate-pulse-alert opacity-50"></div>
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center animate-pulse-alert">
+                    <span className="text-sm">🚨</span>
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold">Emergency Alert!</h3>
+                    <p className="text-[10px] text-red-100">
+                      {alertModal.remainingCount > 0 
+                        ? `${alertModal.remainingCount + 1} unread`
+                        : 'Attention required'}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h2 className="text-xl font-bold">Emergency Alert Received!</h2>
-                  <p className="text-sm text-red-100">
-                    {alertModal.remainingCount > 0 
-                      ? `${alertModal.remainingCount + 1} unread alerts • Showing 1 of ${alertModal.remainingCount + 1}`
-                      : 'Immediate attention required'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full">
-                  <span className="text-lg animate-pulse-alert">🔊</span>
-                  <span className="text-xs font-medium">ALARM</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-0.5 bg-white/20 px-1.5 py-0.5 rounded-full">
+                    <span className="text-xs animate-pulse-alert">🔊</span>
+                  </div>
+                  <button 
+                    onClick={() => { setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }}
+                    className="text-white/80 hover:text-white transition-colors"
+                    title="Dismiss"
+                  >
+                    <FiX className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>
-            <div className="p-6">
-              <div className="bg-red-50 border-l-4 border-red-600 p-4 mb-6">
-                <p className="text-sm font-medium text-red-900">{alertModal.notification.message}</p>
-                <p className="text-xs text-red-700 mt-2">From: {alertModal.notification.sender_name || 'Unknown'}</p>
-                <p className="text-xs text-red-600 mt-1">{formatRelativeTime(alertModal.notification.created_at)}</p>
+            
+            {/* Content */}
+            <div className="p-2.5 max-h-[300px] overflow-y-auto">
+              <div className="bg-red-50 border-l-2 border-red-600 p-2 mb-2 rounded">
+                <p className="text-xs font-medium text-red-900 line-clamp-2">{alertModal.notification.message}</p>
+                <p className="text-[10px] text-red-700 mt-0.5">From: {alertModal.notification.sender_name || 'Unknown'}</p>
+                <p className="text-[10px] text-red-600 mt-0.5">{formatRelativeTime(alertModal.notification.created_at)}</p>
               </div>
-              <div className="space-y-3">
-                <button onClick={() => { setActiveContent('alerts'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 font-bold text-lg shadow-lg animate-pulse-alert">
-                  <span>⚠️</span> VIEW ALERT NOW
+              
+              {/* Action Buttons */}
+              <div className="space-y-1.5">
+                <button 
+                  onClick={() => { setActiveContent('alerts'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} 
+                  className="w-full px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5 font-bold text-xs shadow animate-pulse-alert"
+                >
+                  <span className="text-sm">⚠️</span> VIEW ALERT
                 </button>
                 
                 {alertModal.remainingCount > 0 && (
@@ -890,20 +919,32 @@ export default function DashboardContent({ user }) {
                         setAlertModal(null);
                       }
                     }} 
-                    className="w-full px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2 font-bold shadow-lg"
+                    className="w-full px-3 py-1.5 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors flex items-center justify-center gap-1 font-medium text-xs shadow"
                   >
-                    <span>➡️</span> NEXT ALERT ({alertModal.remainingCount} remaining)
+                    <span>➡️</span> NEXT ({alertModal.remainingCount})
                   </button>
                 )}
                 
-                <button onClick={() => { setActiveContent('alerts'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium">
-                  <span>📍</span> View on Map
-                </button>
-                <button onClick={() => { setActiveContent('online-admins'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 font-medium">
-                  <span>💬</span> Notify Responders
-                </button>
-                <button onClick={() => { setActiveContent('alerts'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} className="w-full px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium">
-                  Acknowledge & View Later
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button 
+                    onClick={() => { setActiveContent('alerts'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} 
+                    className="px-2 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-0.5 text-[10px] font-medium"
+                  >
+                    <span>📍</span> Map
+                  </button>
+                  <button 
+                    onClick={() => { setActiveContent('online-admins'); setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} 
+                    className="px-2 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center justify-center gap-0.5 text-[10px] font-medium"
+                  >
+                    <span>💬</span> Notify
+                  </button>
+                </div>
+                
+                <button 
+                  onClick={() => { setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} 
+                  className="w-full px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors text-[10px] font-medium"
+                >
+                  Dismiss
                 </button>
               </div>
             </div>

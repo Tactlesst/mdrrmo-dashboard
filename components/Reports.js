@@ -100,11 +100,14 @@ export default function ReportsPage() {
           occurred_at: alert.occurred_at ? dayjs(alert.occurred_at).format('YYYY-MM-DD HH:mm:ss') : 'Unknown',
           address: alert.address ?? 'N/A',
           resident_name: alert.resident_name ?? 'Unknown User',
-          responder_name: alert.responder_name ?? 'Not Assigned',
+          responder_name: alert.status === 'Referred' 
+            ? (alert.referred_by ?? 'Admin') 
+            : (alert.responder_name ?? 'Not Assigned'),
           responded_at: alert.responded_at ? dayjs(alert.responded_at).format('YYYY-MM-DD HH:mm:ss') : 'N/A',
           lat: alert.lat,
           lng: alert.lng,
           description: alert.description ?? 'No description provided',
+          referred_by: alert.referred_by,
         })));
       } catch (e) {
         console.error('Failed to fetch alerts data:', e);
@@ -120,9 +123,9 @@ export default function ReportsPage() {
     Promise.all([fetchLogs(), fetchAlerts()]);
   }, []);
 
-  // Filter responded alerts
+  // Filter responded and referred alerts
   const respondedAlerts = useMemo(() => {
-    return alerts.filter((alert) => alert.status === 'Responded');
+    return alerts.filter((alert) => alert.status === 'Responded' || alert.status === 'Referred');
   }, [alerts]);
 
   // Aggregate responded alerts by type for chart
@@ -407,16 +410,16 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Map of Responded Alerts */}
+      {/* Map of Responded & Referred Alerts */}
       <div className="bg-white shadow rounded-lg p-4">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="font-semibold text-lg text-gray-700">Map of Responded Alerts</h2>
+          <h2 className="font-semibold text-lg text-gray-700">Map of Responded & Referred Alerts</h2>
           <button
             onClick={exportRespondedAlerts}
             className="flex items-center gap-1 text-sm text-white bg-green-600 hover:bg-green-700 px-3 py-1 rounded transition-all shadow-md hover:shadow-lg"
             disabled={respondedAlerts.length === 0}
           >
-            <FiDownload /> Export Responded Alerts
+            <FiDownload /> Export Completed Alerts
           </button>
         </div>
         <div className="h-96 bg-gray-100 rounded-lg overflow-hidden">
@@ -429,15 +432,15 @@ export default function ReportsPage() {
           )}
         </div>
       
-        {/* Responded Alerts Charts */}
+        {/* Responded & Referred Alerts Charts */}
         <div className="mt-4">
           <h3 className="font-semibold text-md text-gray-700 mb-2">
-            Responded Alerts Analysis ({respondedAlerts.length} total alerts)
+            Completed Alerts Analysis ({respondedAlerts.length} total alerts)
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Pie Chart - Who Responded */}
+            {/* Pie Chart - Who Responded/Referred */}
             <div className="h-64">
-              <h4 className="text-sm font-medium text-gray-600 mb-2 text-center">Responders Who Responded</h4>
+              <h4 className="text-sm font-medium text-gray-600 mb-2 text-center">Handled By (Responders/Admins)</h4>
               {respondedAlertsByResponder.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-sm text-gray-500">No responded alerts</div>
               ) : (
@@ -477,7 +480,7 @@ export default function ReportsPage() {
                     <YAxis allowDecimals={false} />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="count" fill="#16a34a" name="Responded Alerts" />
+                    <Bar dataKey="count" fill="#16a34a" name="Completed Alerts" />
                   </BarChart>
                 </ResponsiveContainer>
               )}

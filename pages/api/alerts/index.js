@@ -12,7 +12,9 @@ export default async function handler(req, res) {
         SELECT 
           alerts.*,
           users.name AS resident_name,
-          responders.name AS responder_name
+          users.contact AS contact,
+          responders.name AS responder_name,
+          alerts.referred_by
         FROM alerts
         LEFT JOIN users ON alerts.user_id = users.id
         LEFT JOIN responders ON alerts.responder_id = responders.id
@@ -36,6 +38,9 @@ export default async function handler(req, res) {
         resident_name: alert.resident_name || 'Unknown User',
         responder_name: alert.responder_name || 'Not Assigned',
         description: alert.description || '', // Added description field
+        is_verified: alert.is_verified || false, // Include verification status
+        contact: alert.contact, // Include contact number from users table
+        referred_by: alert.referred_by, // Include who referred the alert
       }));
 
       res.status(200).json({ alerts });

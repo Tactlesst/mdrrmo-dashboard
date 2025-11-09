@@ -10,6 +10,24 @@ export default async function handler(req, res) {
   try {
     const { alertId } = req.query;
 
+    // If alertId is provided, verify it exists first
+    if (alertId) {
+      const alertCheck = await pool.query(
+        'SELECT id FROM alerts WHERE id = $1',
+        [alertId]
+      );
+      
+      if (alertCheck.rows.length === 0) {
+        logger.warn(`Tracking requested for non-existent alert: ${alertId}`);
+        return res.status(200).json({
+          success: true,
+          responders: [],
+          count: 0,
+          message: 'Alert not found',
+        });
+      }
+    }
+
     let query = `
       SELECT 
         r.id as responder_id,
@@ -53,7 +71,29 @@ export default async function handler(req, res) {
 
     const result = await pool.query(query, params);
 
-    const responders = result.rows.map((row) => {
+    // Filter out and clean up responders with invalid alert assignments
+    const validRows = result.rows.filter((row) => {
+      // If responder has an assignment but the alert doesn't exist (LEFT JOIN returned null)
+      if (row.assigned_alert_id && !row.alert_latitude) {
+        // Clear the stale assignment asynchronously (don't wait for it)
+        pool.query(
+          `UPDATE responder_sessions 
+           SET assigned_alert_id = NULL,
+               destination_latitude = NULL,
+               destination_longitude = NULL,
+               route_started_at = NULL,
+               estimated_arrival = NULL
+           WHERE id = $1`,
+          [row.session_id]
+        ).catch(err => logger.error('Error clearing stale alert assignment:', err));
+        
+        logger.warn(`Cleared stale alert assignment ${row.assigned_alert_id} for responder ${row.responder_name}`);
+        return false; // Filter out this row
+      }
+      return true; // Keep valid rows
+    });
+
+    const responders = validRows.map((row) => {
       // Calculate distance and ETA if responder has assignment
       let distance = null;
       let distanceFormatted = null;
