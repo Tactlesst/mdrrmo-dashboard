@@ -196,7 +196,7 @@ export default function VerifyIncidents({ onView }) {
             {unverifiedAlerts.map((alert) => (
               <div
                 key={alert.id}
-                onClick={() => setSelectedAlert(alert)}
+                onClick={() => setSelectedAlert(selectedAlert?.id === alert.id ? null : alert)}
                 className={`border rounded-lg p-3 cursor-pointer transition-all ${
                   selectedAlert?.id === alert.id
                     ? 'border-orange-500 bg-orange-50 shadow-md'
@@ -208,6 +208,12 @@ export default function VerifyIncidents({ onView }) {
                     <h3 className="font-semibold text-gray-800 text-sm flex items-center gap-1">
                       <span className="text-red-600">🚨</span>
                       {alert.type || 'Emergency'}
+                      {/* NEW badge for alerts created within last 5 minutes */}
+                      {alert.created_at && (new Date() - new Date(alert.created_at)) < 5 * 60 * 1000 && (
+                        <span className="ml-1 px-1.5 py-0.5 bg-green-500 text-white text-[9px] font-bold rounded animate-pulse">
+                          NEW
+                        </span>
+                      )}
                     </h3>
                     <p className="text-xs text-gray-600 mt-0.5">
                       {alert.resident_name || 'Unknown'}

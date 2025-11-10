@@ -71,11 +71,12 @@ export default function Alerts() {
 
     // Filter: Only show VERIFIED alerts, exclude "Responded" and "Referred"
     return sorted
-      .filter((alert) => 
-        alert.is_verified === true && 
-        alert.status !== 'Responded' && 
-        alert.status !== 'Referred'
-      )
+      .filter((alert) => {
+        const status = (alert.status || '').trim();
+        return alert.is_verified === true && 
+               status !== 'Responded' && 
+               status !== 'Referred';
+      })
       .map((a) => {
         // Parse and validate coordinates
         const lat = parseFloat(a.lat);
@@ -120,13 +121,21 @@ export default function Alerts() {
   // Alerts for Map - ALL alerts (verified and unverified), exclude only "Responded" and "Referred"
   const mapAlerts = useMemo(() => {
     const sorted = [...alerts].sort((a, b) => {
+      // First priority: Verified alerts come before unverified
+      if (a.is_verified && !b.is_verified) return -1;
+      if (!a.is_verified && b.is_verified) return 1;
+      
+      // Second priority: Within same verification status, sort by time (newest first)
       const dateA = new Date(a.occurred_at);
       const dateB = new Date(b.occurred_at);
       return dateB - dateA;
     });
 
     return sorted
-      .filter((alert) => alert.status !== 'Responded' && alert.status !== 'Referred')
+      .filter((alert) => {
+        const status = (alert.status || '').trim();
+        return status !== 'Responded' && status !== 'Referred';
+      })
       .map((a) => {
         const lat = parseFloat(a.lat);
         const lng = parseFloat(a.lng);

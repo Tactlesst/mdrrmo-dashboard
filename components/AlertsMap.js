@@ -559,17 +559,32 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
                       <div className="max-h-64 overflow-y-auto space-y-3">
                         {cluster.alerts.map((alert) => (
                           <div key={alert.id} className="p-3 bg-white rounded-lg border border-gray-300 shadow-sm">
-                            {/* Alert Type and Status Badge */}
-                            <div className="flex items-start justify-between mb-2">
-                              <h4 className="font-semibold text-sm text-gray-900">{alert.type || 'Alert'}</h4>
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                alert.status === 'Not Responded' ? 'bg-red-500 text-white' : 
-                                alert.status === 'Pending' ? 'bg-yellow-400 text-gray-900' :
-                                alert.status === 'Ongoing' || alert.status === 'In Progress' ? 'bg-yellow-400 text-gray-900' : 
-                                'bg-green-500 text-white'
-                              }`}>
-                                {alert.status || 'Unknown'}
-                              </span>
+                            {/* Alert Type and Badges */}
+                            <div className="mb-2">
+                              <h4 className="font-semibold text-sm text-gray-900 mb-1.5 flex items-center gap-1.5">
+                                {alert.type || 'Alert'}
+                                {/* NEW badge for alerts created within last 5 minutes */}
+                                {alert.created_at && (new Date() - new Date(alert.created_at)) < 5 * 60 * 1000 && (
+                                  <span className="px-1.5 py-0.5 bg-green-500 text-white text-[9px] font-bold rounded animate-pulse">
+                                    NEW
+                                  </span>
+                                )}
+                              </h4>
+                              <div className="flex gap-1.5 flex-wrap">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  alert.status === 'Not Responded' ? 'bg-red-500 text-white' : 
+                                  alert.status === 'Pending' ? 'bg-yellow-400 text-gray-900' :
+                                  alert.status === 'Ongoing' || alert.status === 'In Progress' ? 'bg-yellow-400 text-gray-900' : 
+                                  'bg-green-500 text-white'
+                                }`}>
+                                  {alert.status || 'Unknown'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  alert.is_verified ? 'bg-green-600 text-white' : 'bg-gray-400 text-white'
+                                }`}>
+                                  {alert.is_verified ? '✓ VERIFIED' : '⚠ UNVERIFIED'}
+                                </span>
+                              </div>
                             </div>
                             
                             {/* Priority Dropdown */}
@@ -678,7 +693,7 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
                       <h3 className="font-bold text-gray-800 text-sm">{alert.type || 'Alert'}</h3>
                     </div>
 
-                    {/* Status and Severity Badges */}
+                    {/* Status, Severity, and Verification Badges */}
                     <div className="mb-2 flex gap-2 flex-wrap">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
                         alert.status === 'Not Responded' ? 'bg-red-100 text-red-700' : 
@@ -695,6 +710,11 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
                         'bg-blue-500 text-white'
                       }`}>
                         {alert.severity ? alert.severity.toUpperCase() : 'MEDIUM'}
+                      </span>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        alert.is_verified ? 'bg-green-600 text-white' : 'bg-gray-400 text-white'
+                      }`}>
+                        {alert.is_verified ? '✓ VERIFIED' : '⚠ UNVERIFIED'}
                       </span>
                     </div>
                     

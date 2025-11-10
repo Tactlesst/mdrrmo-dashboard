@@ -260,11 +260,23 @@ export default function Inbox({
                                 </span>
                               </div>
                               <p className="mt-1 text-sm text-gray-600">{notification.message}</p>
-                              {notification.recipient_name && (
-                                <p className="mt-1 text-xs text-gray-500">
-                                  To: {notification.recipient_name}
-                                </p>
-                              )}
+                              <div className="flex items-center gap-2 mt-2">
+                                {notification.recipient_name && (
+                                  <p className="text-xs text-gray-500">
+                                    To: {notification.recipient_name}
+                                  </p>
+                                )}
+                                {notification.severity && (
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                    notification.severity === 'critical' ? 'bg-red-600 text-white' :
+                                    notification.severity === 'high' ? 'bg-orange-500 text-white' :
+                                    notification.severity === 'medium' ? 'bg-yellow-500 text-white' :
+                                    'bg-blue-500 text-white'
+                                  }`}>
+                                    {notification.severity.toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
                               <p className="mt-1 text-xs text-gray-400">
                                 {formatPHDate(notification.created_at)}
                               </p>

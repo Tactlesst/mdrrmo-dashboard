@@ -124,31 +124,46 @@ export default function DashboardContent({ user }) {
     fetchAdmin();
   }, []);
 
-  // Fetch notifications with retry logic
+  // Fetch notifications with retry logic - fetches BOTH regular and alert notifications
   const fetchNotifications = async (retryCount = 0) => {
     try {
-      // Fetch all notifications globally to filter client-side
-      const url = `/api/notifications?showAll=true`;
-      
-      const res = await fetch(url, {
-        // Add timeout to prevent hanging requests
+      // Fetch regular notifications (chat, admin, system)
+      const regularUrl = `/api/notifications?showAll=true`;
+      const regularRes = await fetch(regularUrl, {
         signal: AbortSignal.timeout(15000) // 15 second timeout
       });
       
-      if (!res.ok) {
-        // If it's a 500 or 503 error and we haven't retried too many times, retry
-        if ((res.status === 500 || res.status === 503) && retryCount < 2) {
-          console.warn(`Fetch failed with ${res.status}, retrying in 2 seconds... (attempt ${retryCount + 1}/2)`);
+      if (!regularRes.ok) {
+        if ((regularRes.status === 500 || regularRes.status === 503) && retryCount < 2) {
+          console.warn(`Regular notifications fetch failed with ${regularRes.status}, retrying in 2 seconds... (attempt ${retryCount + 1}/2)`);
           setTimeout(() => fetchNotifications(retryCount + 1), 2000);
           return;
         }
-        throw new Error(`Failed to fetch notifications: ${res.status}`);
+        throw new Error(`Failed to fetch regular notifications: ${regularRes.status}`);
       }
       
-      const data = await res.json();
-      if (data?.notifications) {
-        const validNotifications = data.notifications.filter(n => n.id && Number.isInteger(Number(n.id)));
-        if (validNotifications.length < data.notifications.length) {
+      // Fetch alert notifications (emergency alerts)
+      const alertUrl = `/api/notifications/alerts?showAll=true`;
+      const alertRes = await fetch(alertUrl, {
+        signal: AbortSignal.timeout(15000)
+      });
+      
+      if (!alertRes.ok) {
+        console.warn(`Alert notifications fetch failed with ${alertRes.status}, continuing with regular notifications only`);
+      }
+      
+      const regularData = await regularRes.json();
+      const alertData = alertRes.ok ? await alertRes.json() : { notifications: [] };
+      
+      // Combine both types of notifications
+      const allNotifications = [
+        ...(regularData?.notifications || []),
+        ...(alertData?.notifications || [])
+      ];
+      
+      if (allNotifications.length > 0) {
+        const validNotifications = allNotifications.filter(n => n.id && Number.isInteger(Number(n.id)));
+        if (validNotifications.length < allNotifications.length) {
           console.warn('Some notifications had invalid IDs and were filtered out');
         }
         
@@ -162,18 +177,57 @@ export default function DashboardContent({ user }) {
           return n.account_id === user.id;
         });
         
+        // Sort by created_at (newest first)
+        filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
         setNotifications(filtered);
         
-        // Check for new alert notifications (from responders or alerts1 - exclude chat)
-        const unreadAlerts = filtered.filter(n => !n.is_read && (n.sender_type === 'responder' || n.sender_type === 'alerts1'));
+        // Check for new emergency alert notifications (exclude tracking/success messages)
+        const unreadAlerts = filtered.filter(n => 
+          !n.is_read && 
+          (n.sender_type === 'responder' || n.sender_type === 'alerts1') &&
+          !n.message.includes('verified and dispatcher going soon') && // Exclude tracking notifications
+          !n.message.includes('verified and dispatched') && // Exclude old tracking notifications
+          !n.message.includes('✅') // Exclude success/tracking messages
+        );
+        
+        // If unread alerts decreased, someone picked up an alert - stop the alarm and close modal
+        if (unreadAlerts.length < lastNotificationCount && audioRef.current) {
+          console.log('🔇 Alert picked up - stopping alarm');
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          
+          // Close modal if the current alert was marked as read
+          if (alertModal && alertModal.notification) {
+            const currentAlertStillUnread = unreadAlerts.find(a => a.id === alertModal.notification.id);
+            if (!currentAlertStillUnread) {
+              console.log('🔇 Current alert was marked as read - closing modal');
+              setAlertModal(null);
+            }
+          }
+        }
+        
+        // If new alert received, play sound and show modal
         if (unreadAlerts.length > lastNotificationCount && lastNotificationCount > 0) {
-          // New alert received - play sound and show modal
           const latestAlert = unreadAlerts[0];
           if (audioRef.current) {
             audioRef.current.play().catch(err => console.error('Audio play failed:', err));
           }
           setAlertModal({ notification: latestAlert });
         }
+        
+        // If no more unread alerts, stop the alarm and close modal
+        if (unreadAlerts.length === 0) {
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+          }
+          if (alertModal) {
+            console.log('🔇 No more unread alerts - closing modal');
+            setAlertModal(null);
+          }
+        }
+        
         setLastNotificationCount(unreadAlerts.length);
         // Clear error on successful fetch
         setError(null);
@@ -191,21 +245,48 @@ export default function DashboardContent({ user }) {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    // Refresh every 5 seconds for faster modal updates when alerts are marked as read
+    const interval = setInterval(fetchNotifications, 5000);
     return () => clearInterval(interval);
   }, [user.id]);
 
   // Check for unread alerts on mount and show modal immediately (responders and alerts1)
   useEffect(() => {
     if (notifications.length > 0) {
-      const unreadAlerts = notifications.filter(n => !n.is_read && (n.sender_type === 'responder' || n.sender_type === 'alerts1'));
-      if (unreadAlerts.length > 0 && !alertModal) {
-        // Show the first unread alert with count of remaining alerts
-        setAlertModal({ 
-          notification: unreadAlerts[0],
-          remainingCount: unreadAlerts.length - 1,
-          allUnreadAlerts: unreadAlerts
-        });
+      // Filter for unread emergency alerts only (exclude tracking notifications)
+      const unreadAlerts = notifications.filter(n => 
+        !n.is_read && 
+        (n.sender_type === 'responder' || n.sender_type === 'alerts1') &&
+        !n.message.includes('verified and dispatcher going soon') && // Exclude tracking notifications
+        !n.message.includes('verified and dispatched') && // Exclude old tracking notifications
+        !n.message.includes('✅') // Exclude success/tracking messages
+      );
+      
+      // Only show modal if:
+      // 1. There are unread emergency alerts
+      // 2. No modal is currently showing
+      // 3. The current modal's notification is now read (need to update)
+      if (unreadAlerts.length > 0) {
+        if (!alertModal) {
+          // No modal showing, show the first unread alert
+          setAlertModal({ 
+            notification: unreadAlerts[0],
+            remainingCount: unreadAlerts.length - 1,
+            allUnreadAlerts: unreadAlerts
+          });
+        } else if (alertModal.notification) {
+          // Check if current modal's notification is still unread
+          const currentStillUnread = unreadAlerts.find(a => a.id === alertModal.notification.id);
+          if (!currentStillUnread) {
+            // Current notification was marked as read, close modal
+            console.log('🔇 Current alert notification is now read - closing modal');
+            setAlertModal(null);
+          }
+        }
+      } else if (alertModal) {
+        // No more unread emergency alerts, close modal
+        console.log('🔇 No unread emergency alerts - closing modal');
+        setAlertModal(null);
       }
     }
   }, [notifications]);
@@ -257,8 +338,24 @@ export default function DashboardContent({ user }) {
       if (isNaN(id) || id <= 0) {
         throw new Error('Invalid notification ID: Must be a positive number');
       }
-      console.log('Marking notification as read:', { notificationId: id });
-      const res = await fetch('/api/notifications', {
+      
+      // Find the notification to determine which API to use
+      const notification = notifications.find(n => n.id === id);
+      if (!notification) {
+        throw new Error('Notification not found');
+      }
+      
+      // Use different API endpoint based on notification type
+      const isAlertNotification = notification.sender_type === 'responder' || notification.sender_type === 'alerts1';
+      const apiEndpoint = isAlertNotification ? '/api/notifications/alerts' : '/api/notifications';
+      
+      console.log('Marking notification as read:', { 
+        notificationId: id, 
+        type: notification.sender_type,
+        endpoint: apiEndpoint 
+      });
+      
+      const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notificationId: id }),
@@ -269,9 +366,14 @@ export default function DashboardContent({ user }) {
         throw new Error(`Failed to mark notification as read: ${res.status} ${res.statusText} - ${errorData.message || 'No additional details'}`);
       }
       
-      setNotifications(notifications.map(n => 
-        n.id === id ? { ...n, is_read: true } : n
-      ));
+      // Refresh notifications to get updated state (handles broadcast notifications)
+      await fetchNotifications();
+      
+      // Close alert modal if this is the notification being displayed
+      if (alertModal && alertModal.notification && alertModal.notification.id === id) {
+        console.log('🔇 Closing alert modal - notification marked as read');
+        setAlertModal(null);
+      }
       
       if (selectedNotification && selectedNotification.id === id) {
         setSelectedNotification({ ...selectedNotification, is_read: true });
@@ -286,19 +388,31 @@ export default function DashboardContent({ user }) {
   const handleMarkAllAsRead = async () => {
     try {
       setError(null);
-      const url = '/api/notifications';
       
-      const res = await fetch(url, {
+      // Mark regular notifications as read
+      const regularRes = await fetch('/api/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id }),
+        body: JSON.stringify({ userId: user.id, showAll: 'true' }),
       });
       
-      if (!res.ok) {
-        throw new Error(`Failed to mark all notifications as read: ${res.status} ${res.statusText}`);
+      if (!regularRes.ok) {
+        throw new Error(`Failed to mark regular notifications as read: ${regularRes.status}`);
       }
       
-      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+      // Mark alert notifications as read
+      const alertRes = await fetch('/api/notifications/alerts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, showAll: 'true' }),
+      });
+      
+      if (!alertRes.ok) {
+        console.warn('Failed to mark alert notifications as read:', alertRes.status);
+      }
+      
+      // Refresh notifications to get updated state
+      await fetchNotifications();
       setSelectedNotification(null);
     } catch (err) {
       console.error('Failed to mark all notifications as read:', err);
@@ -314,17 +428,7 @@ export default function DashboardContent({ user }) {
       return;
     }
     
-    // Check if this is an alert notification (responders or alerts1) - redirect to alerts page
-    const isAlertNotification = notification.sender_type === 'responder' || notification.sender_type === 'alerts1';
-    if (isAlertNotification) {
-      // Mark as read and redirect to alerts page
-      handleMarkAsRead(notification.id);
-      setActiveContent('alerts');
-      setShowNotifications(false);
-      return;
-    }
-    
-    // Default behavior for non-alert notifications (including chat)
+    // Show notification details for all types (including alerts)
     setSelectedNotification(notification);
     setShowNotifications(false);
     if (!notification.is_read) {
@@ -701,25 +805,43 @@ export default function DashboardContent({ user }) {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50">
-              {!selectedNotification.is_read && (
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50">
+              <div className="flex items-center gap-2">
+                {(selectedNotification.sender_type === 'responder' || selectedNotification.sender_type === 'alerts1') && (
+                  <button
+                    onClick={() => {
+                      setActiveContent('alerts');
+                      handleCloseDetails();
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    <span>View on Map</span>
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {!selectedNotification.is_read && (
+                  <button
+                    onClick={() => {
+                      handleMarkAsRead(selectedNotification.id);
+                      handleCloseDetails();
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    <FiCheck className="w-4 h-4" />
+                    <span>Mark as Read & Close</span>
+                  </button>
+                )}
                 <button
-                  onClick={() => {
-                    handleMarkAsRead(selectedNotification.id);
-                    handleCloseDetails();
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  onClick={handleCloseDetails}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-md hover:bg-gray-100 transition-colors"
                 >
-                  <FiCheck className="w-4 h-4" />
-                  <span>Mark as Read & Close</span>
+                  Close
                 </button>
-              )}
-              <button
-                onClick={handleCloseDetails}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-md hover:bg-gray-100 transition-colors"
-              >
-                Close
-              </button>
+              </div>
             </div>
           </div>
         </div>

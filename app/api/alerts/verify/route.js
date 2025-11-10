@@ -78,26 +78,43 @@ export async function POST(request) {
       if (alertResult.rows.length > 0) {
         const alert = alertResult.rows[0];
         
-        // Create notification for all online responders
-        await pool.query(
-          `INSERT INTO notifications 
-           (account_type, account_id, sender_type, sender_id, sender_name, recipient_name, message, is_read)
-           SELECT 
-             'responder',
-             r.id,
-             'alerts1',
-             $1,
-             'MDRRMO Alert System',
-             r.name,
-             $2,
-             FALSE
-           FROM responders r
+        // Determine severity based on alert type
+        const severity = alert.severity || 'high';
+        
+        // Create a single broadcast notification for all online responders
+        // Check if there are any online responders
+        const onlineRespondersCheck = await pool.query(
+          `SELECT COUNT(*) as count FROM responders r
            INNER JOIN responder_sessions rs ON r.id = rs.responder_id
            WHERE rs.is_active = TRUE 
-             AND rs.status IN ('online', 'ready to go', 'standby')`,
+             AND rs.status IN ('online', 'ready to go', 'standby')`
+        );
+        
+        if (onlineRespondersCheck.rows[0].count > 0) {
+          await pool.query(
+            `INSERT INTO alert_notifications 
+             (alert_id, account_type, sender_type, sender_id, sender_name, recipient_name, message, severity, is_read)
+             VALUES ($1, 'responder', 'alerts1', $2, 'MDRRMO Alert System', 'All Responders', $3, $4, FALSE)`,
+            [
+              alertId,
+              adminId,
+              `🚨 VERIFIED EMERGENCY: ${alert.type || 'Incident'} at ${alert.address || 'Unknown location'}. Resident: ${alert.resident_name || 'Unknown'}. Immediate response required!`,
+              severity
+            ]
+          );
+        }
+        
+        // Create a single broadcast notification for admins to track
+        // No account_id needed - true broadcast to all admins
+        await pool.query(
+          `INSERT INTO alert_notifications 
+           (alert_id, account_type, sender_type, sender_id, sender_name, recipient_name, message, severity, is_read)
+           VALUES ($1, 'admin', 'alerts1', $2, 'MDRRMO Alert System', 'All Admins', $3, $4, FALSE)`,
           [
+            alertId,
             adminId,
-            `🚨 VERIFIED EMERGENCY: ${alert.type || 'Incident'} at ${alert.address || 'Unknown location'}. Resident: ${alert.resident_name || 'Unknown'}. Immediate response required!`
+            `✅ Alert verified and dispatcher going soon: ${alert.type || 'Incident'} at ${alert.address || 'Unknown location'}`,
+            severity
           ]
         );
       }

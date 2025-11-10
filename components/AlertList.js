@@ -143,7 +143,15 @@ export default function AlertList({
                   
                   {/* Type & Time */}
                   <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
-                    <span className="font-medium text-gray-700">{alert.type || 'Emergency'}</span>
+                    <span className="font-medium text-gray-700 flex items-center gap-1.5">
+                      {alert.type || 'Emergency'}
+                      {/* NEW badge for alerts created within last 5 minutes */}
+                      {alert.created_at && (new Date() - new Date(alert.created_at)) < 5 * 60 * 1000 && (
+                        <span className="px-1.5 py-0.5 bg-green-500 text-white text-[9px] font-bold rounded animate-pulse">
+                          NEW
+                        </span>
+                      )}
+                    </span>
                     <span>•</span>
                     <span>{alert.occurred_at ? new Date(alert.occurred_at).toLocaleTimeString('en-PH', { 
                       timeZone: 'Asia/Manila',
