@@ -12,7 +12,7 @@ export default async function handler(req, res) {
         SELECT 
           alerts.*,
           users.name AS resident_name,
-          users.contact AS contact,
+          COALESCE(alerts.contact, users.contact) AS contact,
           responders.name AS responder_name,
           alerts.referred_by
         FROM alerts

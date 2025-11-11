@@ -2,8 +2,9 @@
 import { useState, useEffect } from 'react';
 import { FiCheck, FiX, FiAlertCircle, FiMapPin, FiClock, FiUser, FiFileText, FiShare2, FiNavigation } from 'react-icons/fi';
 import { getAuthUser } from '@/lib/auth';
+import Swal from 'sweetalert2';
 
-export default function VerifyIncidents({ onView }) {
+export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
   const [unverifiedAlerts, setUnverifiedAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAlert, setSelectedAlert] = useState(null);
@@ -54,6 +55,13 @@ export default function VerifyIncidents({ onView }) {
     return () => clearInterval(interval);
   }, []);
 
+  // Expose fetchUnverifiedAlerts via ref so parent can trigger refresh
+  useEffect(() => {
+    if (refreshRef) {
+      refreshRef.current = fetchUnverifiedAlerts;
+    }
+  }, [refreshRef]);
+
   // Handle verification
   const handleVerify = async (alertId, isApproved) => {
     setProcessing(true);
@@ -77,16 +85,40 @@ export default function VerifyIncidents({ onView }) {
         setShowReferralOptions(false);
         setReferralAuthority('');
         
-        // Show success message
-        alert(isApproved 
-          ? 'Incident verified and sent to responders!' 
-          : 'Incident rejected successfully.');
+        // Trigger parent refresh
+        if (onVerified) {
+          onVerified();
+        }
+        
+        // Show success message with SweetAlert2
+        Swal.fire({
+          icon: isApproved ? 'success' : 'info',
+          title: isApproved ? 'Verified!' : 'Rejected',
+          text: isApproved 
+            ? 'Incident verified and sent to responders!' 
+            : 'Incident rejected successfully.',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true,
+        });
       } else {
-        alert('Error: ' + (data.message || 'Failed to process verification'));
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: data.message || 'Failed to process verification',
+          confirmButtonColor: '#DC2626',
+        });
       }
     } catch (err) {
       console.error('Error verifying alert:', err);
-      alert('Error processing verification');
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error processing verification',
+        confirmButtonColor: '#DC2626',
+      });
     } finally {
       setProcessing(false);
     }
@@ -95,7 +127,12 @@ export default function VerifyIncidents({ onView }) {
   // Handle referral to other authority
   const handleReferral = async (alertId) => {
     if (!referralAuthority) {
-      alert('Please select an authority to refer to');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Missing Selection',
+        text: 'Please select an authority to refer to',
+        confirmButtonColor: '#2563EB',
+      });
       return;
     }
 
@@ -114,7 +151,12 @@ export default function VerifyIncidents({ onView }) {
 
       const verifyData = await verifyRes.json();
       if (!verifyData.success) {
-        alert('Error verifying incident');
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Error verifying incident',
+          confirmButtonColor: '#DC2626',
+        });
         setProcessing(false);
         return;
       }
@@ -140,14 +182,38 @@ export default function VerifyIncidents({ onView }) {
         setShowReferralOptions(false);
         setReferralAuthority('');
         
+        // Trigger parent refresh
+        if (onVerified) {
+          onVerified();
+        }
+        
         const authorityName = authorities.find(a => a.value === referralAuthority)?.label;
-        alert(`Incident verified and referred to ${authorityName}`);
+        Swal.fire({
+          icon: 'success',
+          title: 'Referred!',
+          text: `Incident verified and referred to ${authorityName}`,
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true,
+        });
       } else {
-        alert('Error: ' + (referData.message || 'Failed to refer incident'));
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: referData.message || 'Failed to refer incident',
+          confirmButtonColor: '#DC2626',
+        });
       }
     } catch (err) {
       console.error('Error referring alert:', err);
-      alert('Error processing referral');
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error processing referral',
+        confirmButtonColor: '#DC2626',
+      });
     } finally {
       setProcessing(false);
     }
@@ -216,8 +282,13 @@ export default function VerifyIncidents({ onView }) {
                       )}
                     </h3>
                     <p className="text-xs text-gray-600 mt-0.5">
-                      {alert.resident_name || 'Unknown'}
+                      {alert.resident_name || alert.contact || 'Unknown'}
                     </p>
+                    {alert.contact && (
+                      <p className="text-xs text-blue-600 font-semibold mt-0.5">
+                        📞 {alert.contact}
+                      </p>
+                    )}
                   </div>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                     alert.severity === 'critical' ? 'bg-red-600 text-white' :

@@ -649,7 +649,7 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
                               </div>
                               <div className="flex items-start gap-1">
                                 <span className="text-gray-500">📱</span>
-                                <span className="flex-1"><span className="font-medium">Sent by:</span> {alert.resident_name || 'Unknown'}</span>
+                                <span className="flex-1"><span className="font-medium">Sent by:</span> {alert.resident_name || alert.contact || 'Unknown'}</span>
                               </div>
                               <div className="flex items-start gap-1">
                                 <span className="text-gray-500">🚑</span>
@@ -793,7 +793,7 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
                       <div className="flex items-start gap-1.5">
                         <span className="text-gray-500">📱</span>
                         <span className="text-gray-800">
-                          <span className="font-medium">Sent by:</span> {alert.resident_name || alert.user_name || <span className="italic text-gray-400">Unknown</span>}
+                          <span className="font-medium">Sent by:</span> {alert.resident_name || alert.user_name || alert.contact || <span className="italic text-gray-400">Unknown</span>}
                         </span>
                       </div>
                       

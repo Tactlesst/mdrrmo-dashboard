@@ -4,7 +4,7 @@ import AlertMap from './AlertsMap';
 import AlertList from './AlertList';
 import VerifyIncidents from './VerifyIncidents';
 
-export default function Alerts() {
+export default function Alerts({ verifyIncidentsRefreshRef }) {
   const fallbackCenter = [8.743412346817417, 124.77629163417616];
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,41 +23,43 @@ export default function Alerts() {
     }
   }, [alerts, selectedAlertId]);
 
+  // Fetch data function - extracted so it can be called on demand
+  const fetchData = async () => {
+    try {
+      const alertsRes = await fetch('/api/alerts');
+      const alertsData = await alertsRes.json();
+      const fetchedAlerts = alertsData.alerts || [];
+      
+      const respondersRes = await fetch('/api/responders/tracking');
+      const respondersData = await respondersRes.json();
+      const fetchedResponders = respondersData.responders || [];
+      
+      const alertsWithResponderData = fetchedAlerts.map(alert => {
+        const responder = fetchedResponders.find(r => r.assignment?.alertId === alert.id);
+        if (responder && responder.location) {
+          return {
+            ...alert,
+            eta: responder.location.eta,
+            distance: responder.location.distance,
+            responder_speed: responder.location.speed ? (responder.location.speed * 3.6).toFixed(1) : null,
+            route_started_at: responder.assignment?.routeStartedAt,
+            estimated_arrival: responder.estimatedArrival,
+          };
+        }
+        return alert;
+      });
+      
+      setAlerts(alertsWithResponderData);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const alertsRes = await fetch('/api/alerts');
-        const alertsData = await alertsRes.json();
-        const fetchedAlerts = alertsData.alerts || [];
-        
-        const respondersRes = await fetch('/api/responders/tracking');
-        const respondersData = await respondersRes.json();
-        const fetchedResponders = respondersData.responders || [];
-        
-        const alertsWithResponderData = fetchedAlerts.map(alert => {
-          const responder = fetchedResponders.find(r => r.assignment?.alertId === alert.id);
-          if (responder && responder.location) {
-            return {
-              ...alert,
-              eta: responder.location.eta,
-              distance: responder.location.distance,
-              responder_speed: responder.location.speed ? (responder.location.speed * 3.6).toFixed(1) : null,
-              route_started_at: responder.assignment?.routeStartedAt,
-              estimated_arrival: responder.estimatedArrival,
-            };
-          }
-          return alert;
-        });
-        
-        setAlerts(alertsWithResponderData);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
-    const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds (was 10 seconds)
+    const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -200,6 +202,11 @@ export default function Alerts() {
               console.log('Alerts.js: Setting selectedAlertId from VerifyIncidents to:', id);
               setSelectedAlertId(id);
             }}
+            onVerified={() => {
+              console.log('Alert verified, refreshing data...');
+              fetchData();
+            }}
+            refreshRef={verifyIncidentsRefreshRef}
           />
         </div>
         
@@ -243,6 +250,11 @@ export default function Alerts() {
               console.log('Alerts.js: Setting selectedAlertId from VerifyIncidents to:', id);
               setSelectedAlertId(id);
             }}
+            onVerified={() => {
+              console.log('Alert verified, refreshing data...');
+              fetchData();
+            }}
+            refreshRef={verifyIncidentsRefreshRef}
           />
         </div>
 

@@ -37,6 +37,7 @@ export default function DashboardContent({ user }) {
   const sidebarRef = useRef(null);
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
+  const verifyIncidentsRefreshRef = useRef(null);
 
   // Initialize alert sound
   useEffect(() => {
@@ -368,6 +369,14 @@ export default function DashboardContent({ user }) {
       
       // Refresh notifications to get updated state (handles broadcast notifications)
       await fetchNotifications();
+      
+      // Trigger VerifyIncidents refresh if this is an alert notification
+      if (isAlertNotification) {
+        console.log('🔄 Triggering VerifyIncidents refresh after alert marked as read');
+        if (verifyIncidentsRefreshRef.current) {
+          verifyIncidentsRefreshRef.current();
+        }
+      }
       
       // Close alert modal if this is the notification being displayed
       if (alertModal && alertModal.notification && alertModal.notification.id === id) {
@@ -910,7 +919,7 @@ export default function DashboardContent({ user }) {
         {activeContent && (
           <main className="flex-1 min-h-0 bg-white rounded-xl shadow-md p-6 overflow-auto">
             {activeContent === 'dashboard' && <MapDisplay />}
-            {activeContent === 'alerts' && <Alerts />}
+            {activeContent === 'alerts' && <Alerts verifyIncidentsRefreshRef={verifyIncidentsRefreshRef} />}
             {activeContent === 'inbox' && (
               <Inbox 
                 notifications={notifications}
