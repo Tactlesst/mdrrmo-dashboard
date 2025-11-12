@@ -71,13 +71,14 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
       return dateB - dateA; // Descending order (newest first)
     });
 
-    // Filter: Only show VERIFIED alerts, exclude "Responded" and "Referred"
+    // Filter: Only show VERIFIED alerts, exclude "Responded", "Referred", and "Rejected"
     return sorted
       .filter((alert) => {
         const status = (alert.status || '').trim();
         return alert.is_verified === true && 
                status !== 'Responded' && 
-               status !== 'Referred';
+               status !== 'Referred' &&
+               status !== 'Rejected';
       })
       .map((a) => {
         // Parse and validate coordinates
@@ -120,7 +121,7 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
       });
   }, [alerts]);
 
-  // Alerts for Map - ALL alerts (verified and unverified), exclude only "Responded" and "Referred"
+  // Alerts for Map - ALL alerts (verified and unverified), exclude only "Responded", "Referred", and "Rejected"
   const mapAlerts = useMemo(() => {
     const sorted = [...alerts].sort((a, b) => {
       // First priority: Verified alerts come before unverified
@@ -136,7 +137,9 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
     return sorted
       .filter((alert) => {
         const status = (alert.status || '').trim();
-        return status !== 'Responded' && status !== 'Referred';
+        return status !== 'Responded' && 
+               status !== 'Referred' && 
+               status !== 'Rejected';
       })
       .map((a) => {
         const lat = parseFloat(a.lat);

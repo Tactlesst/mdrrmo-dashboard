@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiCheck, FiX, FiAlertCircle, FiMapPin, FiClock, FiUser, FiFileText, FiShare2, FiNavigation } from 'react-icons/fi';
+import { FiCheck, FiX, FiAlertCircle, FiMapPin, FiClock, FiUser, FiFileText, FiShare2, FiNavigation, FiMessageSquare, FiPlus } from 'react-icons/fi';
 import { getAuthUser } from '@/lib/auth';
 import Swal from 'sweetalert2';
 
@@ -13,6 +13,9 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
   const [referralAuthority, setReferralAuthority] = useState('');
   const [showReferralOptions, setShowReferralOptions] = useState(false);
   const [adminName, setAdminName] = useState('MDRRMO Admin');
+  const [showSmsParser, setShowSmsParser] = useState(false);
+  const [smsMessage, setSmsMessage] = useState('');
+  const [parsingSms, setParsingSms] = useState(false);
 
   // Get admin name from auth cookie
   useEffect(() => {
@@ -219,6 +222,150 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
     }
   };
 
+  // Parse SMS message and create alert
+  const parseSmsMessage = (message) => {
+    try {
+      const lines = message.trim().split('\n');
+      const result = {
+        phoneNumber: null,
+        description: '',
+        location: '',
+        coordinates: null
+      };
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Extract phone number from "send From" line
+        if (line.toLowerCase().includes('send from') || line.toLowerCase().includes('from')) {
+          const phoneMatch = line.match(/(\d{11}|\+?\d{12,13})/);
+          if (phoneMatch) {
+            result.phoneNumber = phoneMatch[1];
+          }
+        }
+        // Extract location
+        else if (line.toLowerCase().startsWith('location:')) {
+          result.location = line.substring(9).trim();
+        }
+        // Extract coordinates
+        else if (line.toLowerCase().startsWith('coords:')) {
+          const coordsText = line.substring(7).trim();
+          const coordsMatch = coordsText.match(/([\d.-]+)[,\s]+([\d.-]+)/);
+          if (coordsMatch) {
+            const lat = parseFloat(coordsMatch[1]);
+            const lng = parseFloat(coordsMatch[2]);
+            if (!isNaN(lat) && !isNaN(lng)) {
+              result.coordinates = { lat, lng };
+            }
+          }
+        }
+        // Extract message content (lines that are not metadata)
+        else if (line && 
+                 !line.toLowerCase().includes('send from') &&
+                 !line.toLowerCase().startsWith('location:') &&
+                 !line.toLowerCase().startsWith('coords:')) {
+          if (result.description) {
+            result.description += ' ' + line;
+          } else {
+            result.description = line;
+          }
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error parsing SMS:', error);
+      return null;
+    }
+  };
+
+  // Handle SMS message submission
+  const handleSmsSubmit = async () => {
+    if (!smsMessage.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Empty Message',
+        text: 'Please paste the SMS message content',
+        confirmButtonColor: '#2563EB',
+      });
+      return;
+    }
+
+    setParsingSms(true);
+    try {
+      const parsed = parseSmsMessage(smsMessage);
+      
+      if (!parsed || !parsed.coordinates) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Invalid SMS Format',
+          text: 'Could not parse coordinates from SMS message. Please check the format.',
+          confirmButtonColor: '#DC2626',
+        });
+        setParsingSms(false);
+        return;
+      }
+
+      // Create alert from parsed SMS
+      const alertData = {
+        type: 'Emergency',
+        lat: parsed.coordinates.lat,
+        lng: parsed.coordinates.lng,
+        address: parsed.location || `Lat: ${parsed.coordinates.lat}, Lng: ${parsed.coordinates.lng}`,
+        description: parsed.description || 'Emergency SMS Alert',
+        occurred_at: new Date().toISOString(),
+        contact: parsed.phoneNumber,
+        source: 'SMS',
+        created_by: adminName,
+        severity: 'medium' // SMS alerts default to medium priority
+      };
+
+      const res = await fetch('/api/alerts/create-from-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(alertData),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        // Clear form and close modal
+        setSmsMessage('');
+        setShowSmsParser(false);
+        
+        // Refresh alerts list
+        fetchUnverifiedAlerts();
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'SMS Alert Created!',
+          text: `Alert created from SMS message. Phone: ${parsed.phoneNumber || 'Unknown'}`,
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 4000,
+          timerProgressBar: true,
+        });
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: data.message || 'Failed to create alert from SMS',
+          confirmButtonColor: '#DC2626',
+        });
+      }
+    } catch (err) {
+      console.error('Error creating SMS alert:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error processing SMS message',
+        confirmButtonColor: '#DC2626',
+      });
+    } finally {
+      setParsingSms(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -233,11 +380,20 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 h-full flex flex-col">
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-          <FiAlertCircle className="text-orange-600" />
-          Verify Incidents
-        </h1>
-        <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <FiAlertCircle className="text-orange-600" />
+            Verify Incidents
+          </h1>
+          <button
+            onClick={() => setShowSmsParser(!showSmsParser)}
+            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-blue-700 transition-colors"
+          >
+            <FiMessageSquare className="w-3 h-3" />
+            Add SMS Alert
+          </button>
+        </div>
+        <div className="flex items-center justify-between">
           <p className="text-xs text-gray-600">
             Review before dispatch
           </p>
@@ -246,6 +402,71 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
           </div>
         </div>
       </div>
+
+      {/* SMS Parser Modal */}
+      {showSmsParser && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-blue-800 flex items-center gap-2">
+              <FiMessageSquare className="w-4 h-4" />
+              Create Alert from SMS
+            </h3>
+            <button
+              onClick={() => setShowSmsParser(false)}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              <FiX className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-blue-700 mb-1">
+                Paste SMS Message:
+              </label>
+              <textarea
+                value={smsMessage}
+                onChange={(e) => setSmsMessage(e.target.value)}
+                placeholder={`Example format:\nsend From 09516569463\nEmergency message here\nLocation: Street Name, City\nCoords: 8.74541,124.77758`}
+                className="w-full px-3 py-2 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                rows="5"
+              />
+            </div>
+            
+            <div className="text-xs text-blue-600 bg-blue-100 p-2 rounded">
+              <strong>Expected format:</strong>
+              <br />• Line 1: "send From [phone number]"
+              <br />• Line 2+: Emergency message
+              <br />• "Location: [address or coordinates]"
+              <br />• "Coords: [latitude,longitude]"
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={handleSmsSubmit}
+                disabled={parsingSms || !smsMessage.trim()}
+                className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {parsingSms ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <FiPlus className="w-4 h-4" />
+                )}
+                {parsingSms ? 'Creating...' : 'Create Alert'}
+              </button>
+              <button
+                onClick={() => {
+                  setSmsMessage('');
+                  setShowSmsParser(false);
+                }}
+                className="bg-gray-500 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {unverifiedAlerts.length === 0 ? (
         <div className="text-center py-8">
