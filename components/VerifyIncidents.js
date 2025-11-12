@@ -98,13 +98,15 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
           icon: isApproved ? 'success' : 'info',
           title: isApproved ? 'Verified!' : 'Rejected',
           text: isApproved 
-            ? 'Incident verified and sent to responders!' 
-            : 'Incident rejected successfully.',
+            ? 'Alert verified and sent to responders' 
+            : 'Alert has been rejected',
           toast: true,
           position: 'top-end',
           showConfirmButton: false,
-          timer: 3000,
+          timer: 2000,
           timerProgressBar: true,
+          width: '300px',
+          padding: '10px',
         });
       } else {
         Swal.fire({
@@ -112,6 +114,8 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
           title: 'Error',
           text: data.message || 'Failed to process verification',
           confirmButtonColor: '#DC2626',
+          width: '300px',
+          padding: '10px',
         });
       }
     } catch (err) {
@@ -121,6 +125,8 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
         title: 'Error',
         text: 'Error processing verification',
         confirmButtonColor: '#DC2626',
+        width: '300px',
+        padding: '10px',
       });
     } finally {
       setProcessing(false);
@@ -135,6 +141,8 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
         title: 'Missing Selection',
         text: 'Please select an authority to refer to',
         confirmButtonColor: '#2563EB',
+        width: '300px',
+        padding: '10px',
       });
       return;
     }
@@ -159,6 +167,8 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
           title: 'Error',
           text: 'Error verifying incident',
           confirmButtonColor: '#DC2626',
+          width: '300px',
+          padding: '10px',
         });
         setProcessing(false);
         return;
@@ -194,12 +204,14 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
         Swal.fire({
           icon: 'success',
           title: 'Referred!',
-          text: `Incident verified and referred to ${authorityName}`,
+          text: `Alert verified and referred to ${authorityName}`,
           toast: true,
           position: 'top-end',
           showConfirmButton: false,
-          timer: 3000,
+          timer: 2000,
           timerProgressBar: true,
+          width: '300px',
+          padding: '10px',
         });
       } else {
         Swal.fire({
@@ -207,6 +219,8 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
           title: 'Error',
           text: referData.message || 'Failed to refer incident',
           confirmButtonColor: '#DC2626',
+          width: '400px',
+          padding: '15px',
         });
       }
     } catch (err) {
@@ -216,6 +230,8 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
         title: 'Error',
         text: 'Error processing referral',
         confirmButtonColor: '#DC2626',
+        width: '400px',
+        padding: '15px',
       });
     } finally {
       setProcessing(false);
@@ -287,6 +303,8 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
         title: 'Empty Message',
         text: 'Please paste the SMS message content',
         confirmButtonColor: '#2563EB',
+        width: '400px',
+        padding: '15px',
       });
       return;
     }
@@ -301,6 +319,8 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
           title: 'Invalid SMS Format',
           text: 'Could not parse coordinates from SMS message. Please check the format.',
           confirmButtonColor: '#DC2626',
+          width: '450px',
+          padding: '15px',
         });
         setParsingSms(false);
         return;
@@ -342,8 +362,10 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
           toast: true,
           position: 'top-end',
           showConfirmButton: false,
-          timer: 4000,
+          timer: 3000,
           timerProgressBar: true,
+          width: '350px',
+          padding: '10px',
         });
       } else {
         Swal.fire({
@@ -351,6 +373,8 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
           title: 'Error',
           text: data.message || 'Failed to create alert from SMS',
           confirmButtonColor: '#DC2626',
+          width: '400px',
+          padding: '15px',
         });
       }
     } catch (err) {
@@ -360,6 +384,8 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
         title: 'Error',
         text: 'Error processing SMS message',
         confirmButtonColor: '#DC2626',
+        width: '400px',
+        padding: '15px',
       });
     } finally {
       setParsingSms(false);
