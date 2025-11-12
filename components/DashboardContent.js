@@ -32,6 +32,12 @@ export default function DashboardContent({ user }) {
   const [headerNotifFilter, setHeaderNotifFilter] = useState('alerts');
   const [alertModal, setAlertModal] = useState(null); // { alert, notification }
   const [lastNotificationCount, setLastNotificationCount] = useState(0);
+  const [notificationSettings, setNotificationSettings] = useState({
+    soundEnabled: true,
+    autoShowModal: true,
+    dismissedAlerts: new Set()
+  });
+  const [connectionIssues, setConnectionIssues] = useState(0);
   const audioRef = useRef(null);
   // Settings state moved into components/Settings.js
   const sidebarRef = useRef(null);
@@ -125,31 +131,59 @@ export default function DashboardContent({ user }) {
     fetchAdmin();
   }, []);
 
-  // Fetch notifications with retry logic - fetches BOTH regular and alert notifications
-  const fetchNotifications = async (retryCount = 0) => {
+  // Fetch notifications with retry logic and cooldown - fetches BOTH regular and alert notifications
+  const fetchNotifications = async (retryCount = 0, isRetry = false) => {
     try {
+      // Add cooldown delay if this is a retry to prevent overwhelming the server
+      if (isRetry && retryCount > 0) {
+        const cooldownDelay = Math.min(5000 * retryCount, 30000); // 5s, 10s, 15s, max 30s
+        console.log(`Applying cooldown delay: ${cooldownDelay}ms before retry ${retryCount}`);
+        await new Promise(resolve => setTimeout(resolve, cooldownDelay));
+      }
+
       // Fetch regular notifications (chat, admin, system)
       const regularUrl = `/api/notifications?showAll=true`;
-      const regularRes = await fetch(regularUrl, {
-        signal: AbortSignal.timeout(15000) // 15 second timeout
-      });
+      const alertUrl = `/api/notifications/alerts?showAll=true`;
+
+      // Create abort controller for better timeout handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
       
-      if (!regularRes.ok) {
-        if ((regularRes.status === 500 || regularRes.status === 503) && retryCount < 2) {
-          console.warn(`Regular notifications fetch failed with ${regularRes.status}, retrying in 2 seconds... (attempt ${retryCount + 1}/2)`);
-          setTimeout(() => fetchNotifications(retryCount + 1), 2000);
+      try {
+        const [regularRes, alertRes] = await Promise.all([
+          fetch(regularUrl, { 
+            signal: controller.signal,
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          }),
+          fetch(alertUrl, { 
+            signal: controller.signal,
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          })
+        ]);
+        
+        clearTimeout(timeoutId);
+
+        if (!regularRes.ok) {
+        if ((regularRes.status === 500 || regularRes.status === 503 || regularRes.status === 408) && retryCount < 2) {
+          console.warn(`Regular notifications fetch failed with ${regularRes.status}, retrying in cooldown... (attempt ${retryCount + 1}/2)`);
+          setTimeout(() => fetchNotifications(retryCount + 1, true), 1000);
           return;
         }
         throw new Error(`Failed to fetch regular notifications: ${regularRes.status}`);
       }
       
-      // Fetch alert notifications (emergency alerts)
-      const alertUrl = `/api/notifications/alerts?showAll=true`;
-      const alertRes = await fetch(alertUrl, {
-        signal: AbortSignal.timeout(15000)
-      });
-      
       if (!alertRes.ok) {
+        if ((alertRes.status === 500 || alertRes.status === 503 || alertRes.status === 408) && retryCount < 2) {
+          console.warn(`Alert notifications fetch failed with ${alertRes.status}, retrying in cooldown... (attempt ${retryCount + 1}/2)`);
+          setTimeout(() => fetchNotifications(retryCount + 1, true), 1000);
+          return;
+        }
         console.warn(`Alert notifications fetch failed with ${alertRes.status}, continuing with regular notifications only`);
       }
       
@@ -211,10 +245,16 @@ export default function DashboardContent({ user }) {
         // If new alert received, play sound and show modal
         if (unreadAlerts.length > lastNotificationCount && lastNotificationCount > 0) {
           const latestAlert = unreadAlerts[0];
-          if (audioRef.current) {
+          
+          // Only play sound if enabled and alert not dismissed
+          if (notificationSettings.soundEnabled && audioRef.current && !notificationSettings.dismissedAlerts.has(latestAlert.id)) {
             audioRef.current.play().catch(err => console.error('Audio play failed:', err));
           }
-          setAlertModal({ notification: latestAlert });
+          
+          // Only show modal if auto-show is enabled and alert not dismissed
+          if (notificationSettings.autoShowModal && !notificationSettings.dismissedAlerts.has(latestAlert.id)) {
+            setAlertModal({ notification: latestAlert });
+          }
         }
         
         // If no more unread alerts, stop the alarm and close modal
@@ -230,26 +270,53 @@ export default function DashboardContent({ user }) {
         }
         
         setLastNotificationCount(unreadAlerts.length);
-        // Clear error on successful fetch
+        // Clear error on successful fetch and reset connection issues
         setError(null);
+        setConnectionIssues(0);
       } else {
         setNotifications([]);
       }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        throw fetchError;
+      }
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
-      // Only show error if it's not a timeout during retry
-      if (err.name !== 'TimeoutError' || retryCount >= 2) {
-        setError(err.message);
+      
+      // Handle timeout and abort errors with retry logic
+      if (err.name === 'TimeoutError' || err.name === 'AbortError' || err.message.includes('timeout') || err.message.includes('aborted')) {
+        if (retryCount < 2) {
+          console.warn(`Query timeout detected, retrying with cooldown... (attempt ${retryCount + 1}/2)`);
+          setTimeout(() => fetchNotifications(retryCount + 1, true), 2000);
+          return;
+        } else {
+          console.error('Max retries reached for timeout, skipping this fetch cycle');
+          setConnectionIssues(prev => prev + 1);
+          setError('Connection timeout. Notifications may be delayed. Check your internet connection.');
+          return;
+        }
+      }
+      
+      // For other errors, only show if not during retry
+      if (retryCount >= 2) {
+        setError(`Error: ${err.message}`);
       }
     }
   };
 
   useEffect(() => {
     fetchNotifications();
-    // Refresh every 5 seconds for faster modal updates when alerts are marked as read
-    const interval = setInterval(fetchNotifications, 5000);
+    
+    // Adaptive polling frequency based on connection issues
+    const getPollingInterval = () => {
+      if (connectionIssues >= 3) return 30000; // 30 seconds if many issues
+      if (connectionIssues >= 1) return 20000; // 20 seconds if some issues
+      return 10000; // 10 seconds normal
+    };
+    
+    const interval = setInterval(fetchNotifications, getPollingInterval());
     return () => clearInterval(interval);
-  }, [user.id]);
+  }, [user.id, connectionIssues]);
 
   // Check for unread alerts on mount and show modal immediately (responders and alerts1)
   useEffect(() => {
@@ -292,9 +359,9 @@ export default function DashboardContent({ user }) {
     }
   }, [notifications]);
 
-  // Play alarm sound only when modal is showing
+  // Play alarm sound only when modal is showing and sound is enabled
   useEffect(() => {
-    if (alertModal && audioRef.current) {
+    if (alertModal && audioRef.current && notificationSettings.soundEnabled) {
       console.log('🔊 Attempting to play emergency alarm...');
       audioRef.current.currentTime = 0;
       audioRef.current.muted = false; // Ensure not muted
@@ -311,7 +378,7 @@ export default function DashboardContent({ user }) {
             console.log('Trying to play with user interaction...');
             // Try to play on next user interaction
             const playOnClick = () => {
-              if (audioRef.current && alertModal) {
+              if (audioRef.current && alertModal && notificationSettings.soundEnabled) {
                 audioRef.current.play()
                   .then(() => console.log('✅ Alarm playing after user interaction'))
                   .catch(e => console.error('Still failed:', e));
@@ -321,13 +388,13 @@ export default function DashboardContent({ user }) {
             document.addEventListener('click', playOnClick, { once: true });
           });
       }
-    } else if (!alertModal && audioRef.current) {
-      // Stop sound when modal is closed
+    } else if ((!alertModal || !notificationSettings.soundEnabled) && audioRef.current) {
+      // Stop sound when modal is closed or sound is disabled
       console.log('🔇 Stopping emergency alarm');
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-  }, [alertModal]);
+  }, [alertModal, notificationSettings.soundEnabled]);
 
   // Settings are handled inside <Settings />
 
@@ -581,6 +648,34 @@ export default function DashboardContent({ user }) {
         </div>
 
         <div className="flex items-center space-x-4">
+          {/* Connection Status Indicator */}
+          {connectionIssues > 0 && (
+            <div className="flex items-center gap-2 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm">
+              <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+              <span className="text-xs">Connection Issues</span>
+            </div>
+          )}
+          
+          {/* Notification Settings Toggle */}
+          <div className="relative">
+            <button
+              onClick={() => setNotificationSettings(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
+              className={`p-2 rounded-lg transition-colors ${notificationSettings.soundEnabled ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300'}`}
+              title={`Sound ${notificationSettings.soundEnabled ? 'ON' : 'OFF'}`}
+            >
+              {notificationSettings.soundEnabled ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H2v-6h3.586l5.707-5.707A1 1 0 0113 4v16a1 1 0 01-1.707.707L5.586 15z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                </svg>
+              )}
+            </button>
+          </div>
+
           <div className="relative" ref={notificationRef}>
             <button
               onClick={() => setShowNotifications((prev) => !prev)}
@@ -692,7 +787,30 @@ export default function DashboardContent({ user }) {
                     </div>
                   ));
                 })()}
-                <div className="p-3 border-t border-gray-200">
+                <div className="p-3 border-t border-gray-200 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600">Alert Settings:</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setNotificationSettings(prev => ({ ...prev, autoShowModal: !prev.autoShowModal }))}
+                        className={`px-2 py-1 rounded text-xs ${notificationSettings.autoShowModal ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+                      >
+                        {notificationSettings.autoShowModal ? 'Auto-show ON' : 'Auto-show OFF'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          // Clear all dismissed alerts
+                          setNotificationSettings(prev => ({
+                            ...prev,
+                            dismissedAlerts: new Set()
+                          }));
+                        }}
+                        className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-200"
+                      >
+                        Reset Dismissed
+                      </button>
+                    </div>
+                  </div>
                   <button
                     onClick={() => {
                       setActiveContent('inbox');
@@ -1008,9 +1126,23 @@ export default function DashboardContent({ user }) {
                     <span className="text-xs animate-pulse-alert">🔊</span>
                   </div>
                   <button 
+                    onClick={() => {
+                      // Dismiss this specific alert
+                      setNotificationSettings(prev => ({
+                        ...prev,
+                        dismissedAlerts: new Set([...prev.dismissedAlerts, alertModal.notification.id])
+                      }));
+                      setAlertModal(null);
+                    }}
+                    className="text-white/80 hover:text-white transition-colors text-xs px-2 py-1 bg-white/20 rounded"
+                    title="Dismiss this alert"
+                  >
+                    Dismiss
+                  </button>
+                  <button 
                     onClick={() => { setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }}
                     className="text-white/80 hover:text-white transition-colors"
-                    title="Dismiss"
+                    title="Close"
                   >
                     <FiX className="w-4 h-4" />
                   </button>
@@ -1071,12 +1203,35 @@ export default function DashboardContent({ user }) {
                   </button>
                 </div>
                 
-                <button 
-                  onClick={() => { setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} 
-                  className="w-full px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors text-[10px] font-medium"
-                >
-                  Dismiss
-                </button>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button 
+                    onClick={() => { setAlertModal(null); handleMarkAsRead(alertModal.notification.id); }} 
+                    className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors text-[10px] font-medium"
+                  >
+                    Close
+                  </button>
+                  <button 
+                    onClick={() => {
+                      // Dismiss all current unread alerts
+                      const unreadAlerts = notifications.filter(n => 
+                        !n.is_read && 
+                        (n.sender_type === 'responder' || n.sender_type === 'alerts1') &&
+                        !n.message.includes('verified and dispatcher going soon') &&
+                        !n.message.includes('verified and dispatched') &&
+                        !n.message.includes('✅')
+                      );
+                      const alertIds = unreadAlerts.map(a => a.id);
+                      setNotificationSettings(prev => ({
+                        ...prev,
+                        dismissedAlerts: new Set([...prev.dismissedAlerts, ...alertIds])
+                      }));
+                      setAlertModal(null);
+                    }} 
+                    className="px-3 py-1.5 bg-orange-200 text-orange-700 rounded hover:bg-orange-300 transition-colors text-[10px] font-medium"
+                  >
+                    Dismiss All
+                  </button>
+                </div>
               </div>
             </div>
           </div>

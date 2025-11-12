@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import PCRForm from "./PCRForm";
+import PCRWizard from "./PCRWizard";
+import Swal from 'sweetalert2';
 
 const PCREdit = ({ form, onClose }) => {
   const [imageStatus, setImageStatus] = useState({
@@ -10,6 +11,8 @@ const PCREdit = ({ form, onClose }) => {
     receivingSignature: { loaded: false, error: null },
   });
   const [caseTypeError, setCaseTypeError] = useState(null);
+  const [alertData, setAlertData] = useState(null);
+  const [loadingAlert, setLoadingAlert] = useState(false);
 
   const toNull = (value) => {
     if (value === "" || value === undefined || value === null) return null;
@@ -29,6 +32,38 @@ const PCREdit = ({ form, onClose }) => {
     const [time, period] = timeString.split(" ");
     return { time: time.trim(), period: period?.toUpperCase() || "AM" };
   };
+
+  // Fetch alert data if alertId exists
+  useEffect(() => {
+    const fetchAlertData = async () => {
+      const alertId = form.full_form?.alertId || form.alert_id;
+      if (alertId) {
+        setLoadingAlert(true);
+        try {
+          // Fetch all alerts and find the one with matching ID
+          const response = await fetch('/api/alerts');
+          if (response.ok) {
+            const data = await response.json();
+            const alert = data.alerts.find(a => a.id === alertId);
+            if (alert) {
+              console.log("PCREdit - Found alert data:", alert);
+              setAlertData(alert);
+            } else {
+              console.error("Alert not found with ID:", alertId);
+            }
+          } else {
+            console.error("Failed to fetch alerts");
+          }
+        } catch (error) {
+          console.error("Error fetching alert data:", error);
+        } finally {
+          setLoadingAlert(false);
+        }
+      }
+    };
+
+    fetchAlertData();
+  }, [form.full_form?.alertId, form.alert_id]);
 
   useEffect(() => {
     console.log("PCREdit form data:", JSON.stringify(form, null, 2));
@@ -115,14 +150,14 @@ const PCREdit = ({ form, onClose }) => {
 
   const handleSubmit = async (formData) => {
     try {
-      if (!formData.patientName) {
-        throw new Error("Patient Name is required.");
-      }
-      if (!formData.date) {
-        throw new Error("Date is required.");
-      }
-      if (!formData.recorder) {
-        throw new Error("Recorder is required.");
+      if (!formData.caseType) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Validation Error',
+          text: 'Case Type is required.',
+          confirmButtonColor: '#dc2626'
+        });
+        return;
       }
 
       const patientSignature = await uploadSignature(formData.patientSignature, "patientSignature");
@@ -221,7 +256,12 @@ const PCREdit = ({ form, onClose }) => {
       onClose(true);
     } catch (error) {
       console.error("Error submitting form:", error);
-      alert(error.message);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Submission Error',
+        text: error.message || 'Failed to update PCR form',
+        confirmButtonColor: '#dc2626'
+      });
     }
   };
 
@@ -237,16 +277,21 @@ const PCREdit = ({ form, onClose }) => {
       )
     : [];
 
+  console.log("PCREdit - Full form object:", form);
+  console.log("PCREdit - form.full_form:", form.full_form);
+  console.log("PCREdit - alertData:", alertData);
+
   const initialData = {
     case_number: form.full_form?.case_number || "",
-    caseType: form.full_form?.caseType || "",
+    caseType: alertData?.type || form.full_form?.caseType || "",
+    alertId: form.full_form?.alertId || form.alert_id || "",
     category: form.full_form?.category || "Patient",
     patientName: form.patient_name || "",
     age: form.full_form?.age || "",
     gender: form.full_form?.gender || "",
     contactNumber: form.full_form?.contactNumber || "",
     homeAddress: form.full_form?.homeAddress || "",
-    location: form.location || "",
+    location: alertData?.address || form.location || "",
     recorder: form.recorder || "",
     date: form.date ? form.date.split("T")[0] : "",
     bloodPressure: form.full_form?.bloodPressure || "",
@@ -314,6 +359,21 @@ const PCREdit = ({ form, onClose }) => {
 
   console.log("PCREdit initialData:", JSON.stringify(initialData, null, 2));
 
+  // Don't render PCRWizard until alert data is loaded (if alertId exists)
+  const alertId = form.full_form?.alertId || form.alert_id;
+  const shouldWaitForAlert = alertId && !alertData && loadingAlert;
+
+  if (shouldWaitForAlert) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading PCR data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {caseTypeError && (
@@ -321,7 +381,7 @@ const PCREdit = ({ form, onClose }) => {
           {caseTypeError}
         </div>
       )}
-      <PCRForm
+      <PCRWizard
         onClose={onClose}
         initialData={initialData}
         onSubmit={handleSubmit}

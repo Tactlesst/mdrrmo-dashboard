@@ -2,7 +2,7 @@
 
 import React from "react";
 import { FiX } from "react-icons/fi";
-import BodyDiagram3D from "./BodyDiagram3D";
+import BodyDiagramSVG from "./BodyDiagramSVG";
 
 const PCRView = ({ form, onClose }) => {
   const fullForm = form.full_form || {};
@@ -325,8 +325,8 @@ const PCRView = ({ form, onClose }) => {
             </div>
           </div>
 
-          {/* Waiver and Body Diagram */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+          {/* Waiver */}
+          <div className="bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Waiver:
@@ -334,7 +334,7 @@ const PCRView = ({ form, onClose }) => {
               <p className="mt-1 text-sm">
                 Signed: {fullForm.patientSignature || fullForm.witnessSignature ? "Yes" : "No"}
               </p>
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <span className="font-medium">Patient Signature:</span>{" "}
                   {fullForm.patientSignature ? (
@@ -346,10 +346,10 @@ const PCRView = ({ form, onClose }) => {
                   ) : (
                     "N/A"
                   )}
-                </div>
-                <div>
-                  <span className="font-medium">Patient Signature Date:</span>{" "}
-                  {formatPHDate(fullForm.patientSignatureDate)}
+                  <div className="mt-1">
+                    <span className="font-medium">Date:</span>{" "}
+                    {formatPHDate(fullForm.patientSignatureDate)}
+                  </div>
                 </div>
                 <div>
                   <span className="font-medium">Witness Signature:</span>{" "}
@@ -362,18 +362,22 @@ const PCRView = ({ form, onClose }) => {
                   ) : (
                     "N/A"
                   )}
-                </div>
-                <div>
-                  <span className="font-medium">Witness Signature Date:</span>{" "}
-                  {formatPHDate(fullForm.witnessSignatureDate)}
+                  <div className="mt-1">
+                    <span className="font-medium">Date:</span>{" "}
+                    {formatPHDate(fullForm.witnessSignatureDate)}
+                  </div>
                 </div>
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Body Diagram:
-              </label>
-              <BodyDiagram3D initialData={cleanedBodyDiagram} readOnly />
+          </div>
+
+          {/* Body Diagram */}
+          <div className="bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+            <label className="block text-sm font-medium text-gray-700 mb-4">
+              Body Diagram - Injury/Condition Locations:
+            </label>
+            <div className="bg-gray-50 p-4 rounded-lg border">
+              <BodyDiagramSVG initialData={cleanedBodyDiagram} readOnly />
             </div>
           </div>
         </div>

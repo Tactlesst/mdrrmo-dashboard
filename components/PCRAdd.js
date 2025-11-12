@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import PCRForm from "./PCRForm";
+import PCRWizard from "./PCRWizard";
 
 const PCRAdd = ({ onClose }) => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -67,7 +67,7 @@ const PCRAdd = ({ onClose }) => {
   };
 
   return (
-    <PCRForm
+    <PCRWizard
       onClose={onClose}
       onSubmit={handleSubmit}
       initialData={{

@@ -3,7 +3,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { FiX, FiPrinter, FiDownload } from "react-icons/fi";
 import jsPDF from "jspdf";
-import BodyDiagram3D from "./BodyDiagram3D";
 
 const PCRPrint = ({ form, onClose }) => {
   const fullForm = form.full_form || {};
@@ -60,6 +59,7 @@ const PCRPrint = ({ form, onClose }) => {
   const displayRaw = (value) => {
     return value ?? "N/A"; // Use ?? to handle null/undefined, keep empty strings
   };
+
 
   // Preload images to ensure they are ready for printing/PDF
   useEffect(() => {
@@ -125,37 +125,62 @@ const PCRPrint = ({ form, onClose }) => {
     preloadImages();
   }, [fullForm.patientSignature, fullForm.witnessSignature, fullForm.receivingSignature]);
 
-  // Trigger browser print
-  const handlePrint = () => {
+  // Open print preview in new tab with download capability
+  const handlePrint = async () => {
     if (!isReady || Object.values(imageErrors).some((error) => error)) {
       alert("Some images failed to load. Check console for details or try downloading as text.");
       return;
     }
-    const printContents = componentRef.current.innerHTML;
-    const newWindow = window.open("", "_blank");
-    newWindow.document.write(`
-      <html>
-        <head>
-          <title>PCR_${form.patient_name || "Unknown"}_${form.date ? form.date.split("T")[0] : "Unknown"}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; font-size: 10pt; color: #000; }
-            h1 { margin-bottom: 10px; text-align: center; }
-            .section { margin-bottom: 15px; }
-            .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
-            .border { border: 1px solid #000; padding: 8px; border-radius: 4px; }
-            .print-label { font-weight: bold; margin-bottom: 4px; }
-            .print-text { line-height: 1.4; word-wrap: break-word; margin-bottom: 4px; }
-            .print-image { max-width: 150px; max-height: 50px; object-fit: contain; margin-top: 4px; }
-            .print-break { page-break-after: always; }
-            @page { size: A4; margin: 1cm; }
-          </style>
-        </head>
-        <body>${printContents}</body>
-      </html>
-    `);
-    newWindow.document.close();
-    newWindow.print();
-    newWindow.close();
+
+    try {
+      // Show loading state
+      const originalButton = document.querySelector('button[onclick*="handlePrint"]');
+      if (originalButton) {
+        originalButton.disabled = true;
+        originalButton.innerHTML = '<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Opening Preview...';
+      }
+
+      // Prepare HTML content for print preview
+      const htmlContent = componentRef.current.innerHTML;
+      const fileName = `PCR_${form.patient_name || "Unknown"}_${form.date ? form.date.split("T")[0] : "Unknown"}`;
+
+      // Create a form to POST to the print preview API
+      const formElement = document.createElement('form');
+      formElement.method = 'POST';
+      formElement.action = '/api/pcr/print-preview';
+      formElement.target = '_blank';
+      formElement.style.display = 'none';
+
+      // Add HTML content
+      const htmlInput = document.createElement('input');
+      htmlInput.type = 'hidden';
+      htmlInput.name = 'htmlContent';
+      htmlInput.value = htmlContent;
+      formElement.appendChild(htmlInput);
+
+      // Add file name
+      const nameInput = document.createElement('input');
+      nameInput.type = 'hidden';
+      nameInput.name = 'fileName';
+      nameInput.value = fileName;
+      formElement.appendChild(nameInput);
+
+      // Submit form to open in new tab
+      document.body.appendChild(formElement);
+      formElement.submit();
+      document.body.removeChild(formElement);
+
+    } catch (error) {
+      console.error('Error opening print preview:', error);
+      alert(`Failed to open print preview: ${error.message}`);
+    } finally {
+      // Restore button state
+      const originalButton = document.querySelector('button[onclick*="handlePrint"]');
+      if (originalButton) {
+        originalButton.disabled = false;
+        originalButton.innerHTML = '<svg class="mr-2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,9 6,2 18,2 18,9"></polyline><path d="M6,18H4a2,2,0,0,1-2-2V11a2,2,0,0,1,2-2H20a2,2,0,0,1,2,2v5a2,2,0,0,1-2,2H18"></path><polyline points="6,14 18,14"></polyline></svg>Open Preview';
+      }
+    }
   };
 
   // Download PDF using jsPDF
@@ -304,7 +329,7 @@ const PCRPrint = ({ form, onClose }) => {
               }`}
             >
               <FiPrinter className="mr-2" size={18} />
-              Print Report
+              Open Preview
             </button>
 
             <button
@@ -317,384 +342,401 @@ const PCRPrint = ({ form, onClose }) => {
           </div>
         </div>
 
-        <div ref={componentRef} className="space-y-4 print:space-y-2 print:p-4">
+        <div ref={componentRef} className="print:p-0">
           <style jsx>{`
             @media print {
               .no-print {
                 display: none !important;
               }
-              .print-break {
-                page-break-after: always;
-              }
-              .print-font {
-                font-size: 10pt;
-                font-family: Arial, sans-serif;
-                color: #000 !important;
-              }
-              .print-border {
-                border: 1px solid #000 !important;
-                padding: 8px;
-                margin-bottom: 8px;
-                border-radius: 0 !important;
-              }
-              .print-label {
-                font-weight: bold;
-                margin-bottom: 4px;
-                color: #000 !important;
-              }
-              .print-text {
-                margin-bottom: 4px;
-                line-height: 1.4;
-                word-wrap: break-word;
-                max-width: 100%;
-                color: #000 !important;
-              }
-              .print-image {
-                max-width: 150px;
-                max-height: 50px;
-                object-fit: contain;
-                margin-top: 4px;
-              }
-              .modal-container {
-                background: transparent !important;
-                position: static !important;
-                z-index: 0 !important;
-              }
-              /* Remove all gradients and shadows for print */
-              * {
-                background-image: none !important;
-                box-shadow: none !important;
-                text-shadow: none !important;
-              }
-              /* Ensure white background for print */
-              body, div, section {
-                background-color: white !important;
-              }
-              /* Remove rounded corners for print */
-              .rounded-xl, .rounded-2xl, .rounded-t-2xl, .rounded-lg {
-                border-radius: 0 !important;
-              }
-              /* Simplify borders for print */
-              .border-2, .border {
-                border: 1px solid #000 !important;
-              }
-              /* Remove hover effects */
-              .hover\\:shadow-md, .hover\\:shadow-lg {
-                box-shadow: none !important;
-              }
-              /* Ensure proper spacing */
-              .gap-4 {
-                gap: 4px !important;
-              }
-              .p-6 {
-                padding: 4px !important;
-              }
-              .space-y-4 > * + * {
-                margin-top: 4px !important;
-              }
-              /* Header styling for print */
-              h1 {
-                font-size: 12pt !important;
-                font-weight: bold !important;
-                color: #000 !important;
-                margin: 4px 0 !important;
-              }
-              p {
-                color: #000 !important;
-                font-size: 8pt !important;
-                line-height: 1.2 !important;
-                margin: 0 !important;
-              }
-              label {
-                font-size: 8pt !important;
-                font-weight: bold !important;
-                margin-bottom: 2px !important;
-              }
-              /* Compact grid layouts */
-              .grid {
-                gap: 4px !important;
-              }
-              /* Reduce image sizes */
-              img {
-                max-height: 40px !important;
-              }
-              /* Compact sections */
-              .print\\:mb-2 {
-                margin-bottom: 2px !important;
-              }
-              .print\\:pb-2 {
-                padding-bottom: 2px !important;
-              }
               @page {
                 size: A4;
-                margin: 0.5cm;
+                margin: 0.3in;
               }
+              * {
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+              }
+              .form-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-family: Arial, sans-serif;
+                font-size: 8pt;
+                margin-bottom: 2px;
+              }
+              .form-table td, .form-table th {
+                border: 1px solid #000;
+                padding: 1px 3px;
+                vertical-align: top;
+                line-height: 1.2;
+              }
+              .form-header {
+                text-align: center;
+                font-weight: bold;
+                background-color: #f0f0f0;
+                padding: 4px;
+              }
+              .checkbox {
+                width: 10px;
+                height: 10px;
+                border: 1px solid #000;
+                display: inline-block;
+                margin-right: 2px;
+                text-align: center;
+                font-size: 7pt;
+                line-height: 8px;
+                vertical-align: middle;
+              }
+              .checkbox.checked::after {
+                content: "✓";
+                font-weight: bold;
+              }
+              .underline {
+                border-bottom: 1px solid #000;
+                display: inline-block;
+                min-width: 80px;
+                padding-bottom: 1px;
+                margin-left: 2px;
+              }
+              .body-diagram {
+                width: 60px;
+                height: 100px;
+                border: 1px solid #000;
+                margin: 2px auto;
+                display: block;
+              }
+              .signature-box {
+                border: 1px solid #000;
+                height: 30px;
+                margin: 2px 0;
+                padding: 2px;
+              }
+              .field-label {
+                font-weight: bold;
+                font-size: 7pt;
+              }
+            }
+            .form-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-family: Arial, sans-serif;
+              font-size: 10px;
+              margin-bottom: 4px;
+            }
+            .form-table td, .form-table th {
+              border: 1px solid #000;
+              padding: 3px 5px;
+              vertical-align: top;
+              line-height: 1.3;
+            }
+            .form-header {
+              text-align: center;
+              font-weight: bold;
+              background-color: #f0f0f0;
+              padding: 6px;
+            }
+            .checkbox {
+              width: 12px;
+              height: 12px;
+              border: 1px solid #000;
+              display: inline-block;
+              margin-right: 4px;
+              text-align: center;
+              font-size: 8pt;
+              line-height: 10px;
+              vertical-align: middle;
+            }
+            .checkbox.checked::after {
+              content: "✓";
+              font-weight: bold;
+            }
+            .underline {
+              border-bottom: 1px solid #000;
+              display: inline-block;
+              min-width: 100px;
+              padding-bottom: 2px;
+              margin-left: 3px;
+            }
+            .body-diagram {
+              width: 80px;
+              height: 120px;
+              border: 1px solid #000;
+              margin: 4px auto;
+              display: block;
+              background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 120"><ellipse cx="40" cy="15" rx="8" ry="10" fill="none" stroke="black" stroke-width="1"/><line x1="40" y1="25" x2="40" y2="70" stroke="black" stroke-width="1"/><line x1="40" y1="35" x2="25" y2="50" stroke="black" stroke-width="1"/><line x1="40" y1="35" x2="55" y2="50" stroke="black" stroke-width="1"/><line x1="40" y1="70" x2="30" y2="110" stroke="black" stroke-width="1"/><line x1="40" y1="70" x2="50" y2="110" stroke="black" stroke-width="1"/></svg>') center/contain no-repeat;
+            }
+            .signature-box {
+              border: 1px solid #000;
+              height: 40px;
+              margin: 4px 0;
+              padding: 2px;
+            }
+            .field-label {
+              font-weight: bold;
+              font-size: 9px;
             }
           `}</style>
 
-          <div className="border-b-2 border-blue-600 pb-6 mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 -mx-8 px-8 -mt-8 pt-8 rounded-t-2xl print:print-border print-font print:bg-white print:mx-0 print:px-0 print:mt-0 print:pt-0 print:rounded-none print:pb-2 print:mb-2">
-            <div className="flex items-start justify-between gap-4 mb-4 print:mb-1">
-              <div className="flex-shrink-0 w-16 h-16 print:w-12 print:h-12">
-                <img src="/Logoo.png" alt="Municipality Logo" className="w-full h-full object-contain" />
-              </div>
-              <div className="flex-1 text-center">
-                <p className="text-xs font-medium text-gray-700 print:text-[8pt]">Republic of the Philippines</p>
-                <p className="text-xs font-medium text-gray-700 print:text-[8pt]">Province of Masbate Oriental</p>
-                <p className="text-xs font-semibold text-gray-800 print:text-[9pt] print:font-bold">MUNICIPALITY OF BALINGSAG</p>
-              </div>
-            </div>
-            <h1 className="text-xl font-bold text-center print:print-font print:text-[12pt] print:mb-1">PATIENT CARE REPORT</h1>
-          </div>
+          {/* Header Section */}
+          <table className="form-table" style={{marginBottom: '8px'}}>
+            <tr>
+              <td rowSpan="2" style={{width: '15%', textAlign: 'center', padding: '8px'}}>
+                <img src="/Logoo.png" alt="Municipality Logo" style={{width: '50px', height: '50px'}} />
+              </td>
+              <td className="form-header" style={{fontSize: '9pt', padding: '4px'}}>
+                Republic of the Philippines<br/>
+                Province of Masbate Oriental<br/>
+                <strong>MUNICIPALITY OF BALINGSAG</strong>
+              </td>
+              <td rowSpan="2" style={{width: '15%', textAlign: 'center', padding: '8px'}}>
+                <div style={{border: '2px solid #000', width: '50px', height: '50px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8pt', fontWeight: 'bold'}}>
+                  MDRRMO
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td className="form-header" style={{fontSize: '12pt', fontWeight: 'bold', padding: '6px'}}>
+                PATIENT CARE REPORT
+              </td>
+            </tr>
+          </table>
 
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Patient Name:</label>
-              <p className="mt-1 text-sm print:print-text">{form.patient_name || "N/A"}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Date:</label>
-              <p className="mt-1 text-sm print:print-text">{formatPHDate(form.date)}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Recorder:</label>
-              <p className="mt-1 text-sm print:print-text">{form.recorder || "N/A"}</p>
-            </div>
-            <div className="md:col-span-3">
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Location:</label>
-              <p className="mt-1 text-sm print:print-text">{form.location || "N/A"}</p>
-            </div>
-          </div>
+          {/* Main Form Table */}
+          <table className="form-table" style={{marginBottom: '4px'}}>
+            <tr>
+              <td style={{width: '20%', fontSize: '8pt'}}><strong>CASE TYPE - DESCRIPTION:</strong></td>
+              <td style={{width: '30%'}}><span className="underline" style={{minWidth: '150px'}}>{fullForm.caseType || ""}</span></td>
+              <td style={{width: '15%', fontSize: '8pt'}}><strong>NAME OF RECORDER:</strong></td>
+              <td style={{width: '15%'}}><span className="underline">{form.recorder || ""}</span></td>
+              <td style={{width: '10%', fontSize: '8pt'}}><strong>DATE:</strong></td>
+              <td style={{width: '10%'}}><span className="underline">{formatPHDate(form.date)}</span></td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>NAME OF PATIENT:</strong></td>
+              <td><span className="underline" style={{minWidth: '150px'}}>{form.patient_name || ""}</span></td>
+              <td style={{fontSize: '8pt'}}><strong>HOSPITAL TRANSPORTED TO:</strong></td>
+              <td colSpan="3"><span className="underline" style={{minWidth: '200px'}}>{fullForm.hospitalTransported || ""}</span></td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>AGE:</strong></td>
+              <td><span className="underline">{fullForm.age || ""}</span></td>
+              <td style={{fontSize: '8pt'}}><strong>GENDER:</strong></td>
+              <td>
+                <span className={`checkbox ${fullForm.gender === 'male' ? 'checked' : ''}`}></span>M
+                <span className={`checkbox ${fullForm.gender === 'female' ? 'checked' : ''}`} style={{marginLeft: '8px'}}></span>F
+              </td>
+              <td style={{fontSize: '8pt'}}><strong>TIME OF CALL:</strong></td>
+              <td><span className="underline">{formatTime(fullForm.timeCall)}</span></td>
+            </tr>
+            <tr>
+              <td colSpan="2" style={{fontSize: '8pt'}}>
+                <strong>CATEGORY:</strong>
+                <span className={`checkbox ${fullForm.category === 'driver' ? 'checked' : ''}`}></span>DRIVER ( )
+                <span className={`checkbox ${fullForm.category === 'passenger' ? 'checked' : ''}`}></span>PASSENGER ( )
+                <span className={`checkbox ${fullForm.category === 'patient' ? 'checked' : ''}`}></span>PATIENT ( )
+              </td>
+              <td style={{fontSize: '8pt'}}><strong>TIME ARRIVED AT SCENE:</strong></td>
+              <td colSpan="3"><span className="underline">{formatTime(fullForm.timeArrivedScene)}</span></td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>BLOOD PRESSURE</strong></td>
+              <td style={{fontSize: '8pt'}}><strong>PR</strong></td>
+              <td style={{fontSize: '8pt'}}><strong>RR</strong></td>
+              <td style={{fontSize: '8pt'}}><strong>O2SAT</strong></td>
+              <td style={{fontSize: '8pt'}}><strong>TEMPERATURE</strong></td>
+              <td style={{fontSize: '8pt'}}><strong>TIME LEFT SCENE:</strong></td>
+            </tr>
+            <tr>
+              <td><span className="underline">{fullForm.bloodPressure || ""}</span></td>
+              <td><span className="underline">{fullForm.pr || ""}</span></td>
+              <td><span className="underline">{fullForm.rr || ""}</span></td>
+              <td><span className="underline">{fullForm.o2sat || ""}</span></td>
+              <td><span className="underline">{fullForm.temp || ""}</span></td>
+              <td><span className="underline">{formatTime(fullForm.timeLeftScene)}</span></td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>HOME ADDRESS:</strong></td>
+              <td colSpan="3"><span className="underline" style={{minWidth: '250px'}}>{fullForm.homeAddress || ""}</span></td>
+              <td style={{fontSize: '8pt'}}><strong>TIME ARRIVED AT HOSPITAL:</strong></td>
+              <td><span className="underline">{formatTime(fullForm.timeArrivedHospital)}</span></td>
+            </tr>
+            <tr>
+              <td colSpan="3" style={{fontSize: '8pt'}}>
+                <strong>UNDER INFLUENCE:</strong>
+                <span className={`checkbox ${fullForm.underInfluence?.alcohol ? 'checked' : ''}`}></span>ALCOHOL ( )
+                <span className={`checkbox ${fullForm.underInfluence?.drugs ? 'checked' : ''}`}></span>DRUGS ( )
+                <span className={`checkbox ${fullForm.underInfluence?.unknown ? 'checked' : ''}`}></span>UNKNOWN ( )
+                <span className={`checkbox ${fullForm.underInfluence?.none ? 'checked' : ''}`}></span>N/A ( )
+              </td>
+              <td colSpan="3" style={{fontSize: '8pt'}}>
+                <strong>EVACUATION CODE:</strong>
+                <span className={`checkbox ${fullForm.evacuationCode?.black ? 'checked' : ''}`}></span>BLACK ( )
+                <span className={`checkbox ${fullForm.evacuationCode?.red ? 'checked' : ''}`}></span>RED ( )
+                <span className={`checkbox ${fullForm.evacuationCode?.yellow ? 'checked' : ''}`}></span>YELLOW ( )
+                <span className={`checkbox ${fullForm.evacuationCode?.green ? 'checked' : ''}`}></span>GREEN ( )
+              </td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>CONTACT PERSON</strong></td>
+              <td style={{fontSize: '8pt'}}><strong>RELATIONSHIP</strong></td>
+              <td style={{fontSize: '8pt'}}><strong>CONTACT NUMBER</strong></td>
+              <td style={{fontSize: '8pt'}}><strong>AMBULANCE NO:</strong></td>
+              <td colSpan="2" style={{fontSize: '8pt'}}><strong>RESPONSE TEAM:</strong></td>
+            </tr>
+            <tr>
+              <td><span className="underline">{fullForm.contactPerson || ""}</span></td>
+              <td><span className="underline">{fullForm.relationship || ""}</span></td>
+              <td><span className="underline">{fullForm.contactNumber || ""}</span></td>
+              <td><span className="underline">{fullForm.ambulanceNo || ""}</span></td>
+              <td colSpan="2" style={{fontSize: '8pt'}}>
+                <span className={`checkbox ${fullForm.responseTeam?.includes('TEAM 1') ? 'checked' : ''}`}></span>TEAM 1 ( )
+                <span className={`checkbox ${fullForm.responseTeam?.includes('TEAM 2') ? 'checked' : ''}`}></span>TEAM 2 ( )
+                <span className={`checkbox ${fullForm.responseTeam?.includes('TEAM 3') ? 'checked' : ''}`}></span>TEAM 3 ( )
+              </td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>DOI:</strong></td>
+              <td style={{fontSize: '8pt'}}><strong>TOI:</strong></td>
+              <td style={{fontSize: '8pt'}}><strong>NOI:</strong></td>
+              <td colSpan="3" style={{fontSize: '8pt'}}><strong>BRGY:</strong></td>
+            </tr>
+            <tr>
+              <td><span className="underline">{displayRaw(fullForm.doi)}</span></td>
+              <td><span className="underline">{displayRaw(fullForm.toi)}</span></td>
+              <td><span className="underline">{fullForm.noi || ""}</span></td>
+              <td colSpan="3" style={{fontSize: '8pt'}}>
+                <span className={`checkbox ${fullForm.poi?.highway ? 'checked' : ''}`}></span>HIGHWAY/ROAD ( )
+                <span className={`checkbox ${fullForm.poi?.residence ? 'checked' : ''}`}></span>RESIDENCE ( )
+                <span className={`checkbox ${fullForm.poi?.publicBuilding ? 'checked' : ''}`}></span>PUBLIC BUILDING/PLACE ( )
+              </td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>LOSS OF CONSCIOUSNESS</strong></td>
+              <td style={{fontSize: '8pt'}}>
+                <span className={`checkbox ${fullForm.lossOfConsciousness === 'yes' ? 'checked' : ''}`}></span>YES ( ) 
+                <span className={`checkbox ${fullForm.lossOfConsciousness === 'no' ? 'checked' : ''}`}></span>NO ( )
+                <br/>MINUTES: <span className="underline">{fullForm.lossOfConsciousnessMinutes || ""}</span>
+              </td>
+              <td style={{fontSize: '8pt'}}><strong>CHIEF COMPLAINTS/S:</strong></td>
+              <td colSpan="3"><span className="underline" style={{minWidth: '200px'}}>{fullForm.chiefComplaints || ""}</span></td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>INTERVENTIONS:</strong></td>
+              <td colSpan="5"><span className="underline" style={{minWidth: '400px'}}>{fullForm.interventions || ""}</span></td>
+            </tr>
+          </table>
 
-          {/* Patient Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Case Type:</label>
-              <p className="mt-1 text-sm print:print-text">{fullForm.caseType || "N/A"}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Age:</label>
-              <p className="mt-1 text-sm print:print-text">{fullForm.age || "N/A"}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Gender:</label>
-              <p className="mt-1 text-sm print:print-text">{fullForm.gender || "N/A"}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Category:</label>
-              <p className="mt-1 text-sm print:print-text">{fullForm.category || "N/A"}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Contact Number:</label>
-              <p className="mt-1 text-sm print:print-text">{fullForm.contactNumber || "N/A"}</p>
-            </div>
-            <div className="md:col-span-3">
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Address:</label>
-              <p className="mt-1 text-sm print:print-text">{fullForm.homeAddress || "N/A"}</p>
-            </div>
-          </div>
+          {/* Medical History Section */}
+          <table className="form-table" style={{marginBottom: '4px'}}>
+            <tr>
+              <td colSpan="2" className="form-header" style={{fontSize: '9pt'}}>HISTORY</td>
+              <td className="form-header" style={{fontSize: '9pt'}}>NARRATIVE OF THE INCIDENT</td>
+            </tr>
+            <tr>
+              <td style={{width: '20%', fontSize: '8pt'}}><strong>SIGNS & SYMPTOMS:</strong></td>
+              <td style={{width: '30%'}}><span className="underline">{fullForm.signsSymptoms || ""}</span></td>
+              <td rowSpan="6" style={{width: '50%', verticalAlign: 'top', padding: '4px'}}>
+                <div style={{minHeight: '120px', fontSize: '9pt', lineHeight: '1.3'}}>
+                  {fullForm.narrative || ""}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>ALLERGIES:</strong></td>
+              <td><span className="underline">{fullForm.allergies || ""}</span></td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>MEDICATION:</strong></td>
+              <td><span className="underline">{fullForm.medication || ""}</span></td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>PAST HISTORY:</strong></td>
+              <td><span className="underline">{fullForm.pastHistory || ""}</span></td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>LAST INTAKE:</strong></td>
+              <td><span className="underline">{fullForm.lastIntake || ""}</span></td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>EVENTS:</strong></td>
+              <td><span className="underline">{fullForm.events || ""}</span></td>
+            </tr>
+          </table>
 
-          {/* Vitals and Incident Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Vitals:</label>
-              <p className="mt-1 text-sm print:print-text">
-                BP: {fullForm.bloodPressure || "N/A"}<br />
-                PR: {fullForm.pr || "N/A"}<br />
-                RR: {fullForm.rr || "N/A"}<br />
-                Temp: {fullForm.temp || "N/A"}<br />
-                O2Sat: {fullForm.o2sat || "N/A"}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Place of Incident (POI):</label>
-              <p className="mt-1 text-sm print:print-text">
-                Brgy: {fullForm.poi?.brgy || "N/A"}<br />
-                Highway: {fullForm.poi?.highway ? "Yes" : "No"}<br />
-                Residence: {fullForm.poi?.residence ? "Yes" : "No"}<br />
-                Public Building: {fullForm.poi?.publicBuilding ? "Yes" : "No"}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Incident Details:</label>
-              <p className="mt-1 text-sm print:print-text">
-                DOI: {displayRaw(fullForm.doi)}<br />
-                TOI: {displayRaw(fullForm.toi)}<br />
-                NOI: {fullForm.noi || "N/A"}
-              </p>
-            </div>
-          </div>
+          {/* Additional Notes Section */}
+          <table className="form-table" style={{marginBottom: '4px'}}>
+            <tr>
+              <td colSpan="3" className="form-header" style={{fontSize: '9pt'}}>ADDITIONAL NOTES</td>
+            </tr>
+            <tr>
+              <td style={{width: '15%', verticalAlign: 'top', textAlign: 'center', padding: '4px'}}>
+                <div className="body-diagram"></div>
+                <div style={{textAlign: 'center', fontSize: '7pt', fontWeight: 'bold'}}>FRONT</div>
+              </td>
+              <td style={{width: '15%', verticalAlign: 'top', textAlign: 'center', padding: '4px'}}>
+                <div className="body-diagram"></div>
+                <div style={{textAlign: 'center', fontSize: '7pt', fontWeight: 'bold'}}>BACK</div>
+              </td>
+              <td style={{width: '70%', verticalAlign: 'top', padding: '4px'}}>
+                <div style={{fontSize: '8pt', lineHeight: '1.2'}}>
+                  <strong>Waiver of Treatment / Patient Refusal</strong><br/>
+                  <div style={{fontSize: '7pt', marginTop: '4px', textAlign: 'justify'}}>
+                    I acknowledge that I have been informed that my medical condition requires immediate treatment and/or transport to a physician and that with refusing further emergency medical treatment there is a risk of serious injury, illness, or death. Understanding these risks, I hereby release the attending medical personnel, their home agency, and their advising physician from all responsibility regarding any ill effects which may result from this decision.
+                  </div>
+                  <table style={{width: '100%', marginTop: '8px', fontSize: '7pt'}}>
+                    <tr>
+                      <td style={{width: '50%', verticalAlign: 'top'}}>
+                        <strong>Patient Signature:</strong><br/>
+                        <div className="signature-box" style={{height: '25px'}}>
+                          {fullForm.patientSignature && imageLoaded.patientSignature ? (
+                            <img src={fullForm.patientSignature} alt="Patient Signature" style={{maxWidth: '100%', maxHeight: '25px'}} />
+                          ) : ""}
+                        </div>
+                        Date: <span className="underline" style={{minWidth: '60px'}}>{formatPHDate(fullForm.patientSignatureDate)}</span>
+                      </td>
+                      <td style={{width: '50%', verticalAlign: 'top'}}>
+                        <strong>Witness Signature:</strong><br/>
+                        <div className="signature-box" style={{height: '25px'}}>
+                          {fullForm.witnessSignature && imageLoaded.witnessSignature ? (
+                            <img src={fullForm.witnessSignature} alt="Witness Signature" style={{maxWidth: '100%', maxHeight: '25px'}} />
+                          ) : ""}
+                        </div>
+                        Date: <span className="underline" style={{minWidth: '60px'}}>{formatPHDate(fullForm.witnessSignatureDate)}</span>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          </table>
 
-          {/* Medical and Evacuation Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Under Influence:</label>
-              <p className="mt-1 text-sm print:print-text">
-                Alcohol: {fullForm.underInfluence?.alcohol ? "Yes" : "No"}<br />
-                Drugs: {fullForm.underInfluence?.drugs ? "Yes" : "No"}<br />
-                Unknown: {fullForm.underInfluence?.unknown ? "Yes" : "No"}<br />
-                None: {fullForm.underInfluence?.none ? "Yes" : "No"}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Evacuation Code:</label>
-              <p className="mt-1 text-sm print:print-text">
-                Black: {fullForm.evacuationCode?.black ? "Yes" : "No"}<br />
-                Red: {fullForm.evacuationCode?.red ? "Yes" : "No"}<br />
-                Yellow: {fullForm.evacuationCode?.yellow ? "Yes" : "No"}<br />
-                Green: {fullForm.evacuationCode?.green ? "Yes" : "No"}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Response Team:</label>
-              <p className="mt-1 text-sm print:print-text">{fullForm.responseTeam?.length ? fullForm.responseTeam.join(", ") : "N/A"}</p>
-            </div>
-          </div>
+          {/* Crew and Receiving Hospital Section */}
+          <table className="form-table" style={{marginBottom: '0'}}>
+            <tr>
+              <td style={{width: '20%', fontSize: '8pt'}}><strong>DRIVER:</strong></td>
+              <td style={{width: '30%'}}><span className="underline">{fullForm.driver || ""}</span></td>
+              <td style={{width: '25%', fontSize: '8pt'}}><strong>RECEIVING HOSPITAL</strong></td>
+              <td style={{width: '25%'}}></td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>TEAM LEADER:</strong></td>
+              <td><span className="underline">{fullForm.teamLeader || ""}</span></td>
+              <td style={{fontSize: '8pt'}}><strong>NAME:</strong></td>
+              <td><span className="underline">{fullForm.receivingName || ""}</span></td>
+            </tr>
+            <tr>
+              <td style={{fontSize: '8pt'}}><strong>CREW:</strong></td>
+              <td><span className="underline">{fullForm.crew || ""}</span></td>
+              <td style={{fontSize: '8pt'}}><strong>SIGNATURE:</strong></td>
+              <td>
+                <div className="signature-box" style={{height: '30px'}}>
+                  {fullForm.receivingSignature && imageLoaded.receivingSignature ? (
+                    <img src={fullForm.receivingSignature} alt="Receiving Signature" style={{maxWidth: '100%', maxHeight: '30px'}} />
+                  ) : ""}
+                </div>
+              </td>
+            </tr>
+          </table>
 
-          {/* Medical History */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Medical History:</label>
-              <p className="mt-1 text-sm print:print-text">
-                Chief Complaints: {fullForm.chiefComplaints || "N/A"}<br />
-                Signs & Symptoms: {fullForm.signsSymptoms || "N/A"}<br />
-                Allergies: {fullForm.allergies || "N/A"}<br />
-                Medications: {fullForm.medication || "N/A"}<br />
-                Past Medical History: {fullForm.pastHistory || "N/A"}<br />
-                Last Intake: {fullForm.lastIntake || "N/A"}<br />
-                Events: {fullForm.events || "N/A"}<br />
-                Interventions: {fullForm.interventions || "N/A"}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Narrative:</label>
-              <p className="mt-1 text-sm print:print-text">{fullForm.narrative || "N/A"}</p>
-            </div>
-          </div>
-
-          {/* Transport and Contact Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Transport Details:</label>
-              <p className="mt-1 text-sm print:print-text">
-                Hospital Transported: {fullForm.hospitalTransported || "N/A"}<br />
-                Time of Call: {formatTime(fullForm.timeCall)}<br />
-                Arrived Scene: {formatTime(fullForm.timeArrivedScene)}<br />
-                Left Scene: {formatTime(fullForm.timeArrivedHospital)}<br />
-                Arrived Hospital: {formatTime(fullForm.timeLeftScene)}<br />
-                Ambulance No: {fullForm.ambulanceNo || "N/A"}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Contact Person:</label>
-              <p className="mt-1 text-sm print:print-text">
-                Name: {fullForm.contactPerson || "N/A"}<br />
-                Relationship: {fullForm.relationship || "N/A"}<br />
-                Contact Number: {fullForm.contactNumber || "N/A"}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Loss of Consciousness:</label>
-              <p className="mt-1 text-sm print:print-text">
-                {fullForm.lossOfConsciousness || "N/A"}
-                {fullForm.lossOfConsciousness === "yes" ? ` (${fullForm.lossOfConsciousnessMinutes || "0"} minutes)` : ""}
-              </p>
-            </div>
-          </div>
-
-          {/* Crew and Receiving Hospital */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print:bg-white print:border print:shadow-none">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Crew Details:</label>
-              <p className="mt-1 text-sm print:print-text">
-                Driver: {fullForm.driver || "N/A"}<br />
-                Team Leader: {fullForm.teamLeader || "N/A"}<br />
-                Crew: {fullForm.crew || "N/A"}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 print:print-label">Receiving Hospital:</label>
-              <p className="mt-1 text-sm print:print-text">
-                Hospital: {fullForm.receivingHospital || "N/A"}<br />
-                Name: {fullForm.receivingName || "N/A"}<br />
-                {fullForm.receivingSignature ? (
-                  <>
-                    Signature: <br />
-                    {imageErrors.receivingSignature ? (
-                      <span className="text-red-600 print:print-text">Error: {imageErrors.receivingSignature}</span>
-                    ) : imageLoaded.receivingSignature ? (
-                      <img
-                        src={fullForm.receivingSignature}
-                        alt="Receiving Signature"
-                        className="print-image"
-                        crossOrigin="anonymous"
-                      />
-                    ) : (
-                      <span className="text-gray-500 print:print-text">Loading signature...</span>
-                    )}
-                  </>
-                ) : (
-                  "Signature: N/A"
-                )}
-              </p>
-            </div>
-          </div>
-
-{/* Waiver and Body Diagram */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border-2 border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow print:print-border print-font print-break print:bg-white print:border print:shadow-none">
-  <div>
-    <label className="block text-sm font-medium text-gray-700 print:print-label">Waiver:</label>
-    <p className="mt-1 text-sm print:print-text">
-      Signed: {fullForm.patientSignature || fullForm.witnessSignature ? "Yes" : "No"}<br />
-      {fullForm.patientSignature ? (
-        <>
-          Patient Signature: <br />
-          {imageErrors.patientSignature ? (
-            <span className="text-red-600 print:print-text">Error: {imageErrors.patientSignature}</span>
-          ) : imageLoaded.patientSignature ? (
-            <img
-              src={fullForm.patientSignature}
-              alt="Patient Signature"
-              className="print-image"
-              crossOrigin="anonymous"
-            />
-          ) : (
-            <span className="text-gray-500 print:print-text">Loading signature...</span>
-          )}
-        </>
-      ) : (
-        "Patient Signature: N/A"
-      )}<br />
-      {fullForm.witnessSignature ? (
-        <>
-          Witness Signature: <br />
-          {imageErrors.witnessSignature ? (
-            <span className="text-red-600 print:print-text">Error: {imageErrors.witnessSignature}</span>
-          ) : imageLoaded.witnessSignature ? (
-            <img
-              src={fullForm.witnessSignature}
-              alt="Witness Signature"
-              className="print-image"
-              crossOrigin="anonymous"
-            />
-          ) : (
-            <span className="text-gray-500 print:print-text">Loading signature...</span>
-          )}
-        </>
-      ) : (
-        "Witness Signature: N/A"
-      )}<br />
-      Patient Signature Date: {formatPHDate(fullForm.patientSignatureDate)}<br />
-      Witness Signature Date: {formatPHDate(fullForm.witnessSignatureDate)}
-    </p>
-  </div>
-  <div>
-
-    <div className="no-print mt-4">
-      <BodyDiagram3D initialData={fullForm.bodyDiagram} readOnly />
-    </div>
-  </div>
-</div>
         </div>
       </div>
     </div>

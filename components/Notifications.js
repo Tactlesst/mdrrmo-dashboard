@@ -49,23 +49,30 @@ export default function Notifications({ user }) {
     }
   };
 
-  // Fetch notifications with retry logic
-  const fetchNotifications = async (retryCount = 0) => {
+  // Fetch notifications with retry logic and cooldown
+  const fetchNotifications = async (retryCount = 0, isRetry = false) => {
     try {
+      // Add cooldown delay if this is a retry to prevent overwhelming the server
+      if (isRetry && retryCount > 0) {
+        const cooldownDelay = Math.min(3000 * retryCount, 15000); // 3s, 6s, 9s, max 15s
+        console.log(`Applying cooldown delay: ${cooldownDelay}ms before retry ${retryCount}`);
+        await new Promise(resolve => setTimeout(resolve, cooldownDelay));
+      }
+
       const url = viewAllNotifications
         ? `/api/notifications?showAll=true`
         : `/api/notifications?userId=${user.id}`;
       
       const res = await fetch(url, {
-        // Add timeout to prevent hanging requests
-        signal: AbortSignal.timeout(15000) // 15 second timeout
+        // Increased timeout to prevent hanging requests
+        signal: AbortSignal.timeout(25000) // 25 second timeout
       });
       
       if (!res.ok) {
-        // If it's a 500 or 503 error and we haven't retried too many times, retry
-        if ((res.status === 500 || res.status === 503) && retryCount < 2) {
-          console.warn(`Fetch failed with ${res.status}, retrying in 2 seconds... (attempt ${retryCount + 1}/2)`);
-          setTimeout(() => fetchNotifications(retryCount + 1), 2000);
+        // If it's a server error or timeout and we haven't retried too many times, retry
+        if ((res.status === 500 || res.status === 503 || res.status === 408) && retryCount < 2) {
+          console.warn(`Fetch failed with ${res.status}, retrying with cooldown... (attempt ${retryCount + 1}/2)`);
+          setTimeout(() => fetchNotifications(retryCount + 1, true), 1000);
           return;
         }
         throw new Error(`Failed to fetch notifications: ${res.status}`);
@@ -86,8 +93,22 @@ export default function Notifications({ user }) {
       }
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
-      // Only show error if it's not a timeout during retry
-      if (err.name !== 'TimeoutError' || retryCount >= 2) {
+      
+      // Handle timeout errors with retry logic
+      if (err.name === 'TimeoutError' || err.message.includes('timeout')) {
+        if (retryCount < 2) {
+          console.warn(`Query timeout detected, retrying with cooldown... (attempt ${retryCount + 1}/2)`);
+          setTimeout(() => fetchNotifications(retryCount + 1, true), 2000);
+          return;
+        } else {
+          console.error('Max retries reached for timeout, skipping this fetch cycle');
+          setError('Server is experiencing high load. Notifications may be delayed.');
+          return;
+        }
+      }
+      
+      // For other errors, only show if not during retry
+      if (retryCount >= 2) {
         setError(`Error: ${err.message}`);
       }
     }
@@ -95,7 +116,8 @@ export default function Notifications({ user }) {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    // Refresh every 15 seconds to reduce server load while keeping notifications updated
+    const interval = setInterval(fetchNotifications, 15000);
     return () => clearInterval(interval);
   }, [user.id, viewAllNotifications]);
 

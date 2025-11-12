@@ -45,9 +45,9 @@ export default async function handler(req, res) {
 
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      const { patientName, date, location, recorder, poi, alertId, ...fullForm } = req.body;
-      if (!patientName || !date || !recorder) {
-        return res.status(400).json({ error: "Missing required fields: patientName, date, recorder" });
+      const { patientName, date, location, recorder, poi, alertId, caseType, ...fullForm } = req.body;
+      if (!caseType) {
+        return res.status(400).json({ error: "Missing required fields: caseType" });
       }
 
       logger.debug("Incoming POST req.body:", JSON.stringify(req.body, null, 2));
@@ -72,10 +72,10 @@ export default async function handler(req, res) {
         RETURNING *
         `,
         [
-          patientName,
-          date,
+          patientName || "",
+          date || new Date().toISOString().split('T')[0],
           location || poi?.brgy || "",
-          recorder,
+          recorder || "",
           {
             ...fullForm,
             alertId: alertId || fullForm.alertId || null, // Keep in JSONB for backward compatibility
@@ -170,8 +170,8 @@ export default async function handler(req, res) {
       if (!user) return res.status(404).json({ error: "User not found" });
 
       const { patient_name, date, location, recorder, full_form, alert_id } = req.body;
-      if (!patient_name || !date || !recorder) {
-        return res.status(400).json({ error: "Missing required fields: patient_name, date, recorder" });
+      if (!full_form?.caseType) {
+        return res.status(400).json({ error: "Missing required fields: caseType" });
       }
 
       logger.debug("Incoming PUT req.body:", JSON.stringify(req.body, null, 2));
@@ -221,10 +221,10 @@ export default async function handler(req, res) {
         RETURNING *
         `,
         [
-          patient_name,
-          date,
+          patient_name || "",
+          date || new Date().toISOString().split('T')[0],
           location || updatedFullForm.poi?.brgy || "",
-          recorder,
+          recorder || "",
           updatedFullForm,
           newAlertId,
           id
