@@ -1,5 +1,5 @@
 import logger from '@/lib/logger';
-import { generateAINarrative, checkOllamaHealth } from '@/lib/ollama';
+import { generateAINarrative } from '@/lib/ollama';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

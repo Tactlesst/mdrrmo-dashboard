@@ -1,4 +1,4 @@
-import { v2 as cloudinary } from '@/lib/cloudinary';
+import cloudinary from '@/lib/cloudinary';
 import logger from '@/lib/logger';
 
 cloudinary.config({
