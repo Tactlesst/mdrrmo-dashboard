@@ -19,7 +19,12 @@ const Alerts = dynamic(() => import('./Alerts'), { ssr: false });
 
 export default function DashboardContent({ user }) {
   // Enable heartbeat for session management (sends ping every 2 minutes for accurate status)
-  useHeartbeat('admin', 120000);
+  const wsPresenceEnabled = String(process.env.NEXT_PUBLIC_WS_PRESENCE_ENABLED || '').toLowerCase() === 'true';
+  useHeartbeat('admin', 120000, !wsPresenceEnabled);
+  const wsRef = useRef(null);
+  const wsReconnectTimerRef = useRef(null);
+  const wsDebounceTimerRef = useRef(null);
+  const [wsConnected, setWsConnected] = useState(false);
   const [admin, setAdmin] = useState({ name: '', email: '', profile_image_url: '' });
   const [activeContent, setActiveContent] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -113,6 +118,92 @@ export default function DashboardContent({ user }) {
     }
   };
 
+  // WebSocket: trigger an immediate refresh when the WS server broadcasts a new notification
+  useEffect(() => {
+    const httpBase = process.env.NEXT_PUBLIC_WS_BASE_URL;
+    if (!httpBase) {
+      return;
+    }
+
+    const wsBase = httpBase
+      .replace(/^https:\/\//i, 'wss://')
+      .replace(/^http:\/\//i, 'ws://')
+      .replace(/\/$/, '');
+
+    const connect = () => {
+      try {
+        if (wsReconnectTimerRef.current) {
+          clearTimeout(wsReconnectTimerRef.current);
+          wsReconnectTimerRef.current = null;
+        }
+
+        if (wsRef.current) {
+          try {
+            wsRef.current.close();
+          } catch {
+            // ignore
+          }
+          wsRef.current = null;
+        }
+
+        const url = `${wsBase}/ws/notifications?channel=all`;
+        const ws = new WebSocket(url);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          setWsConnected(true);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg?.type === 'notification') {
+              if (wsDebounceTimerRef.current) clearTimeout(wsDebounceTimerRef.current);
+              wsDebounceTimerRef.current = setTimeout(() => {
+                fetchNotifications();
+              }, 250);
+            }
+          } catch {
+            // ignore
+          }
+        };
+
+        ws.onclose = () => {
+          setWsConnected(false);
+          wsReconnectTimerRef.current = setTimeout(connect, 3000);
+        };
+
+        ws.onerror = () => {
+          setWsConnected(false);
+          try {
+            ws.close();
+          } catch {
+            // ignore
+          }
+        };
+      } catch {
+        setWsConnected(false);
+        wsReconnectTimerRef.current = setTimeout(connect, 3000);
+      }
+    };
+
+    connect();
+
+    return () => {
+      setWsConnected(false);
+      if (wsDebounceTimerRef.current) clearTimeout(wsDebounceTimerRef.current);
+      if (wsReconnectTimerRef.current) clearTimeout(wsReconnectTimerRef.current);
+      if (wsRef.current) {
+        try {
+          wsRef.current.close();
+        } catch {
+          // ignore
+        }
+      }
+      wsRef.current = null;
+    };
+  }, []);
+
   // Fetch admin profile
   useEffect(() => {
     const fetchAdmin = async () => {
@@ -147,12 +238,19 @@ export default function DashboardContent({ user }) {
 
       // Create abort controller for better timeout handling
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      const timeoutId = setTimeout(() => {
+        try {
+          controller.abort('timeout');
+        } catch {
+          // ignore
+        }
+      }, 15000); // 15 second timeout
       
       try {
         const [regularRes, alertRes] = await Promise.all([
           fetch(regularUrl, { 
             signal: controller.signal,
+
             headers: {
               'Cache-Control': 'no-cache',
               'Pragma': 'no-cache'
@@ -166,198 +264,143 @@ export default function DashboardContent({ user }) {
             }
           })
         ]);
-        
+
         clearTimeout(timeoutId);
 
         if (!regularRes.ok) {
-        if ((regularRes.status === 500 || regularRes.status === 503 || regularRes.status === 408) && retryCount < 2) {
-          console.warn(`Regular notifications fetch failed with ${regularRes.status}, retrying in cooldown... (attempt ${retryCount + 1}/2)`);
-          setTimeout(() => fetchNotifications(retryCount + 1, true), 1000);
-          return;
-        }
-        throw new Error(`Failed to fetch regular notifications: ${regularRes.status}`);
-      }
-      
-      if (!alertRes.ok) {
-        if ((alertRes.status === 500 || alertRes.status === 503 || alertRes.status === 408) && retryCount < 2) {
-          console.warn(`Alert notifications fetch failed with ${alertRes.status}, retrying in cooldown... (attempt ${retryCount + 1}/2)`);
-          setTimeout(() => fetchNotifications(retryCount + 1, true), 1000);
-          return;
-        }
-        console.warn(`Alert notifications fetch failed with ${alertRes.status}, continuing with regular notifications only`);
-      }
-      
-      const regularData = await regularRes.json();
-      const alertData = alertRes.ok ? await alertRes.json() : { notifications: [] };
-      
-      // Combine both types of notifications
-      const allNotifications = [
-        ...(regularData?.notifications || []),
-        ...(alertData?.notifications || [])
-      ];
-      
-      if (allNotifications.length > 0) {
-        const validNotifications = allNotifications.filter(n => n.id && Number.isInteger(Number(n.id)));
-        if (validNotifications.length < allNotifications.length) {
-          console.warn('Some notifications had invalid IDs and were filtered out');
-        }
-        
-        // Filter: System, Alerts, Admin, and Chat = global, Others = current user only
-        const filtered = validNotifications.filter(n => {
-          const type = (n.sender_type || '').toLowerCase();
-          if (type === 'system' || type === 'responder' || type === 'alerts1' || type === 'admin' || type === 'chat') {
-            return true; // Show all system, alerts, admin, and chat notifications globally
+          if ((regularRes.status === 500 || regularRes.status === 503 || regularRes.status === 408) && retryCount < 2) {
+            console.warn(`Regular notifications fetch failed with ${regularRes.status}, retrying in cooldown... (attempt ${retryCount + 1}/2)`);
+            setTimeout(() => fetchNotifications(retryCount + 1, true), 1000);
+            return;
           }
-          // For others: show only if they belong to current user
-          return n.account_id === user.id;
-        });
+          throw new Error(`Failed to fetch regular notifications: ${regularRes.status}`);
+        }
         
-        // Sort by created_at (newest first)
-        filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        if (!alertRes.ok) {
+          if ((alertRes.status === 500 || alertRes.status === 503 || alertRes.status === 408) && retryCount < 2) {
+            console.warn(`Alert notifications fetch failed with ${alertRes.status}, retrying in cooldown... (attempt ${retryCount + 1}/2)`);
+            setTimeout(() => fetchNotifications(retryCount + 1, true), 1000);
+            return;
+          }
+          console.warn(`Alert notifications fetch failed with ${alertRes.status}, continuing with regular notifications only`);
+        }
         
-        setNotifications(filtered);
+        const regularData = await regularRes.json();
+        const alertData = alertRes.ok ? await alertRes.json() : { notifications: [] };
         
-        // Check for new emergency alert notifications (exclude tracking/success messages)
-        const unreadAlerts = filtered.filter(n => 
-          !n.is_read && 
-          (n.sender_type === 'responder' || n.sender_type === 'alerts1') &&
-          !n.message.includes('verified and dispatcher going soon') && // Exclude tracking notifications
-          !n.message.includes('verified and dispatched') && // Exclude old tracking notifications
-          !n.message.includes('✅') // Exclude success/tracking messages
-        );
+        // Combine both types of notifications
+        const allNotifications = [
+          ...(regularData?.notifications || []),
+          ...(alertData?.notifications || [])
+        ];
         
-        // If unread alerts decreased, someone picked up an alert - stop the alarm and close modal
-        if (unreadAlerts.length < lastNotificationCount && audioRef.current) {
-          console.log('🔇 Alert picked up - stopping alarm');
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
+        if (allNotifications.length > 0) {
+          const validNotifications = allNotifications.filter(n => n.id && Number.isInteger(Number(n.id)));
+          if (validNotifications.length < allNotifications.length) {
+            console.warn('Some notifications had invalid IDs and were filtered out');
+          }
           
-          // Close modal if the current alert was marked as read
-          if (alertModal && alertModal.notification) {
-            const currentAlertStillUnread = unreadAlerts.find(a => a.id === alertModal.notification.id);
-            if (!currentAlertStillUnread) {
-              console.log('🔇 Current alert was marked as read - closing modal');
+          // Filter: System, Alerts, Admin, and Chat = global, Others = current user only
+          const filtered = validNotifications.filter(n => {
+            const type = (n.sender_type || '').toLowerCase();
+            if (type === 'system' || type === 'responder' || type === 'alerts1' || type === 'admin' || type === 'chat') {
+              return true; // Show all system, alerts, admin, and chat notifications globally
+            }
+            // For others: show only if they belong to current user
+            return n.account_id === user.id;
+          });
+          
+          // Sort by created_at (newest first)
+          filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          
+          setNotifications(filtered);
+          
+          // Check for new emergency alert notifications (exclude tracking/success messages)
+          const unreadAlerts = filtered.filter(n => 
+            !n.is_read && 
+            (n.sender_type === 'responder' || n.sender_type === 'alerts1') &&
+            !n.message.includes('verified and dispatcher going soon') && // Exclude tracking notifications
+            !n.message.includes('verified and dispatched') && // Exclude old tracking notifications
+            !n.message.includes('✅') // Exclude success/tracking messages
+          );
+          
+          // If unread alerts decreased, someone picked up an alert - stop the alarm and close modal
+          if (unreadAlerts.length < lastNotificationCount && audioRef.current) {
+            console.log('🔇 Alert picked up - stopping alarm');
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+            
+            // Close modal if the current alert was marked as read
+            if (alertModal && alertModal.notification) {
+              const currentAlertStillUnread = unreadAlerts.find(a => a.id === alertModal.notification.id);
+              if (!currentAlertStillUnread) {
+                console.log('🔇 Current alert was marked as read - closing modal');
+                setAlertModal(null);
+              }
+            }
+          }
+          
+          // If new alert received, play sound and show modal
+          if (unreadAlerts.length > lastNotificationCount && lastNotificationCount > 0) {
+            const latestAlert = unreadAlerts[0];
+            
+            // Only play sound if enabled and alert not dismissed
+            if (notificationSettings.soundEnabled && audioRef.current && !notificationSettings.dismissedAlerts.has(latestAlert.id)) {
+              audioRef.current.play().catch(err => console.error('Audio play failed:', err));
+            }
+            
+            // Only show modal if auto-show is enabled and alert not dismissed
+            if (notificationSettings.autoShowModal && !notificationSettings.dismissedAlerts.has(latestAlert.id)) {
+              setAlertModal({ notification: latestAlert });
+            }
+          }
+          
+          // If no more unread alerts, stop the alarm and close modal
+          if (unreadAlerts.length === 0) {
+            if (audioRef.current) {
+              audioRef.current.pause();
+              audioRef.current.currentTime = 0;
+            }
+            if (alertModal) {
+              console.log('🔇 No more unread alerts - closing modal');
               setAlertModal(null);
             }
           }
-        }
-        
-        // If new alert received, play sound and show modal
-        if (unreadAlerts.length > lastNotificationCount && lastNotificationCount > 0) {
-          const latestAlert = unreadAlerts[0];
           
-          // Only play sound if enabled and alert not dismissed
-          if (notificationSettings.soundEnabled && audioRef.current && !notificationSettings.dismissedAlerts.has(latestAlert.id)) {
-            audioRef.current.play().catch(err => console.error('Audio play failed:', err));
-          }
-          
-          // Only show modal if auto-show is enabled and alert not dismissed
-          if (notificationSettings.autoShowModal && !notificationSettings.dismissedAlerts.has(latestAlert.id)) {
-            setAlertModal({ notification: latestAlert });
-          }
+          setLastNotificationCount(unreadAlerts.length);
+          // Clear error on successful fetch and reset connection issues
+          setError(null);
+          setConnectionIssues(0);
+        } else {
+          setNotifications([]);
         }
-        
-        // If no more unread alerts, stop the alarm and close modal
-        if (unreadAlerts.length === 0) {
-          if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-          }
-          if (alertModal) {
-            console.log('🔇 No more unread alerts - closing modal');
-            setAlertModal(null);
-          }
-        }
-        
-        setLastNotificationCount(unreadAlerts.length);
-        // Clear error on successful fetch and reset connection issues
-        setError(null);
-        setConnectionIssues(0);
-      } else {
-        setNotifications([]);
-      }
       } catch (fetchError) {
-        clearTimeout(timeoutId);
         throw fetchError;
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
-      
+
       // Handle timeout and abort errors with retry logic
-      if (err.name === 'TimeoutError' || err.name === 'AbortError' || err.message.includes('timeout') || err.message.includes('aborted')) {
+      if (err?.name === 'TimeoutError' || err?.name === 'AbortError' || String(err?.message || '').includes('timeout') || String(err?.message || '').includes('aborted')) {
         if (retryCount < 2) {
-          console.warn(`Query timeout detected, retrying with cooldown... (attempt ${retryCount + 1}/2)`);
+          console.warn(`Query timeout detected, retrying in cooldown... (attempt ${retryCount + 1}/2)`);
           setTimeout(() => fetchNotifications(retryCount + 1, true), 2000);
           return;
-        } else {
-          console.error('Max retries reached for timeout, skipping this fetch cycle');
-          setConnectionIssues(prev => prev + 1);
-          setError('Connection timeout. Notifications may be delayed. Check your internet connection.');
-          return;
         }
+
+        console.error('Max retries reached for timeout, skipping this fetch cycle');
+        setConnectionIssues(prev => prev + 1);
+        setError('Connection timeout. Notifications may be delayed. Check your internet connection.');
+        return;
       }
-      
-      // For other errors, only show if not during retry
+
       if (retryCount >= 2) {
         setError(`Error: ${err.message}`);
       }
     }
   };
-
-  useEffect(() => {
-    fetchNotifications();
-    
-    // Adaptive polling frequency based on connection issues
-    const getPollingInterval = () => {
-      if (connectionIssues >= 3) return 30000; // 30 seconds if many issues
-      if (connectionIssues >= 1) return 20000; // 20 seconds if some issues
-      return 10000; // 10 seconds normal
-    };
-    
-    const interval = setInterval(fetchNotifications, getPollingInterval());
-    return () => clearInterval(interval);
-  }, [user.id, connectionIssues]);
-
-  // Check for unread alerts on mount and show modal immediately (responders and alerts1)
-  useEffect(() => {
-    if (notifications.length > 0) {
-      // Filter for unread emergency alerts only (exclude tracking notifications)
-      const unreadAlerts = notifications.filter(n => 
-        !n.is_read && 
-        (n.sender_type === 'responder' || n.sender_type === 'alerts1') &&
-        !n.message.includes('verified and dispatcher going soon') && // Exclude tracking notifications
-        !n.message.includes('verified and dispatched') && // Exclude old tracking notifications
-        !n.message.includes('✅') // Exclude success/tracking messages
-      );
-      
-      // Only show modal if:
-      // 1. There are unread emergency alerts
-      // 2. No modal is currently showing
-      // 3. The current modal's notification is now read (need to update)
-      if (unreadAlerts.length > 0) {
-        if (!alertModal) {
-          // No modal showing, show the first unread alert
-          setAlertModal({ 
-            notification: unreadAlerts[0],
-            remainingCount: unreadAlerts.length - 1,
-            allUnreadAlerts: unreadAlerts
-          });
-        } else if (alertModal.notification) {
-          // Check if current modal's notification is still unread
-          const currentStillUnread = unreadAlerts.find(a => a.id === alertModal.notification.id);
-          if (!currentStillUnread) {
-            // Current notification was marked as read, close modal
-            console.log('🔇 Current alert notification is now read - closing modal');
-            setAlertModal(null);
-          }
-        }
-      } else if (alertModal) {
-        // No more unread emergency alerts, close modal
-        console.log('🔇 No unread emergency alerts - closing modal');
-        setAlertModal(null);
-      }
-    }
-  }, [notifications]);
 
   // Play alarm sound only when modal is showing and sound is enabled
   useEffect(() => {

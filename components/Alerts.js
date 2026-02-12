@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AlertMap from './AlertsMap';
 import AlertList from './AlertList';
 import VerifyIncidents from './VerifyIncidents';
@@ -11,6 +11,8 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [selectedAlertId, setSelectedAlertId] = useState(null);
+  const rawAlertsRef = useRef([]);
+  const respondersRef = useRef([]);
 
   // Clear selectedAlertId if the alert no longer exists
   useEffect(() => {
@@ -23,33 +25,53 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
     }
   }, [alerts, selectedAlertId]);
 
+  const mergeResponderData = (fetchedAlerts, fetchedResponders) => {
+    return (fetchedAlerts || []).map((alert) => {
+      const responder = (fetchedResponders || []).find((r) => r.assignment?.alertId === alert.id);
+      if (responder && responder.location) {
+        return {
+          ...alert,
+          eta: responder.location.eta,
+          distance: responder.location.distance,
+          responder_speed: responder.location.speed ? (responder.location.speed * 3.6).toFixed(1) : null,
+          route_started_at: responder.assignment?.routeStartedAt,
+          estimated_arrival: responder.estimatedArrival,
+        };
+      }
+      return alert;
+    });
+  };
+
+  const fetchAlertsOnly = async () => {
+    const alertsRes = await fetch('/api/alerts');
+    const alertsData = await alertsRes.json();
+    const fetchedAlerts = alertsData.alerts || [];
+    rawAlertsRef.current = fetchedAlerts;
+    setAlerts(mergeResponderData(fetchedAlerts, respondersRef.current));
+  };
+
+  const fetchRespondersOnly = async () => {
+    const respondersRes = await fetch('/api/responders/tracking');
+    const respondersData = await respondersRes.json();
+    const fetchedResponders = respondersData.responders || [];
+    respondersRef.current = fetchedResponders;
+    setAlerts(mergeResponderData(rawAlertsRef.current, fetchedResponders));
+  };
+
   // Fetch data function - extracted so it can be called on demand
   const fetchData = async () => {
     try {
       const alertsRes = await fetch('/api/alerts');
       const alertsData = await alertsRes.json();
       const fetchedAlerts = alertsData.alerts || [];
-      
+      rawAlertsRef.current = fetchedAlerts;
+
       const respondersRes = await fetch('/api/responders/tracking');
       const respondersData = await respondersRes.json();
       const fetchedResponders = respondersData.responders || [];
-      
-      const alertsWithResponderData = fetchedAlerts.map(alert => {
-        const responder = fetchedResponders.find(r => r.assignment?.alertId === alert.id);
-        if (responder && responder.location) {
-          return {
-            ...alert,
-            eta: responder.location.eta,
-            distance: responder.location.distance,
-            responder_speed: responder.location.speed ? (responder.location.speed * 3.6).toFixed(1) : null,
-            route_started_at: responder.assignment?.routeStartedAt,
-            estimated_arrival: responder.estimatedArrival,
-          };
-        }
-        return alert;
-      });
-      
-      setAlerts(alertsWithResponderData);
+      respondersRef.current = fetchedResponders;
+
+      setAlerts(mergeResponderData(fetchedAlerts, fetchedResponders));
     } catch (err) {
       console.error(err);
     } finally {
@@ -58,9 +80,50 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
   };
 
   useEffect(() => {
+    const wsEnabled = Boolean(process.env.NEXT_PUBLIC_WS_BASE_URL);
     fetchData();
-    const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
+
+    let interval;
+    if (!wsEnabled) {
+      interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
+      return () => clearInterval(interval);
+    }
+
+    interval = setInterval(fetchAlertsOnly, 30000); // Refresh alerts every 30 seconds
+
+    const httpBase = process.env.NEXT_PUBLIC_WS_BASE_URL;
+    const wsBase = httpBase
+      .replace(/^https:\/\//i, 'wss://')
+      .replace(/^http:\/\//i, 'ws://')
+      .replace(/\/$/, '');
+
+    const url = `${wsBase}/ws/notifications?channel=all`;
+    const ws = new WebSocket(url);
+    let timer = null;
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg?.type === 'tracking') {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => {
+            fetchRespondersOnly();
+          }, 250);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    return () => {
+      if (interval) clearInterval(interval);
+      if (timer) clearTimeout(timer);
+      try {
+        ws.close();
+      } catch {
+        // ignore
+      }
+    };
   }, []);
 
   // Alerts for AlertList - only verified alerts

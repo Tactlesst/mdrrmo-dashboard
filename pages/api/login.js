@@ -4,6 +4,7 @@ import { serialize } from 'cookie';
 import os from 'os';
 import { logSecurityEvent, getClientIP, SecurityEventTypes, SeverityLevels } from '@/lib/securityLogger';
 import logger from '@/lib/logger';
+import { publishWsNotification } from '@/lib/wsPublisher';
 
 // GeoIP helper
 async function getGeoLocation(ip) {
@@ -135,9 +136,10 @@ export default async function handler(req, res) {
     );
 
     // Insert login notification as System
-    await pool.query(
+    const loginNotifRes = await pool.query(
       `INSERT INTO notifications (account_type, account_id, sender_type, sender_id, sender_name, recipient_name, message, is_read, created_at)
-       VALUES ($1, $2, 'system', NULL, 'System', $3, $4, FALSE, NOW() AT TIME ZONE 'Asia/Manila')`,
+       VALUES ($1, $2, 'system', NULL, 'System', $3, $4, FALSE, NOW() AT TIME ZONE 'Asia/Manila')
+       RETURNING id, message, created_at, sender_type, sender_id, account_type, account_id, is_read, sender_name, recipient_name`,
       [
         'admin',
         admin.id,
@@ -153,6 +155,21 @@ export default async function handler(req, res) {
         })}`,
       ]
     );
+
+    try {
+      await publishWsNotification({
+        channel: 'notifications',
+        notification: loginNotifRes.rows?.[0] || null,
+        userAccount: {
+          id: admin.id,
+          email: admin.email,
+          name: admin.name || admin.email,
+          accountType: 'admin',
+        },
+      });
+    } catch {
+      // best-effort
+    }
 
     // Generate JWT token
     const token = jwt.sign(

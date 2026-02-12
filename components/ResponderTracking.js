@@ -6,8 +6,11 @@ export default function ResponderTracking() {
   const [responders, setResponders] = useState([]);
   const [selectedResponderId, setSelectedResponderId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [wsConnected, setWsConnected] = useState(false);
 
   useEffect(() => {
+    const wsEnabled = Boolean(process.env.NEXT_PUBLIC_WS_BASE_URL);
+
     const fetchResponders = async () => {
       try {
         const res = await fetch('/api/responders/tracking');
@@ -24,9 +27,48 @@ export default function ResponderTracking() {
     };
 
     fetchResponders();
-    const interval = setInterval(fetchResponders, 5000);
 
-    return () => clearInterval(interval);
+    if (!wsEnabled) {
+      const interval = setInterval(fetchResponders, 5000);
+      return () => clearInterval(interval);
+    }
+
+    const httpBase = process.env.NEXT_PUBLIC_WS_BASE_URL;
+    const wsBase = httpBase
+      .replace(/^https:\/\//i, 'wss://')
+      .replace(/^http:\/\//i, 'ws://')
+      .replace(/\/$/, '');
+
+    const url = `${wsBase}/ws/notifications?channel=all`;
+    const ws = new WebSocket(url);
+    let timer = null;
+
+    ws.onopen = () => setWsConnected(true);
+    ws.onclose = () => setWsConnected(false);
+    ws.onerror = () => setWsConnected(false);
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg?.type === 'tracking') {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => {
+            fetchResponders();
+          }, 250);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      try {
+        ws.close();
+      } catch {
+        // ignore
+      }
+    };
   }, []);
 
   const getStatusColor = (status) => {

@@ -5,12 +5,16 @@ import { useEffect, useRef } from 'react';
  * Custom hook to send heartbeat pings to keep session alive
  * @param {string} userType - 'admin' or 'responder'
  * @param {number} interval - Heartbeat interval in milliseconds (default: 300000 = 5 minutes)
+ * @param {boolean} enabled - Whether to enable heartbeat polling (default: true)
  */
-export default function useHeartbeat(userType = 'admin', interval = 300000) {
+export default function useHeartbeat(userType = 'admin', interval = 300000, enabled = true) {
   const lastHeartbeatRef = useRef(Date.now());
   const intervalRef = useRef(null);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     // Determine the correct heartbeat endpoint based on user type
     const endpoint = userType === 'responder' 
       ? '/api/responders/heartbeat' 
@@ -105,5 +109,5 @@ export default function useHeartbeat(userType = 'admin', interval = 300000) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [userType, interval]);
+  }, [userType, interval, enabled]);
 }

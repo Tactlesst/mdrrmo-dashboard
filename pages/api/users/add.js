@@ -1,6 +1,7 @@
 import pool from "@/lib/db";
 import jwt from "jsonwebtoken";
 import logger from "@/lib/logger";
+import { publishWsNotification } from '@/lib/wsPublisher';
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -156,7 +157,7 @@ export default async function handler(req, res) {
     const notifRecipientName = isAdminTarget ? (inserted.name || fullName) : (user.name || "Unknown");
     const actionText = isAdminTarget ? `System: Admin ${user.name || "Unknown"} added Co-Admin ${fullName}` : `Admin ${user.name || "Unknown"} added a ${targetRole} account for ${fullName}`;
 
-    await pool.query(
+    const notifRes = await pool.query(
       `
       INSERT INTO notifications (
         account_type,
@@ -169,6 +170,7 @@ export default async function handler(req, res) {
         is_read,
         created_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW() AT TIME ZONE 'Asia/Manila')
+      RETURNING id, message, created_at, sender_type, sender_id, account_type, account_id, is_read, sender_name, recipient_name
       `,
       [
         notifAccountType,
@@ -188,6 +190,20 @@ export default async function handler(req, res) {
         })}`
       ]
     );
+
+    try {
+      await publishWsNotification({
+        channel: 'notifications',
+        notification: notifRes.rows?.[0] || null,
+        userAccount: {
+          id: user.id,
+          name: user.name || 'Unknown',
+          accountType: type,
+        },
+      });
+    } catch {
+      // best-effort
+    }
 
     res.status(201).json(result.rows[0]);
   } catch (error) {

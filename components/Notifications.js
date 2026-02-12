@@ -116,6 +116,10 @@ export default function Notifications({ user }) {
 
   useEffect(() => {
     fetchNotifications();
+    const wsEnabled = Boolean(process.env.NEXT_PUBLIC_WS_BASE_URL);
+    if (wsEnabled) {
+      return;
+    }
     // Refresh every 15 seconds to reduce server load while keeping notifications updated
     const interval = setInterval(fetchNotifications, 15000);
     return () => clearInterval(interval);

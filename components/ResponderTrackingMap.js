@@ -74,6 +74,8 @@ export default function ResponderTrackingMap({
 
   // Fetch responder locations
   useEffect(() => {
+    const wsEnabled = Boolean(process.env.NEXT_PUBLIC_WS_BASE_URL);
+
     const fetchResponders = async () => {
       try {
         const url = alertId 
@@ -94,9 +96,44 @@ export default function ResponderTrackingMap({
     };
 
     fetchResponders();
-    const interval = setInterval(fetchResponders, 5000); // Update every 5 seconds
 
-    return () => clearInterval(interval);
+    if (!wsEnabled) {
+      const interval = setInterval(fetchResponders, 5000); // Update every 5 seconds
+      return () => clearInterval(interval);
+    }
+
+    const httpBase = process.env.NEXT_PUBLIC_WS_BASE_URL;
+    const wsBase = httpBase
+      .replace(/^https:\/\//i, 'wss://')
+      .replace(/^http:\/\//i, 'ws://')
+      .replace(/\/$/, '');
+
+    const url = `${wsBase}/ws/notifications?channel=all`;
+    const ws = new WebSocket(url);
+    let timer = null;
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg?.type === 'tracking') {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => {
+            fetchResponders();
+          }, 250);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      try {
+        ws.close();
+      } catch {
+        // ignore
+      }
+    };
   }, [alertId]);
 
   // Update markers on map

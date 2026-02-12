@@ -1,6 +1,7 @@
 // pages/api/responders/location.js
 import pool from '@/lib/db';
 import logger from '@/lib/logger';
+import { publishWsEvent } from '@/lib/wsPublisher';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -154,6 +155,24 @@ export default async function handler(req, res) {
       await client.query('COMMIT');
 
       logger.info(`Location updated for responder ${responderId}: (${latitude}, ${longitude})`);
+
+      publishWsEvent({
+        channel: 'tracking',
+        type: 'tracking',
+        payload: {
+          responderId,
+          sessionId,
+          latitude,
+          longitude,
+          heading: heading || null,
+          speed: speed || null,
+          accuracy: accuracy || null,
+          alertId: alertId || null,
+          destinationLatitude: destinationLatitude || null,
+          destinationLongitude: destinationLongitude || null,
+          updatedAt: new Date().toISOString(),
+        },
+      });
 
       return res.status(200).json({
         success: true,

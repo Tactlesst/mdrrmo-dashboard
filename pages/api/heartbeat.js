@@ -1,5 +1,6 @@
 // pages/api/heartbeat.js
 import pool from '@/lib/db';
+import { queryWithTimeout } from '@/lib/db';
 import jwt from 'jsonwebtoken';
 import { parse } from 'cookie';
 
@@ -29,13 +30,22 @@ export default async function handler(req, res) {
 
     // Update admin session - sets both timestamp AND is_active flag
     // Note: This requires the session to already exist. For full fix, run database-migration-fix-admin-sessions.sql
-    await pool.query(
-      `UPDATE admin_sessions 
-       SET is_active = TRUE,
-           last_active_at = NOW()
-       WHERE admin_email = $1`,
-      [adminEmail]
-    );
+    try {
+      await queryWithTimeout(
+        `INSERT INTO admin_sessions (admin_email, is_active, last_active_at)
+         VALUES ($1, TRUE, NOW())
+         ON CONFLICT (admin_email)
+         DO UPDATE SET is_active = TRUE, last_active_at = NOW()`,
+        [adminEmail],
+        8000
+      );
+    } catch (dbErr) {
+      const msg = dbErr?.message || String(dbErr);
+      if (msg.toLowerCase().includes('timeout') || msg.toLowerCase().includes('query read timeout')) {
+        return res.status(200).json({ success: true, skipped: true, reason: 'db_timeout' });
+      }
+      throw dbErr;
+    }
 
     return res.status(200).json({ success: true, message: 'Heartbeat received' });
   } catch (error) {

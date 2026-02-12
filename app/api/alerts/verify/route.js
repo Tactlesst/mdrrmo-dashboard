@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import jwt from 'jsonwebtoken';
 import { parse } from 'cookie';
+import { publishWsNotification } from '@/lib/wsPublisher';
 
 export async function POST(request) {
   try {
@@ -91,10 +92,11 @@ export async function POST(request) {
         );
         
         if (onlineRespondersCheck.rows[0].count > 0) {
-          await pool.query(
+          const responderAlertNotifRes = await pool.query(
             `INSERT INTO alert_notifications 
              (alert_id, account_type, sender_type, sender_id, sender_name, recipient_name, message, severity, is_read)
-             VALUES ($1, 'responder', 'alerts1', $2, 'MDRRMO Alert System', 'All Responders', $3, $4, FALSE)`,
+             VALUES ($1, 'responder', 'alerts1', $2, 'MDRRMO Alert System', 'All Responders', $3, $4, FALSE)
+             RETURNING id, alert_id, message, severity, created_at, sender_type, sender_id, account_type, account_id, is_read, is_acknowledged, acknowledged_at, sender_name, recipient_name`,
             [
               alertId,
               adminId,
@@ -102,14 +104,28 @@ export async function POST(request) {
               severity
             ]
           );
+
+          try {
+            await publishWsNotification({
+              channel: 'alerts',
+              notification: responderAlertNotifRes.rows?.[0] || null,
+              userAccount: {
+                id: adminId,
+                accountType: 'admin',
+              },
+            });
+          } catch {
+            // best-effort
+          }
         }
         
         // Create a single broadcast notification for admins to track
         // No account_id needed - true broadcast to all admins
-        await pool.query(
+        const adminAlertNotifRes = await pool.query(
           `INSERT INTO alert_notifications 
            (alert_id, account_type, sender_type, sender_id, sender_name, recipient_name, message, severity, is_read)
-           VALUES ($1, 'admin', 'alerts1', $2, 'MDRRMO Alert System', 'All Admins', $3, $4, FALSE)`,
+           VALUES ($1, 'admin', 'alerts1', $2, 'MDRRMO Alert System', 'All Admins', $3, $4, FALSE)
+           RETURNING id, alert_id, message, severity, created_at, sender_type, sender_id, account_type, account_id, is_read, is_acknowledged, acknowledged_at, sender_name, recipient_name`,
           [
             alertId,
             adminId,
@@ -117,6 +133,19 @@ export async function POST(request) {
             severity
           ]
         );
+
+        try {
+          await publishWsNotification({
+            channel: 'alerts',
+            notification: adminAlertNotifRes.rows?.[0] || null,
+            userAccount: {
+              id: adminId,
+              accountType: 'admin',
+            },
+          });
+        } catch {
+          // best-effort
+        }
       }
 
       return NextResponse.json({

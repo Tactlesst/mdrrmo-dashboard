@@ -82,6 +82,10 @@ npm install
 # Create .env.local with:
 # DATABASE_URL=your_postgresql_connection_string
 # JWT_SECRET=your_secret_key
+#
+# Optional (WebSocket notifications publisher)
+# WS_PUBLISH_BASE_URL=https://<your-fly-app>.fly.dev
+# WS_PUBLISH_SECRET=your_shared_secret
 
 # Run database migrations
 psql -U username -d database -f database-migration-add-indexes.sql
