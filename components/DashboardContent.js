@@ -126,8 +126,8 @@ export default function DashboardContent({ user }) {
     }
 
     const wsBase = httpBase
-      .replace(/^https:\/\//i, 'wss://')
-      .replace(/^http:\/\//i, 'ws://')
+      .replace(/^https:\/\//i, '')
+      .replace(/^http:\/\//i, '')
       .replace(/\/$/, '');
 
     const connect = () => {
@@ -152,6 +152,7 @@ export default function DashboardContent({ user }) {
 
         ws.onopen = () => {
           setWsConnected(true);
+          fetchNotifications();
         };
 
         ws.onmessage = (event) => {
@@ -202,6 +203,10 @@ export default function DashboardContent({ user }) {
       }
       wsRef.current = null;
     };
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
   }, []);
 
   // Fetch admin profile
