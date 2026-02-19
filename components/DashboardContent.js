@@ -126,8 +126,8 @@ export default function DashboardContent({ user }) {
     }
 
     const wsBase = httpBase
-      .replace(/^https:\/\//i, '')
-      .replace(/^http:\/\//i, '')
+      .replace(/^https:\/\//i)
+      .replace(/^http:\/\//i)
       .replace(/\/$/, '');
 
     const connect = () => {

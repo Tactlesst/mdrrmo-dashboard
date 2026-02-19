@@ -406,8 +406,8 @@ export default function AlertsMap({ alerts, fallbackCenter, selectedAlertId, onS
 
     const httpBase = process.env.NEXT_PUBLIC_WS_BASE_URL;
     const wsBase = httpBase
-      .replace(/^https:\/\//i, '')
-      .replace(/^http:\/\//i, '')
+      .replace(/^https:\/\//i)
+      .replace(/^http:\/\//i)
       .replace(/\/$/, '');
 
     const url = `${wsBase}/ws/notifications?channel=all`;
