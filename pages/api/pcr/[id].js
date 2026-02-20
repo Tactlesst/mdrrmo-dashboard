@@ -2,6 +2,9 @@ import pool from "@/lib/db";
 import jwt from "jsonwebtoken";
 import logger from "@/lib/logger";
 import { publishWsNotification } from '@/lib/wsPublisher';
+import { pcrUpdateByIdBodySchema } from '@/lib/validators/pcr';
+import { zodErrorToResponse } from '@/lib/validators/http';
+import { serializePcrUpdatedMessage } from '@/lib/serializers/notifications';
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -72,7 +75,12 @@ export default async function handler(req, res) {
       }
     } else if (req.method === "PUT") {
       try {
-        const { patient_name, date, location, recorder, full_form } = req.body;
+        const parsed = pcrUpdateByIdBodySchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json(zodErrorToResponse(parsed.error));
+        }
+
+        const { patient_name, date, location, recorder, full_form } = parsed.data;
 
         // Process the full_form data to ensure proper date handling
         const processedFullForm = {
@@ -136,15 +144,11 @@ export default async function handler(req, res) {
               user.id,
               user.name || 'System',
               user.name || 'System',
-              `${acctType.charAt(0).toUpperCase() + acctType.slice(1)} ${user.name || 'System'} updated a PCR form for patient ${patient_name} on ${new Date().toLocaleString('en-PH', {
-                timeZone: 'Asia/Manila',
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: 'numeric',
-                hour12: true,
-              })}`
+              serializePcrUpdatedMessage({
+                accountType: acctType,
+                userName: user.name || 'System',
+                patientName: patient_name,
+              })
             ]
           );
 

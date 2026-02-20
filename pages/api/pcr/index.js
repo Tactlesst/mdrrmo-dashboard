@@ -3,6 +3,9 @@ import pool from "@/lib/db";
 import jwt from "jsonwebtoken";
 import logger from "@/lib/logger";
 import { publishWsNotification } from '@/lib/wsPublisher';
+import { pcrCreateBodySchema, pcrUpdateBodySchema } from '@/lib/validators/pcr';
+import { zodErrorToResponse } from '@/lib/validators/http';
+import { serializePcrCreatedMessage, serializePcrUpdatedMessage } from '@/lib/serializers/notifications';
 
 export default async function handler(req, res) {
   if (req.method === "GET") {
@@ -19,6 +22,11 @@ export default async function handler(req, res) {
     }
   } else if (req.method === "POST") {
     try {
+      const parsed = pcrCreateBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json(zodErrorToResponse(parsed.error));
+      }
+
       const token = req.cookies.auth;
       if (!token) return res.status(401).json({ error: "Not authenticated" });
 
@@ -46,10 +54,7 @@ export default async function handler(req, res) {
 
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      const { patientName, date, location, recorder, poi, alertId, caseType, ...fullForm } = req.body;
-      if (!caseType) {
-        return res.status(400).json({ error: "Missing required fields: caseType" });
-      }
+      const { patientName, date, location, recorder, poi, alertId, caseType, ...fullForm } = parsed.data;
 
       logger.debug("Incoming POST req.body:", JSON.stringify(req.body, null, 2));
 
@@ -118,15 +123,11 @@ export default async function handler(req, res) {
             user.id,
             user.name || 'System',
             user.name || 'System',
-            `${acctType.charAt(0).toUpperCase() + acctType.slice(1)} ${user.name || 'System'} added a PCR form for patient ${patientName} on ${new Date().toLocaleString('en-PH', {
-              timeZone: 'Asia/Manila',
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              hour: 'numeric',
-              minute: 'numeric',
-              hour12: true,
-            })}`
+            serializePcrCreatedMessage({
+              accountType: acctType,
+              userName: user.name || 'System',
+              patientName,
+            })
           ]
         );
 
@@ -155,6 +156,11 @@ export default async function handler(req, res) {
     }
   } else if (req.method === "PUT") {
     try {
+      const parsed = pcrUpdateBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json(zodErrorToResponse(parsed.error));
+      }
+
       const id = req.query.id || req.url.split("/").pop();
       if (!id) return res.status(400).json({ error: "Form ID is required" });
 
@@ -185,10 +191,7 @@ export default async function handler(req, res) {
 
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      const { patient_name, date, location, recorder, full_form, alert_id } = req.body;
-      if (!full_form?.caseType) {
-        return res.status(400).json({ error: "Missing required fields: caseType" });
-      }
+      const { patient_name, date, location, recorder, full_form, alert_id } = parsed.data;
 
       logger.debug("Incoming PUT req.body:", JSON.stringify(req.body, null, 2));
 
@@ -255,7 +258,7 @@ export default async function handler(req, res) {
       try {
         const acctType = (type || 'admin').toLowerCase(); // 'admin' | 'responder'
         const senderType = acctType; // alerts category
-        await pool.query(
+        const notifRes = await pool.query(
           `
           INSERT INTO notifications (
             account_type,
@@ -268,6 +271,7 @@ export default async function handler(req, res) {
             is_read,
             created_at
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW() AT TIME ZONE 'Asia/Manila')
+          RETURNING id, message, created_at, sender_type, sender_id, account_type, account_id, is_read, sender_name, recipient_name
           `,
           [
             acctType,
@@ -276,17 +280,27 @@ export default async function handler(req, res) {
             user.id,
             user.name || 'System',
             user.name || 'System',
-            `${acctType.charAt(0).toUpperCase() + acctType.slice(1)} ${user.name || 'System'} updated a PCR form for patient ${patient_name} on ${new Date().toLocaleString('en-PH', {
-              timeZone: 'Asia/Manila',
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              hour: 'numeric',
-              minute: 'numeric',
-              hour12: true,
-            })}`
+            serializePcrUpdatedMessage({
+              accountType: acctType,
+              userName: user.name || 'System',
+              patientName: patient_name,
+            })
           ]
         );
+
+        try {
+          await publishWsNotification({
+            channel: 'notifications',
+            notification: notifRes.rows?.[0] || null,
+            userAccount: {
+              id: user.id,
+              name: user.name || 'System',
+              accountType: acctType,
+            },
+          });
+        } catch {
+          // best-effort
+        }
       } catch (err) {
         logger.error('PCR update notification failed (/api/pcr PUT):', err.message);
       }

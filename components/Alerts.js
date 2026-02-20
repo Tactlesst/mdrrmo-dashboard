@@ -1,31 +1,18 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import useSWR from 'swr';
 import AlertMap from './AlertsMap';
 import AlertList from './AlertList';
 import VerifyIncidents from './VerifyIncidents';
+import { swrJsonFetcher } from '@/lib/swrFetcher';
 
 export default function Alerts({ verifyIncidentsRefreshRef }) {
   const fallbackCenter = [8.743412346817417, 124.77629163417616];
-  const [alerts, setAlerts] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [selectedAlertId, setSelectedAlertId] = useState(null);
-  const rawAlertsRef = useRef([]);
-  const respondersRef = useRef([]);
 
-  // Clear selectedAlertId if the alert no longer exists
-  useEffect(() => {
-    if (selectedAlertId) {
-      const alertExists = alerts.some(alert => alert.id === selectedAlertId);
-      if (!alertExists) {
-        console.log('Selected alert no longer exists, clearing selectedAlertId:', selectedAlertId);
-        setSelectedAlertId(null);
-      }
-    }
-  }, [alerts, selectedAlertId]);
-
-  const mergeResponderData = (fetchedAlerts, fetchedResponders) => {
+  function mergeResponderData(fetchedAlerts, fetchedResponders) {
     return (fetchedAlerts || []).map((alert) => {
       const responder = (fetchedResponders || []).find((r) => r.assignment?.alertId === alert.id);
       if (responder && responder.location) {
@@ -40,62 +27,55 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
       }
       return alert;
     });
-  };
+  }
 
-  const fetchAlertsOnly = async () => {
-    const alertsRes = await fetch('/api/alerts');
-    const alertsData = await alertsRes.json();
-    const fetchedAlerts = alertsData.alerts || [];
-    rawAlertsRef.current = fetchedAlerts;
-    setAlerts(mergeResponderData(fetchedAlerts, respondersRef.current));
-  };
+  const wsEnabled = Boolean(process.env.NEXT_PUBLIC_WS_BASE_URL);
 
-  const fetchRespondersOnly = async () => {
-    const respondersRes = await fetch('/api/responders/tracking');
-    const respondersData = await respondersRes.json();
-    const fetchedResponders = respondersData.responders || [];
-    respondersRef.current = fetchedResponders;
-    setAlerts(mergeResponderData(rawAlertsRef.current, fetchedResponders));
-  };
+  const {
+    data: alertsData,
+    isLoading: isAlertsLoading,
+    mutate: mutateAlerts,
+  } = useSWR('/api/alerts', swrJsonFetcher, {
+    refreshInterval: wsEnabled ? 0 : 30000,
+    revalidateOnFocus: true,
+  });
 
-  // Fetch data function - extracted so it can be called on demand
-  const fetchData = async () => {
-    try {
-      const alertsRes = await fetch('/api/alerts');
-      const alertsData = await alertsRes.json();
-      const fetchedAlerts = alertsData.alerts || [];
-      rawAlertsRef.current = fetchedAlerts;
+  const {
+    data: respondersData,
+    isLoading: isRespondersLoading,
+    mutate: mutateResponders,
+  } = useSWR('/api/responders/tracking', swrJsonFetcher, {
+    refreshInterval: wsEnabled ? 0 : 30000,
+    revalidateOnFocus: true,
+  });
 
-      const respondersRes = await fetch('/api/responders/tracking');
-      const respondersData = await respondersRes.json();
-      const fetchedResponders = respondersData.responders || [];
-      respondersRef.current = fetchedResponders;
+  const alerts = useMemo(() => {
+    const fetchedAlerts = alertsData?.alerts || [];
+    const fetchedResponders = respondersData?.responders || [];
+    return mergeResponderData(fetchedAlerts, fetchedResponders);
+  }, [alertsData, respondersData]);
 
-      setAlerts(mergeResponderData(fetchedAlerts, fetchedResponders));
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+  const loading = isAlertsLoading || isRespondersLoading;
+
+  // Clear selectedAlertId if the alert no longer exists
+  useEffect(() => {
+    if (selectedAlertId) {
+      const alertExists = alerts.some(alert => alert.id === selectedAlertId);
+      if (!alertExists) {
+        console.log('Selected alert no longer exists, clearing selectedAlertId:', selectedAlertId);
+        setSelectedAlertId(null);
+      }
     }
-  };
+  }, [alerts, selectedAlertId]);
 
   useEffect(() => {
-    const wsEnabled = Boolean(process.env.NEXT_PUBLIC_WS_BASE_URL);
-    fetchData();
-
-    let interval;
-    if (!wsEnabled) {
-      interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
-      return () => clearInterval(interval);
-    }
-
-    interval = setInterval(fetchAlertsOnly, 30000); // Refresh alerts every 30 seconds
+    if (!wsEnabled) return;
 
     const httpBase = process.env.NEXT_PUBLIC_WS_BASE_URL;
     const wsBase = httpBase
-      .replace(/^https:\/\//i)
-      .replace(/^http:\/\//i)
-      .replace(/\/$/, '');
+      .replace(/^https:\/\//i, 'wss://')
+      .replace(/^http:\/\//i, 'ws://')
+      .replace(/\/+$/, '');
 
     const url = `${wsBase}/ws/notifications?channel=all`;
     const ws = new WebSocket(url);
@@ -107,7 +87,13 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
         if (msg?.type === 'tracking') {
           if (timer) clearTimeout(timer);
           timer = setTimeout(() => {
-            fetchRespondersOnly();
+            mutateResponders();
+          }, 250);
+        }
+        if (msg?.type === 'notification') {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => {
+            mutateAlerts();
           }, 250);
         }
       } catch {
@@ -116,7 +102,6 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
     };
 
     return () => {
-      if (interval) clearInterval(interval);
       if (timer) clearTimeout(timer);
       try {
         ws.close();
@@ -124,7 +109,7 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
         // ignore
       }
     };
-  }, []);
+  }, [wsEnabled, mutateAlerts, mutateResponders]);
 
   // Alerts for AlertList - only verified alerts
   const verifiedAlerts = useMemo(() => {
@@ -250,11 +235,7 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
 
   // Update severity without full page reload
   const handleSeverityUpdate = (alertId, newSeverity) => {
-    setAlerts(prevAlerts => 
-      prevAlerts.map(alert => 
-        alert.id === alertId ? { ...alert, severity: newSeverity } : alert
-      )
-    );
+    mutateAlerts();
   };
 
   return (
@@ -270,7 +251,7 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
             }}
             onVerified={() => {
               console.log('Alert verified, refreshing data...');
-              fetchData();
+              mutateAlerts();
             }}
             refreshRef={verifyIncidentsRefreshRef}
           />
@@ -318,7 +299,7 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
             }}
             onVerified={() => {
               console.log('Alert verified, refreshing data...');
-              fetchData();
+              mutateAlerts();
             }}
             refreshRef={verifyIncidentsRefreshRef}
           />

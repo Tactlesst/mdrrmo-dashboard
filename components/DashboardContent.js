@@ -125,11 +125,35 @@ export default function DashboardContent({ user }) {
       return;
     }
 
-    const wsBase = httpBase
-      .replace(/^https:\/\//i)
-      .replace(/^http:\/\//i)
-      .replace(/\/$/, '');
+    const normalizeWsBaseUrl = (rawBase) => {
+      const trimmed = String(rawBase || '').trim().replace(/\/+$/, '');
+      if (!trimmed) return null;
 
+      const withScheme = /^wss?:\/\//i.test(trimmed) || /^https?:\/\//i.test(trimmed)
+        ? trimmed
+        : `https://${trimmed}`;
+
+      try {
+        const u = new URL(withScheme);
+        const wsProtocol = u.protocol === 'https:' ? 'wss:' : u.protocol === 'http:' ? 'ws:' : u.protocol;
+        if (wsProtocol !== 'ws:' && wsProtocol !== 'wss:') {
+          return null;
+        }
+        u.protocol = wsProtocol;
+        u.hash = '';
+        u.search = '';
+        u.pathname = u.pathname.replace(/\/+$/, '');
+        return u.toString().replace(/\/+$/, '');
+      } catch {
+        return null;
+      }
+    };
+
+    const wsBase = normalizeWsBaseUrl(httpBase);
+    if (!wsBase) {
+      console.warn('Invalid NEXT_PUBLIC_WS_BASE_URL for WebSocket:', httpBase);
+      return;
+    }
     const connect = () => {
       try {
         if (wsReconnectTimerRef.current) {

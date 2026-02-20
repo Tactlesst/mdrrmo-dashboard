@@ -1,7 +1,9 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef } from 'react';
+import useSWR from 'swr';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { swrJsonFetcher } from '@/lib/swrFetcher';
 
 // Custom responder icon
 const createResponderIcon = (isActive, heading) => {
@@ -44,8 +46,16 @@ export default function ResponderTrackingMap({
   const mapInstanceRef = useRef(null);
   const markersRef = useRef({});
   const polylinesRef = useRef({});
-  const [responders, setResponders] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+  const wsEnabled = Boolean(process.env.NEXT_PUBLIC_WS_BASE_URL);
+  const trackingUrl = alertId ? `/api/responders/tracking?alertId=${alertId}` : '/api/responders/tracking';
+  const { data, isLoading, mutate } = useSWR(trackingUrl, swrJsonFetcher, {
+    refreshInterval: wsEnabled ? 0 : 5000,
+    revalidateOnFocus: true,
+  });
+
+  const responders = data?.responders || [];
+  const loading = isLoading;
 
   // Initialize map
   useEffect(() => {
@@ -72,41 +82,15 @@ export default function ResponderTrackingMap({
     };
   }, []);
 
-  // Fetch responder locations
+  // WS-triggered refresh for responder locations
   useEffect(() => {
-    const wsEnabled = Boolean(process.env.NEXT_PUBLIC_WS_BASE_URL);
-
-    const fetchResponders = async () => {
-      try {
-        const url = alertId 
-          ? `/api/responders/tracking?alertId=${alertId}`
-          : '/api/responders/tracking';
-        
-        const res = await fetch(url);
-        const data = await res.json();
-        
-        if (data.success) {
-          setResponders(data.responders || []);
-        }
-      } catch (err) {
-        console.error('Error fetching responder locations:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchResponders();
-
-    if (!wsEnabled) {
-      const interval = setInterval(fetchResponders, 5000); // Update every 5 seconds
-      return () => clearInterval(interval);
-    }
+    if (!wsEnabled) return;
 
     const httpBase = process.env.NEXT_PUBLIC_WS_BASE_URL;
     const wsBase = httpBase
-      .replace(/^https:\/\//i)
-      .replace(/^http:\/\//i)
-      .replace(/\/$/, '');
+      .replace(/^https:\/\//i, 'wss://')
+      .replace(/^http:\/\//i, 'ws://')
+      .replace(/\/+$/, '')
 
     const url = `${wsBase}/ws/notifications?channel=all`;
     const ws = new WebSocket(url);
@@ -118,7 +102,7 @@ export default function ResponderTrackingMap({
         if (msg?.type === 'tracking') {
           if (timer) clearTimeout(timer);
           timer = setTimeout(() => {
-            fetchResponders();
+            mutate();
           }, 250);
         }
       } catch {
@@ -134,7 +118,7 @@ export default function ResponderTrackingMap({
         // ignore
       }
     };
-  }, [alertId]);
+  }, [alertId, wsEnabled, mutate]);
 
   // Update markers on map
   useEffect(() => {

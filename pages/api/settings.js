@@ -1,6 +1,7 @@
 // pages/api/settings.js
 import jwt from 'jsonwebtoken';
 import pool from '@/lib/db';
+import { clearCache, getOrSetCache } from '@/lib/inMemoryCache';
 
 export default async function handler(req, res) {
   // Verify auth token for write operations
@@ -31,28 +32,32 @@ export default async function handler(req, res) {
     await pool.query('ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS resident_apk_url TEXT');
 
     if (req.method === 'GET') {
-      const { rows } = await pool.query('SELECT website_url, apk_url, responder_apk_url, resident_apk_url FROM app_settings WHERE id = 1');
-      if (rows.length === 0) {
-        await pool.query('INSERT INTO app_settings (id, website_url, apk_url, responder_apk_url, resident_apk_url) VALUES (1, $1, $2, $3, $4)', [
-          'https://mdrrmo.example.com',
-          '/apk/mddrmo-app.apk',
-          '/apk/responder-app.apk',
-          '/apk/resident-app.apk',
-        ]);
-        return res.status(200).json({
-          website_url: 'https://mdrrmo.example.com',
-          apk_url: '/apk/mddrmo-app.apk',
-          responder_apk_url: '/apk/responder-app.apk',
-          resident_apk_url: '/apk/resident-app.apk',
-        });
-      }
-      const { website_url, apk_url, responder_apk_url, resident_apk_url } = rows[0];
-      return res.status(200).json({
-        website_url,
-        apk_url,
-        responder_apk_url: responder_apk_url || apk_url || null,
-        resident_apk_url: resident_apk_url || apk_url || null,
+      res.setHeader('Cache-Control', 'private, max-age=60, stale-while-revalidate=300');
+      const data = await getOrSetCache('settings:app', 60 * 1000, async () => {
+        const { rows } = await pool.query('SELECT website_url, apk_url, responder_apk_url, resident_apk_url FROM app_settings WHERE id = 1');
+        if (rows.length === 0) {
+          await pool.query('INSERT INTO app_settings (id, website_url, apk_url, responder_apk_url, resident_apk_url) VALUES (1, $1, $2, $3, $4)', [
+            'https://mdrrmo.example.com',
+            '/apk/mddrmo-app.apk',
+            '/apk/responder-app.apk',
+            '/apk/resident-app.apk',
+          ]);
+          return {
+            website_url: 'https://mdrrmo.example.com',
+            apk_url: '/apk/mddrmo-app.apk',
+            responder_apk_url: '/apk/responder-app.apk',
+            resident_apk_url: '/apk/resident-app.apk',
+          };
+        }
+        const { website_url, apk_url, responder_apk_url, resident_apk_url } = rows[0];
+        return {
+          website_url,
+          apk_url,
+          responder_apk_url: responder_apk_url || apk_url || null,
+          resident_apk_url: resident_apk_url || apk_url || null,
+        };
       });
+      return res.status(200).json(data);
     }
 
     if (req.method === 'PUT') {
@@ -78,6 +83,7 @@ export default async function handler(req, res) {
         ]
       );
 
+      clearCache('settings:app');
       return res.status(200).json({ message: 'Settings updated' });
     }
 

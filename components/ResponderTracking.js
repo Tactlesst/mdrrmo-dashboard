@@ -1,43 +1,35 @@
 'use client';
 import { useEffect, useState } from 'react';
+import useSWR from 'swr';
 import ResponderTrackingMap from './ResponderTrackingMap';
+import { swrJsonFetcher } from '@/lib/swrFetcher';
 
 export default function ResponderTracking() {
-  const [responders, setResponders] = useState([]);
   const [selectedResponderId, setSelectedResponderId] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [wsConnected, setWsConnected] = useState(false);
 
+  const wsEnabled = Boolean(process.env.NEXT_PUBLIC_WS_BASE_URL);
+
+  const {
+    data,
+    isLoading,
+    mutate,
+  } = useSWR('/api/responders/tracking', swrJsonFetcher, {
+    refreshInterval: wsEnabled ? 0 : 5000,
+    revalidateOnFocus: true,
+  });
+
+  const responders = data?.responders || [];
+  const loading = isLoading;
+
   useEffect(() => {
-    const wsEnabled = Boolean(process.env.NEXT_PUBLIC_WS_BASE_URL);
-
-    const fetchResponders = async () => {
-      try {
-        const res = await fetch('/api/responders/tracking');
-        const data = await res.json();
-        
-        if (data.success) {
-          setResponders(data.responders || []);
-        }
-      } catch (err) {
-        console.error('Error fetching responders:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchResponders();
-
-    if (!wsEnabled) {
-      const interval = setInterval(fetchResponders, 5000);
-      return () => clearInterval(interval);
-    }
+    if (!wsEnabled) return;
 
     const httpBase = process.env.NEXT_PUBLIC_WS_BASE_URL;
     const wsBase = httpBase
-      .replace(/^https:\/\//i)
-      .replace(/^http:\/\//i)
-      .replace(/\/$/, '');
+      .replace(/^https:\/\//i, 'wss://')
+      .replace(/^http:\/\//i, 'ws://')
+      .replace(/\/+$/, '')
 
     const url = `${wsBase}/ws/notifications?channel=all`;
     const ws = new WebSocket(url);
@@ -53,7 +45,7 @@ export default function ResponderTracking() {
         if (msg?.type === 'tracking') {
           if (timer) clearTimeout(timer);
           timer = setTimeout(() => {
-            fetchResponders();
+            mutate();
           }, 250);
         }
       } catch {
@@ -69,7 +61,7 @@ export default function ResponderTracking() {
         // ignore
       }
     };
-  }, []);
+  }, [wsEnabled, mutate]);
 
   const getStatusColor = (status) => {
     switch (status) {

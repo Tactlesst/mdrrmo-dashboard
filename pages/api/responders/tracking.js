@@ -1,6 +1,7 @@
 // pages/api/responders/tracking.js
 import pool from '@/lib/db';
 import logger from '@/lib/logger';
+import { getOrSetJsonCache } from '@/lib/cache';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -10,23 +11,27 @@ export default async function handler(req, res) {
   try {
     const { alertId } = req.query;
 
-    // If alertId is provided, verify it exists first
-    if (alertId) {
-      const alertCheck = await pool.query(
-        'SELECT id FROM alerts WHERE id = $1',
-        [alertId]
-      );
-      
-      if (alertCheck.rows.length === 0) {
-        logger.warn(`Tracking requested for non-existent alert: ${alertId}`);
-        return res.status(200).json({
-          success: true,
-          responders: [],
-          count: 0,
-          message: 'Alert not found',
-        });
+    res.setHeader('Cache-Control', 'private, max-age=1, stale-while-revalidate=2');
+    const cacheKey = `tracking:${alertId || 'all'}`;
+
+    const payload = await getOrSetJsonCache(cacheKey, 1500, async () => {
+      // If alertId is provided, verify it exists first
+      if (alertId) {
+        const alertCheck = await pool.query(
+          'SELECT id FROM alerts WHERE id = $1',
+          [alertId]
+        );
+        
+        if (alertCheck.rows.length === 0) {
+          logger.warn(`Tracking requested for non-existent alert: ${alertId}`);
+          return {
+            success: true,
+            responders: [],
+            count: 0,
+            message: 'Alert not found',
+          };
+        }
       }
-    }
 
     let query = `
       SELECT 
@@ -164,13 +169,16 @@ export default async function handler(req, res) {
       };
     });
 
-    return res.status(200).json({
+    return {
       success: true,
       responders,
       count: responders.length,
-    });
-  } catch (error) {
-    logger.error('Error fetching responder tracking data:', error.message);
-    return res.status(500).json({ error: 'Server error' });
-  }
+    };
+  });
+
+  return res.status(200).json(payload);
+} catch (error) {
+  logger.error('Error fetching responder tracking data:', error.message);
+  return res.status(500).json({ error: 'Server error' });
+}
 }

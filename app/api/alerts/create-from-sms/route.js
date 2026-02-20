@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import jwt from 'jsonwebtoken';
 import { parse } from 'cookie';
+import { publishWsEvent } from '@/lib/wsPublisher';
 
 export async function POST(request) {
   try {
@@ -103,6 +104,25 @@ export async function POST(request) {
         coordinates: `${latitude}, ${longitude}`,
         description: description
       });
+
+      // Best-effort: notify dashboards that alerts data changed (unverified list should refresh)
+      try {
+        await publishWsEvent({
+          channel: 'alerts',
+          type: 'alerts',
+          payload: {
+            action: 'unverified_created',
+            alertId: newAlert.id,
+          },
+          userAccount: {
+            accountType: 'admin',
+            email: user?.email,
+            name: user?.name,
+          },
+        });
+      } catch {
+        // best-effort
+      }
 
       return NextResponse.json({
         success: true,

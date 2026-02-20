@@ -1,12 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import { FiCheck, FiX, FiAlertCircle, FiMapPin, FiClock, FiUser, FiFileText, FiShare2, FiNavigation, FiMessageSquare, FiPlus } from 'react-icons/fi';
 import { getAuthUser } from '@/lib/auth';
 import Swal from 'sweetalert2';
+import { swrJsonFetcher } from '@/lib/swrFetcher';
 
 export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
-  const [unverifiedAlerts, setUnverifiedAlerts] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [verificationNotes, setVerificationNotes] = useState('');
   const [processing, setProcessing] = useState(false);
@@ -36,34 +36,64 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
     { value: 'other', label: 'Other Authority' },
   ];
 
-  // Fetch unverified alerts
-  const fetchUnverifiedAlerts = async () => {
-    try {
-      const res = await fetch('/api/alerts/unverified');
-      const data = await res.json();
-      if (data.success) {
-        setUnverifiedAlerts(data.alerts || []);
-      }
-    } catch (err) {
-      console.error('Error fetching unverified alerts:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const wsEnabled = Boolean(process.env.NEXT_PUBLIC_WS_BASE_URL);
 
-  useEffect(() => {
-    fetchUnverifiedAlerts();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchUnverifiedAlerts, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const {
+    data,
+    isLoading,
+    mutate,
+  } = useSWR('/api/alerts/unverified', swrJsonFetcher, {
+    refreshInterval: wsEnabled ? 0 : 30000,
+    revalidateOnFocus: true,
+  });
 
-  // Expose fetchUnverifiedAlerts via ref so parent can trigger refresh
+  const unverifiedAlerts = data?.alerts || [];
+  const loading = isLoading;
+
+  // Expose refresh via ref so parent can trigger refresh
   useEffect(() => {
     if (refreshRef) {
-      refreshRef.current = fetchUnverifiedAlerts;
+      refreshRef.current = () => mutate();
     }
-  }, [refreshRef]);
+  }, [refreshRef, mutate]);
+
+  // WS-triggered refresh (stop polling when WS is enabled)
+  useEffect(() => {
+    if (!wsEnabled) return;
+
+    const httpBase = process.env.NEXT_PUBLIC_WS_BASE_URL;
+    const wsBase = httpBase
+      .replace(/^https:\/\//i, 'wss://')
+      .replace(/^http:\/\//i, 'ws://')
+      .replace(/\/+$/, '');
+
+    const url = `${wsBase}/ws/notifications?channel=all`;
+    const ws = new WebSocket(url);
+    let timer = null;
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg?.channel === 'alerts') {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => {
+            mutate();
+          }, 250);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      try {
+        ws.close();
+      } catch {
+        // ignore
+      }
+    };
+  }, [wsEnabled, mutate]);
 
   // Handle verification
   const handleVerify = async (alertId, isApproved) => {
@@ -82,7 +112,16 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
       const data = await res.json();
       if (data.success) {
         // Remove from list
-        setUnverifiedAlerts(prev => prev.filter(a => a.id !== alertId));
+        mutate(
+          (current) => {
+            const currentAlerts = current?.alerts || [];
+            return {
+              ...current,
+              alerts: currentAlerts.filter((a) => a.id !== alertId),
+            };
+          },
+          { revalidate: false }
+        );
         setSelectedAlert(null);
         setVerificationNotes('');
         setShowReferralOptions(false);
@@ -189,7 +228,16 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
       const referData = await referRes.json();
       if (referData.success) {
         // Remove from list
-        setUnverifiedAlerts(prev => prev.filter(a => a.id !== alertId));
+        mutate(
+          (current) => {
+            const currentAlerts = current?.alerts || [];
+            return {
+              ...current,
+              alerts: currentAlerts.filter((a) => a.id !== alertId),
+            };
+          },
+          { revalidate: false }
+        );
         setSelectedAlert(null);
         setVerificationNotes('');
         setShowReferralOptions(false);
@@ -353,7 +401,7 @@ export default function VerifyIncidents({ onView, onVerified, refreshRef }) {
         setShowSmsParser(false);
         
         // Refresh alerts list
-        fetchUnverifiedAlerts();
+        mutate();
         
         Swal.fire({
           icon: 'success',

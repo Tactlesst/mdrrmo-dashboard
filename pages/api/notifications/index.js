@@ -1,5 +1,6 @@
 import pool from '@/lib/db';
 import logger from '@/lib/logger';
+import { getOrSetJsonCache } from '@/lib/cache';
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -28,34 +29,38 @@ export default async function handler(req, res) {
         return res.status(400).json({ message: 'userId parameter is required when showAll is false' });
       }
       if (showAll === 'true') {
-        const { rows } = await client.query(
-          `SELECT 
-            n.id, 
-            n.message, 
-            n.created_at,
-            n.sender_type,
-            n.sender_id,
-            n.account_type,
-            n.account_id,
-            n.is_read,
-            CASE 
-              WHEN n.sender_type = 'admin' THEN a.name
-              WHEN n.sender_type = 'responder' THEN r.name
-              ELSE 'System'
-            END as sender_name,
-            CASE
-              WHEN n.account_type = 'admin' THEN adm.name
-              WHEN n.account_type = 'responder' THEN resp.name
-              ELSE 'Unknown'
-            END as recipient_name
-           FROM notifications n
-           LEFT JOIN admins a ON n.sender_type = 'admin' AND n.sender_id = a.id
-           LEFT JOIN responders r ON n.sender_type = 'responder' AND n.sender_id = r.id
-           LEFT JOIN admins adm ON n.account_type = 'admin' AND n.account_id = adm.id
-           LEFT JOIN responders resp ON n.account_type = 'responder' AND n.account_id = resp.id
-           ORDER BY n.created_at DESC`
-        );
-        return res.status(200).json({ notifications: rows });
+        const payload = await getOrSetJsonCache('notifications:all', 2000, async () => {
+          const { rows } = await client.query(
+            `SELECT 
+              n.id, 
+              n.message, 
+              n.created_at,
+              n.sender_type,
+              n.sender_id,
+              n.account_type,
+              n.account_id,
+              n.is_read,
+              CASE 
+                WHEN n.sender_type = 'admin' THEN a.name
+                WHEN n.sender_type = 'responder' THEN r.name
+                ELSE 'System'
+              END as sender_name,
+              CASE
+                WHEN n.account_type = 'admin' THEN adm.name
+                WHEN n.account_type = 'responder' THEN resp.name
+                ELSE 'Unknown'
+              END as recipient_name
+             FROM notifications n
+             LEFT JOIN admins a ON n.sender_type = 'admin' AND n.sender_id = a.id
+             LEFT JOIN responders r ON n.sender_type = 'responder' AND n.sender_id = r.id
+             LEFT JOIN admins adm ON n.account_type = 'admin' AND n.account_id = adm.id
+             LEFT JOIN responders resp ON n.account_type = 'responder' AND n.account_id = resp.id
+             ORDER BY n.created_at DESC`
+          );
+          return { notifications: rows };
+        });
+        res.setHeader('Cache-Control', 'private, max-age=1, stale-while-revalidate=2');
+        return res.status(200).json(payload);
       } else {
         const { rows } = await client.query(
           `SELECT 

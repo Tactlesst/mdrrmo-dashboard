@@ -3,6 +3,9 @@ import pool from '@/lib/db';
 import jwt from 'jsonwebtoken';
 import { parse } from 'cookie';
 import { publishWsNotification } from '@/lib/wsPublisher';
+import { verifyAlertBodySchema } from '@/lib/validators/alerts';
+import { zodErrorToResponse } from '@/lib/validators/http';
+import { serializeVerifiedEmergencyMessage } from '@/lib/serializers/notifications';
 
 export async function POST(request) {
   try {
@@ -27,7 +30,13 @@ export async function POST(request) {
       );
     }
 
-    const { alertId, isApproved, notes } = await request.json();
+    const rawBody = await request.json();
+    const parsed = verifyAlertBodySchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return NextResponse.json(zodErrorToResponse(parsed.error), { status: 400 });
+    }
+
+    const { alertId, isApproved, notes } = parsed.data;
 
     if (!alertId) {
       return NextResponse.json(
@@ -100,7 +109,11 @@ export async function POST(request) {
             [
               alertId,
               adminId,
-              `🚨 VERIFIED EMERGENCY: ${alert.type || 'Incident'} at ${alert.address || 'Unknown location'}. Resident: ${alert.resident_name || 'Unknown'}. Immediate response required!`,
+              serializeVerifiedEmergencyMessage({
+                type: alert.type,
+                address: alert.address,
+                residentName: alert.resident_name,
+              }),
               severity
             ]
           );
@@ -117,34 +130,6 @@ export async function POST(request) {
           } catch {
             // best-effort
           }
-        }
-        
-        // Create a single broadcast notification for admins to track
-        // No account_id needed - true broadcast to all admins
-        const adminAlertNotifRes = await pool.query(
-          `INSERT INTO alert_notifications 
-           (alert_id, account_type, sender_type, sender_id, sender_name, recipient_name, message, severity, is_read)
-           VALUES ($1, 'admin', 'alerts1', $2, 'MDRRMO Alert System', 'All Admins', $3, $4, FALSE)
-           RETURNING id, alert_id, message, severity, created_at, sender_type, sender_id, account_type, account_id, is_read, is_acknowledged, acknowledged_at, sender_name, recipient_name`,
-          [
-            alertId,
-            adminId,
-            `✅ Alert verified and dispatcher going soon: ${alert.type || 'Incident'} at ${alert.address || 'Unknown location'}`,
-            severity
-          ]
-        );
-
-        try {
-          await publishWsNotification({
-            channel: 'alerts',
-            notification: adminAlertNotifRes.rows?.[0] || null,
-            userAccount: {
-              id: adminId,
-              accountType: 'admin',
-            },
-          });
-        } catch {
-          // best-effort
         }
       }
 

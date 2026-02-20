@@ -1,5 +1,6 @@
 import pool from '@/lib/db';
 import logger from '@/lib/logger';
+import { getOrSetJsonCache } from '@/lib/cache';
 
 /**
  * API endpoint for alert-specific notifications
@@ -34,44 +35,48 @@ export default async function handler(req, res) {
       
       if (showAll === 'true') {
         // Get all alert notifications
-        const { rows } = await client.query(
-          `SELECT 
-            an.id, 
-            an.alert_id,
-            an.message, 
-            an.severity,
-            an.created_at,
-            an.sender_type,
-            an.sender_id,
-            an.account_type,
-            an.account_id,
-            an.is_read,
-            an.is_acknowledged,
-            an.acknowledged_at,
-            CASE 
-              WHEN an.sender_type = 'admin' THEN a.name
-              WHEN an.sender_type = 'responder' THEN r.name
-              ELSE 'MDRRMO Alert System'
-            END as sender_name,
-            CASE
-              WHEN an.account_type = 'admin' THEN adm.name
-              WHEN an.account_type = 'responder' THEN resp.name
-              ELSE 'Unknown'
-            END as recipient_name,
-            al.type as alert_type,
-            al.address as alert_address,
-            al.status as alert_status,
-            al.lat as alert_lat,
-            al.lng as alert_lng
-           FROM alert_notifications an
-           LEFT JOIN admins a ON an.sender_type = 'admin' AND an.sender_id = a.id
-           LEFT JOIN responders r ON an.sender_type = 'responder' AND an.sender_id = r.id
-           LEFT JOIN admins adm ON an.account_type = 'admin' AND an.account_id = adm.id
-           LEFT JOIN responders resp ON an.account_type = 'responder' AND an.account_id = resp.id
-           LEFT JOIN alerts al ON an.alert_id = al.id
-           ORDER BY an.created_at DESC`
-        );
-        return res.status(200).json({ notifications: rows });
+        const payload = await getOrSetJsonCache('alert_notifications:all', 2000, async () => {
+          const { rows } = await client.query(
+            `SELECT 
+              an.id, 
+              an.alert_id,
+              an.message, 
+              an.severity,
+              an.created_at,
+              an.sender_type,
+              an.sender_id,
+              an.account_type,
+              an.account_id,
+              an.is_read,
+              an.is_acknowledged,
+              an.acknowledged_at,
+              CASE 
+                WHEN an.sender_type = 'admin' THEN a.name
+                WHEN an.sender_type = 'responder' THEN r.name
+                ELSE 'MDRRMO Alert System'
+              END as sender_name,
+              CASE
+                WHEN an.account_type = 'admin' THEN adm.name
+                WHEN an.account_type = 'responder' THEN resp.name
+                ELSE 'Unknown'
+              END as recipient_name,
+              al.type as alert_type,
+              al.address as alert_address,
+              al.status as alert_status,
+              al.lat as alert_lat,
+              al.lng as alert_lng
+             FROM alert_notifications an
+             LEFT JOIN admins a ON an.sender_type = 'admin' AND an.sender_id = a.id
+             LEFT JOIN responders r ON an.sender_type = 'responder' AND an.sender_id = r.id
+             LEFT JOIN admins adm ON an.account_type = 'admin' AND an.account_id = adm.id
+             LEFT JOIN responders resp ON an.account_type = 'responder' AND an.account_id = resp.id
+             LEFT JOIN alerts al ON an.alert_id = al.id
+             ORDER BY an.created_at DESC`
+          );
+          return { notifications: rows };
+        });
+        res.setHeader('Cache-Control', 'private, max-age=1, stale-while-revalidate=2');
+        return res.status(200).json(payload);
       } else {
         // Get alert notifications for specific user
         const { rows } = await client.query(

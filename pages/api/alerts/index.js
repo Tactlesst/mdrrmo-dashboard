@@ -1,49 +1,55 @@
 import pool from '@/lib/db'; // ✅ NO curly braces
+import { getOrSetJsonCache } from '@/lib/cache';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Query timeout after 15 seconds')), 15000)
-      );
-      
-      const queryPromise = pool.query(`
-        SELECT 
-          alerts.*,
-          users.name AS resident_name,
-          COALESCE(alerts.contact, users.contact) AS contact,
-          responders.name AS responder_name,
-          alerts.referred_by
-        FROM alerts
-        LEFT JOIN users ON alerts.user_id = users.id
-        LEFT JOIN responders ON alerts.responder_id = responders.id
-        ORDER BY alerts.created_at DESC
-        LIMIT 1000
-      `);
-      
-      const result = await Promise.race([queryPromise, timeoutPromise]);
+      res.setHeader('Cache-Control', 'private, max-age=2, stale-while-revalidate=4');
+      const payload = await getOrSetJsonCache('alerts:list', 2000, async () => {
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Query timeout after 15 seconds')), 15000)
+        );
+        
+        const queryPromise = pool.query(`
+          SELECT 
+            alerts.*,
+            users.name AS resident_name,
+            COALESCE(alerts.contact, users.contact) AS contact,
+            responders.name AS responder_name,
+            alerts.referred_by
+          FROM alerts
+          LEFT JOIN users ON alerts.user_id = users.id
+          LEFT JOIN responders ON alerts.responder_id = responders.id
+          ORDER BY alerts.created_at DESC
+          LIMIT 1000
+        `);
+        
+        const result = await Promise.race([queryPromise, timeoutPromise]);
 
-      const alerts = result.rows.map((alert) => ({
-        id: alert.id,
-        address: alert.address,
-        type: alert.type,
-        status: alert.status,
-        severity: alert.severity || 'medium', // Include severity field
-        occurred_at: alert.occurred_at,
-        lat: alert.lat,
-        lng: alert.lng,
-        created_at: alert.created_at,
-        responded_at: alert.responded_at,
-        resident_name: alert.resident_name || 'Unknown User',
-        responder_name: alert.responder_name || 'Not Assigned',
-        description: alert.description || '', // Added description field
-        is_verified: alert.is_verified || false, // Include verification status
-        contact: alert.contact, // Include contact number from users table
-        referred_by: alert.referred_by, // Include who referred the alert
-      }));
+        const alerts = result.rows.map((alert) => ({
+          id: alert.id,
+          address: alert.address,
+          type: alert.type,
+          status: alert.status,
+          severity: alert.severity || 'medium', // Include severity field
+          occurred_at: alert.occurred_at,
+          lat: alert.lat,
+          lng: alert.lng,
+          created_at: alert.created_at,
+          responded_at: alert.responded_at,
+          resident_name: alert.resident_name || 'Unknown User',
+          responder_name: alert.responder_name || 'Not Assigned',
+          description: alert.description || '', // Added description field
+          is_verified: alert.is_verified || false, // Include verification status
+          contact: alert.contact, // Include contact number from users table
+          referred_by: alert.referred_by, // Include who referred the alert
+        }));
 
-      res.status(200).json({ alerts });
+        return { alerts };
+      });
+
+      res.status(200).json(payload);
     } catch (error) {
       console.error('Error fetching alerts:', error);
       res.status(500).json({ error: 'Internal Server Error' });
