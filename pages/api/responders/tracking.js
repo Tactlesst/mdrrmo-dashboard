@@ -33,152 +33,152 @@ export default async function handler(req, res) {
         }
       }
 
-    let query = `
-      SELECT 
-        r.id as responder_id,
-        r.name as responder_name,
-        r.email,
-        r.contact,
-        rs.id as session_id,
-        rs.current_latitude,
-        rs.current_longitude,
-        rs.heading,
-        rs.speed,
-        rs.accuracy,
-        rs.location_updated_at,
-        rs.assigned_alert_id,
-        rs.destination_latitude,
-        rs.destination_longitude,
-        rs.route_started_at,
-        rs.estimated_arrival,
-        rs.status,
-        rs.started_at,
-        a.lat as alert_latitude,
-        a.lng as alert_longitude,
-        a.address as alert_address,
-        a.type as alert_type
-      FROM responder_sessions rs
-      JOIN responders r ON rs.responder_id = r.id
-      LEFT JOIN alerts a ON rs.assigned_alert_id = a.id
-      WHERE rs.is_active = true
-        AND (rs.ended_at IS NULL OR rs.ended_at > NOW())
-        AND rs.location_updated_at > NOW() - INTERVAL '15 minutes'
-    `;
+      let query = `
+        SELECT 
+          r.id as responder_id,
+          r.name as responder_name,
+          r.email,
+          r.contact,
+          rs.id as session_id,
+          rs.current_latitude,
+          rs.current_longitude,
+          rs.heading,
+          rs.speed,
+          rs.accuracy,
+          rs.location_updated_at,
+          rs.assigned_alert_id,
+          rs.destination_latitude,
+          rs.destination_longitude,
+          rs.route_started_at,
+          rs.estimated_arrival,
+          rs.status,
+          rs.started_at,
+          a.lat as alert_latitude,
+          a.lng as alert_longitude,
+          a.address as alert_address,
+          a.type as alert_type
+        FROM responder_sessions rs
+        JOIN responders r ON rs.responder_id = r.id
+        LEFT JOIN alerts a ON rs.assigned_alert_id = a.id
+        WHERE rs.is_active = true
+          AND (rs.ended_at IS NULL OR rs.ended_at > NOW())
+          AND rs.location_updated_at > NOW() - INTERVAL '15 minutes'
+      `;
 
-    const params = [];
+      const params = [];
 
-    if (alertId) {
-      query += ` AND rs.assigned_alert_id = $1`;
-      params.push(alertId);
-    }
-
-    query += ` ORDER BY rs.location_updated_at DESC`;
-
-    const result = await pool.query(query, params);
-
-    // Filter out and clean up responders with invalid alert assignments
-    const validRows = result.rows.filter((row) => {
-      // If responder has an assignment but the alert doesn't exist (LEFT JOIN returned null)
-      if (row.assigned_alert_id && !row.alert_latitude) {
-        // Clear the stale assignment asynchronously (don't wait for it)
-        pool.query(
-          `UPDATE responder_sessions 
-           SET assigned_alert_id = NULL,
-               destination_latitude = NULL,
-               destination_longitude = NULL,
-               route_started_at = NULL,
-               estimated_arrival = NULL
-           WHERE id = $1`,
-          [row.session_id]
-        ).catch(err => logger.error('Error clearing stale alert assignment:', err));
-        
-        logger.warn(`Cleared stale alert assignment ${row.assigned_alert_id} for responder ${row.responder_name}`);
-        return false; // Filter out this row
+      if (alertId) {
+        query += ` AND rs.assigned_alert_id = $1`;
+        params.push(alertId);
       }
-      return true; // Keep valid rows
-    });
 
-    const responders = validRows.map((row) => {
-      // Calculate distance and ETA if responder has assignment
-      let distance = null;
-      let distanceFormatted = null;
-      let eta = null;
-      
-      if (row.assigned_alert_id && row.current_latitude && row.current_longitude && row.alert_latitude && row.alert_longitude) {
-        // Haversine formula for distance
-        const R = 6371e3; // Earth's radius in meters
-        const φ1 = (parseFloat(row.current_latitude) * Math.PI) / 180;
-        const φ2 = (parseFloat(row.alert_latitude) * Math.PI) / 180;
-        const Δφ = ((parseFloat(row.alert_latitude) - parseFloat(row.current_latitude)) * Math.PI) / 180;
-        const Δλ = ((parseFloat(row.alert_longitude) - parseFloat(row.current_longitude)) * Math.PI) / 180;
+      query += ` ORDER BY rs.location_updated_at DESC`;
+
+      const result = await pool.query(query, params);
+
+      // Filter out and clean up responders with invalid alert assignments
+      const validRows = result.rows.filter((row) => {
+        // If responder has an assignment but the alert doesn't exist (LEFT JOIN returned null)
+        if (row.assigned_alert_id && !row.alert_latitude) {
+          // Clear the stale assignment asynchronously (don't wait for it)
+          pool.query(
+            `UPDATE responder_sessions 
+             SET assigned_alert_id = NULL,
+                 destination_latitude = NULL,
+                 destination_longitude = NULL,
+                 route_started_at = NULL,
+                 estimated_arrival = NULL
+             WHERE id = $1`,
+            [row.session_id]
+          ).catch(err => logger.error('Error clearing stale alert assignment:', err));
+          
+          logger.warn(`Cleared stale alert assignment ${row.assigned_alert_id} for responder ${row.responder_name}`);
+          return false; // Filter out this row
+        }
+        return true; // Keep valid rows
+      });
+
+      const responders = validRows.map((row) => {
+        // Calculate distance and ETA if responder has assignment
+        let distance = null;
+        let distanceFormatted = null;
+        let eta = null;
         
-        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                  Math.cos(φ1) * Math.cos(φ2) *
-                  Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        
-        distance = R * c; // Distance in meters
-        
-        // Format distance
-        if (distance < 1000) {
-          distanceFormatted = `${Math.round(distance)}m`;
-        } else {
-          distanceFormatted = `${(distance / 1000).toFixed(1)}km`;
+        if (row.assigned_alert_id && row.current_latitude && row.current_longitude && row.alert_latitude && row.alert_longitude) {
+          // Haversine formula for distance
+          const R = 6371e3; // Earth's radius in meters
+          const φ1 = (parseFloat(row.current_latitude) * Math.PI) / 180;
+          const φ2 = (parseFloat(row.alert_latitude) * Math.PI) / 180;
+          const Δφ = ((parseFloat(row.alert_latitude) - parseFloat(row.current_latitude)) * Math.PI) / 180;
+          const Δλ = ((parseFloat(row.alert_longitude) - parseFloat(row.current_longitude)) * Math.PI) / 180;
+          
+          const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          
+          distance = R * c; // Distance in meters
+          
+          // Format distance
+          if (distance < 1000) {
+            distanceFormatted = `${Math.round(distance)}m`;
+          } else {
+            distanceFormatted = `${(distance / 1000).toFixed(1)}km`;
+          }
+          
+          // Calculate ETA (using speed or default 40 km/h)
+          const speedKmh = row.speed ? parseFloat(row.speed) * 3.6 : 40;
+          const distanceKm = distance / 1000;
+          const timeHours = distanceKm / speedKmh;
+          eta = Math.ceil(timeHours * 60); // ETA in minutes
         }
         
-        // Calculate ETA (using speed or default 40 km/h)
-        const speedKmh = row.speed ? parseFloat(row.speed) * 3.6 : 40;
-        const distanceKm = distance / 1000;
-        const timeHours = distanceKm / speedKmh;
-        eta = Math.ceil(timeHours * 60); // ETA in minutes
-      }
-      
+        return {
+          responderId: row.responder_id,
+          responderName: row.responder_name,
+          email: row.email,
+          contact: row.contact,
+          sessionId: row.session_id,
+          location: {
+            latitude: parseFloat(row.current_latitude),
+            longitude: parseFloat(row.current_longitude),
+            heading: row.heading ? parseFloat(row.heading) : null,
+            speed: row.speed ? parseFloat(row.speed) : null,
+            accuracy: row.accuracy ? parseFloat(row.accuracy) : null,
+            distance: distanceFormatted,
+            eta: eta,
+            updatedAt: row.location_updated_at,
+          },
+          assignment: row.assigned_alert_id ? {
+            alertId: row.assigned_alert_id,
+            destination: {
+              latitude: parseFloat(row.destination_latitude),
+              longitude: parseFloat(row.destination_longitude),
+            },
+            alertLocation: {
+              latitude: parseFloat(row.alert_latitude),
+              longitude: parseFloat(row.alert_longitude),
+            },
+            address: row.alert_address,
+            type: row.alert_type,
+            routeStartedAt: row.route_started_at,
+          } : null,
+          estimatedArrival: row.estimated_arrival,
+          status: row.status,
+          startedAt: row.started_at,
+        };
+      });
+
       return {
-        responderId: row.responder_id,
-        responderName: row.responder_name,
-        email: row.email,
-        contact: row.contact,
-        sessionId: row.session_id,
-        location: {
-          latitude: parseFloat(row.current_latitude),
-          longitude: parseFloat(row.current_longitude),
-          heading: row.heading ? parseFloat(row.heading) : null,
-          speed: row.speed ? parseFloat(row.speed) : null,
-          accuracy: row.accuracy ? parseFloat(row.accuracy) : null,
-          distance: distanceFormatted,
-          eta: eta,
-          updatedAt: row.location_updated_at,
-        },
-        assignment: row.assigned_alert_id ? {
-          alertId: row.assigned_alert_id,
-          destination: {
-            latitude: parseFloat(row.destination_latitude),
-            longitude: parseFloat(row.destination_longitude),
-          },
-          alertLocation: {
-            latitude: parseFloat(row.alert_latitude),
-            longitude: parseFloat(row.alert_longitude),
-          },
-          address: row.alert_address,
-          type: row.alert_type,
-          routeStartedAt: row.route_started_at,
-        } : null,
-        estimatedArrival: row.estimated_arrival,
-        status: row.status,
-        startedAt: row.started_at,
+        success: true,
+        responders,
+        count: responders.length,
       };
     });
 
-    return {
-      success: true,
-      responders,
-      count: responders.length,
-    };
-  });
-
-  return res.status(200).json(payload);
-} catch (error) {
-  logger.error('Error fetching responder tracking data:', error.message);
-  return res.status(500).json({ error: 'Server error' });
-}
+    return res.status(200).json(payload);
+  } catch (error) {
+    logger.error('Error fetching responder tracking data:', error.message);
+    return res.status(500).json({ error: 'Server error' });
+  }
 }

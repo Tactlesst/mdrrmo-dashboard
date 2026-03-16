@@ -100,86 +100,86 @@ export default function ManagePCRForm() {
                     <th className="px-3 py-3 font-semibold text-center">Actions</th>
                   </tr>
                 </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-4 text-center">
-                      Loading...
-                    </td>
-                  </tr>
-                ) : error ? (
-                  <tr>
-                    <td
-                      colSpan="5"
-                      className="px-6 py-4 text-center text-red-600"
-                    >
-                      {error}
-                    </td>
-                  </tr>
-                ) : pcrForms.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan="5"
-                      className="px-6 py-4 text-center text-gray-500"
-                    >
-                      No PCR forms found.
-                    </td>
-                  </tr>
-                ) : (
-                  [...pcrForms]
-                    .sort(
-                      (a, b) => new Date(b.created_at) - new Date(a.created_at) // Sort by creation date, newest first
-                    )
-                    .map((form, index) => (
-                      <tr
-                        key={form.id}
-                        className={`${
-                          index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                        } border-t border-gray-200 hover:bg-gray-100 transition`}
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-4 text-center">
+                        Loading...
+                      </td>
+                    </tr>
+                  ) : error ? (
+                    <tr>
+                      <td
+                        colSpan="5"
+                        className="px-6 py-4 text-center text-red-600"
                       >
-                        <td className="px-3 py-3">
-                          <div className="truncate max-w-[150px]" title={form.patient_name || "N/A"}>
-                            {form.patient_name || "N/A"}
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-xs">{formatDateTime(form.created_at)}</td>
-                        <td className="px-3 py-3">
-                          <div className="truncate max-w-[200px]" title={form.location || "N/A"}>
-                            {form.location || "N/A"}
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="truncate max-w-[120px]" title={form.recorder || "N/A"}>
-                            {form.recorder || "N/A"}
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="flex gap-2 justify-center">
-                            <button
-                              onClick={() => setSelectedForm(form)}
-                              className="text-sm text-blue-600 hover:underline font-medium"
-                            >
-                              View
-                            </button>
-                            <button
-                              onClick={() => setEditForm(form)}
-                              className="text-sm text-blue-600 hover:underline font-medium"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => setPrintForm(form)}
-                              className="text-sm text-green-600 hover:underline font-medium"
-                            >
-                              Print
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                )}
-              </tbody>
-            </table>
+                        {error}
+                      </td>
+                    </tr>
+                  ) : pcrForms.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan="5"
+                        className="px-6 py-4 text-center text-gray-500"
+                      >
+                        No PCR forms found.
+                      </td>
+                    </tr>
+                  ) : (
+                    [...pcrForms]
+                      .sort(
+                        (a, b) => new Date(b.created_at) - new Date(a.created_at) // Sort by creation date, newest first
+                      )
+                      .map((form, index) => (
+                        <tr
+                          key={form.id}
+                          className={`${
+                            index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                          } border-t border-gray-200 hover:bg-gray-100 transition`}
+                        >
+                          <td className="px-3 py-3">
+                            <div className="truncate max-w-[150px]" title={form.patient_name || "N/A"}>
+                              {form.patient_name || "N/A"}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap text-xs">{formatDateTime(form.created_at)}</td>
+                          <td className="px-3 py-3">
+                            <div className="truncate max-w-[200px]" title={form.location || "N/A"}>
+                              {form.location || "N/A"}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="truncate max-w-[120px]" title={form.recorder || "N/A"}>
+                              {form.recorder || "N/A"}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex gap-2 justify-center">
+                              <button
+                                onClick={() => setSelectedForm(form)}
+                                className="text-sm text-blue-600 hover:underline font-medium"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => setEditForm(form)}
+                                className="text-sm text-blue-600 hover:underline font-medium"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => window.open(`/pcr/print/${form.id}`, '_blank', 'noopener,noreferrer')}
+                                className="text-sm text-green-600 hover:underline font-medium"
+                              >
+                                Print
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </>
@@ -196,12 +196,6 @@ export default function ManagePCRForm() {
       {editForm && (
         <PCREdit
           form={editForm}
-          onClose={() => handleFormClose(true)}
-        />
-      )}
-      {printForm && (
-        <PCRPrint
-          form={printForm}
           onClose={() => handleFormClose(true)}
         />
       )}
