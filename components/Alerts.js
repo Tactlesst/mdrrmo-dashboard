@@ -1,6 +1,7 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
+import { FiX } from 'react-icons/fi';
 import AlertMap from './AlertsMap';
 import AlertList from './AlertList';
 import VerifyIncidents from './VerifyIncidents';
@@ -11,6 +12,51 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [selectedAlertId, setSelectedAlertId] = useState(null);
+  const seenUnverifiedAlertIdsRef = useRef(new Set());
+  const hasBootstrappedUnverifiedRef = useRef(false);
+  const [unverifiedAlertModal, setUnverifiedAlertModal] = useState(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const soundEnabledRef = useRef(true);
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+
+    if (!soundEnabled && audioRef.current) {
+      try {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      } catch {
+        // ignore
+      }
+    }
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    audioRef.current = new Audio('/alarm.mp3.mp3');
+    audioRef.current.volume = 0.7;
+    audioRef.current.loop = true;
+    audioRef.current.muted = false;
+
+    const enableAudio = () => {
+      if (audioRef.current) {
+        audioRef.current.muted = false;
+      }
+    };
+    document.addEventListener('click', enableAudio, { once: true });
+
+    return () => {
+      document.removeEventListener('click', enableAudio);
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
 
   function mergeResponderData(fetchedAlerts, fetchedResponders) {
     return (fetchedAlerts || []).map((alert) => {
@@ -56,6 +102,45 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
   }, [alertsData, respondersData]);
 
   const loading = isAlertsLoading || isRespondersLoading;
+
+  useEffect(() => {
+    if (loading) return;
+    if (!Array.isArray(alerts) || alerts.length === 0) return;
+
+    const unverified = alerts
+      .filter((a) => a && a.is_verified === false)
+      .filter((a) => {
+        const status = (a.status || '').trim().toLowerCase();
+        return status !== 'responded' && status !== 'referred' && status !== 'rejected';
+      })
+      .sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at));
+
+    if (!hasBootstrappedUnverifiedRef.current) {
+      for (const a of unverified) {
+        if (a?.id) seenUnverifiedAlertIdsRef.current.add(a.id);
+      }
+      hasBootstrappedUnverifiedRef.current = true;
+      return;
+    }
+
+    const newlyArrived = unverified.find((a) => a?.id && !seenUnverifiedAlertIdsRef.current.has(a.id));
+    if (!newlyArrived) return;
+
+    seenUnverifiedAlertIdsRef.current.add(newlyArrived.id);
+
+    setUnverifiedAlertModal(newlyArrived);
+    if (soundEnabledRef.current && audioRef.current) {
+      try {
+        audioRef.current.currentTime = 0;
+        const p = audioRef.current.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [alerts, loading]);
 
   // Clear selectedAlertId if the alert no longer exists
   useEffect(() => {
@@ -334,6 +419,136 @@ export default function Alerts({ verifyIncidentsRefreshRef }) {
           }}
         />
       </div>
+
+      {unverifiedAlertModal && (
+        <div className="fixed bottom-4 right-4 z-[70] w-80 animate-slideIn">
+          <div className="bg-white rounded-lg shadow-2xl border-2 border-yellow-500 overflow-hidden animate-shake">
+            <style jsx>{`
+              @keyframes slideIn {
+                from { 
+                  transform: translateX(400px);
+                  opacity: 0;
+                }
+                to { 
+                  transform: translateX(0);
+                  opacity: 1;
+                }
+              }
+              @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
+                20%, 40%, 60%, 80% { transform: translateX(3px); }
+              }
+              @keyframes pulse {
+                0%, 100% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.05); opacity: 0.8; }
+              }
+              @keyframes glow {
+                0%, 100% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.35); }
+                50% { box-shadow: 0 0 25px rgba(234, 179, 8, 0.6); }
+              }
+              .animate-slideIn {
+                animation: slideIn 0.4s ease-out;
+              }
+              .animate-shake {
+                animation: shake 0.5s ease-in-out, glow 2s ease-in-out infinite;
+              }
+              .animate-pulse-alert {
+                animation: pulse 1.5s ease-in-out infinite;
+              }
+            `}</style>
+
+            <div className="bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 text-white px-2.5 py-2 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 animate-pulse-alert opacity-50"></div>
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center animate-pulse-alert">
+                    <span className="text-sm">⚠️</span>
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold">Unverified Alert</h3>
+                    <p className="text-[10px] text-yellow-100">New incident received</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setSoundEnabled((v) => !v)}
+                    className="flex items-center gap-0.5 bg-white/20 px-1.5 py-0.5 rounded-full"
+                    title={`Sound ${soundEnabled ? 'ON' : 'OFF'}`}
+                  >
+                    <span className={`text-xs ${soundEnabled ? 'animate-pulse-alert' : ''}`}>{soundEnabled ? '🔊' : '🔇'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      try {
+                        if (audioRef.current) {
+                          audioRef.current.pause();
+                          audioRef.current.currentTime = 0;
+                        }
+                      } catch {
+                        // ignore
+                      }
+                      setUnverifiedAlertModal(null);
+                    }}
+                    className="text-white/80 hover:text-white transition-colors text-xs px-2 py-1 bg-white/20 rounded"
+                    title="Dismiss"
+                  >
+                    Dismiss
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      try {
+                        if (audioRef.current) {
+                          audioRef.current.pause();
+                          audioRef.current.currentTime = 0;
+                        }
+                      } catch {
+                        // ignore
+                      }
+                      setUnverifiedAlertModal(null);
+                    }}
+                    className="text-white/80 hover:text-white transition-colors"
+                    title="Close"
+                  >
+                    <FiX className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-2.5 max-h-[300px] overflow-y-auto">
+              <div className="bg-yellow-50 border-l-2 border-yellow-500 p-2 mb-2 rounded">
+                <p className="text-xs font-medium text-yellow-900 line-clamp-2">{unverifiedAlertModal.type || 'Emergency Alert'}</p>
+                <p className="text-[10px] text-yellow-700 mt-0.5">From: {unverifiedAlertModal.resident_name || 'Unknown User'}</p>
+                <p className="text-[10px] text-yellow-600 mt-0.5">{unverifiedAlertModal.address || '—'}</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <button
+                  onClick={() => {
+                    setSelectedAlertId(unverifiedAlertModal.id);
+                    try {
+                      if (audioRef.current) {
+                        audioRef.current.pause();
+                        audioRef.current.currentTime = 0;
+                      }
+                    } catch {
+                      // ignore
+                    }
+                    setUnverifiedAlertModal(null);
+                  }}
+                  className="w-full px-3 py-1.5 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors flex items-center justify-center gap-1.5 font-bold text-xs shadow animate-pulse-alert"
+                >
+                  <span className="text-sm">🗺️</span> VIEW ON MAP
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
